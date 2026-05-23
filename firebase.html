@@ -828,7 +828,7 @@ function cargarJSON(e){
   };r.readAsText(file);e.target.value='';
 }
 
-let secCb=null;
+var secCb=null;
 function pedirAdmin(cb){secCb=cb;document.getElementById('sec-pwd').value='';document.getElementById('sec-err').textContent='';document.getElementById('msec').classList.add('o');}
 function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb=null;}
 function cerrarCfg(){document.getElementById('mcfg').classList.remove('o');}
@@ -1628,7 +1628,6 @@ async function updD(id,campo,val){
 // ═══════════════════════════════════════════════════════
 // ELIMINAR (solo admin)
 // ═══════════════════════════════════════════════════════
-let secCb=null;
 function pedirAdmin(cb){
   secCb=cb;
   document.getElementById('sec-pwd').value='';
