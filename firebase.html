@@ -783,6 +783,18 @@ function guardarLocal(d){try{localStorage.setItem('cj_eventos_v3',JSON.stringify
 async function fbSave(col,id,data){setSS('s');try{await fbDb.collection(col).doc(String(id)).set(data);setSS('ok');}catch(e){setSS('e','Error: '+e.message);console.error(e);}}
 async function fbDel(col,id){try{await fbDb.collection(col).doc(String(id)).delete();setSS('ok');}catch(e){setSS('e','Error');}}
 
+function mergeHistorico(){
+  Object.keys(PRELOADED_DB.tutelas).forEach(yr=>{
+    if(!localDB.tutelas[yr]||!localDB.tutelas[yr].length)
+      localDB.tutelas[yr]=[...PRELOADED_DB.tutelas[yr]];
+  });
+  Object.keys(PRELOADED_DB.desacatos).forEach(yr=>{
+    if(!localDB.desacatos[yr]||!localDB.desacatos[yr].length)
+      localDB.desacatos[yr]=[...PRELOADED_DB.desacatos[yr]];
+  });
+  PRELOADED_DB.anios.forEach(a=>{if(!localDB.anios.includes(a))localDB.anios.push(a);});
+}
+
 function escuchar(a){
   if(unsubT){unsubT();unsubT=null;}if(unsubD){unsubD();unsubD=null;}
   setSS('s','Sincronizando...');
