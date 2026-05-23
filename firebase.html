@@ -1908,16 +1908,42 @@ function abrirDia(iso, evs){
     rows='<div style="text-align:center;padding:20px 0;color:#aaa;font-size:12px">Sin eventos programados</div>';
   }
   
-  var html='<div class="mhdr" style="padding:14px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between">'+
-    '<div style="font-size:14px;font-weight:700;color:#1a3a5c">📅 '+titulo+'</div>'+
-    '<button class="mc" onclick="cerrar()" style="font-size:18px;background:none;border:none;cursor:pointer;color:#999">×</button></div>'+
-    '<div style="padding:12px 16px;max-height:340px;overflow-y:auto">'+rows+'</div>'+
-    '<div style="padding:10px 16px;border-top:1px solid #eee">'+
-    '<button onclick="abrirFormEvento(&quot;'+iso+'&quot;)" style="width:100%;padding:9px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">+ Agregar evento</button>'+
-    '</div>';
+  var mfi=document.getElementById('mfi');
+  var mf=document.getElementById('mf');
   
-  document.getElementById('mfi').innerHTML='<div class="mbox" style="max-width:400px;border-radius:12px;overflow:hidden">'+html+'</div>';
-  document.getElementById('mf').classList.add('o');
+  // Construir DOM directamente sin innerHTML con onclick
+  var box=document.createElement('div');
+  box.className='mbox';
+  box.style.cssText='max-width:400px;border-radius:12px;overflow:hidden';
+  
+  var hdr=document.createElement('div');
+  hdr.style.cssText='padding:14px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between';
+  var ttl=document.createElement('div');
+  ttl.style.cssText='font-size:14px;font-weight:700;color:#1a3a5c';
+  ttl.textContent='📅 '+titulo;
+  var btnX=document.createElement('button');
+  btnX.className='mc';
+  btnX.style.cssText='font-size:18px;background:none;border:none;cursor:pointer;color:#999';
+  btnX.textContent='×';
+  btnX.onclick=function(){cerrar();};
+  hdr.appendChild(ttl);hdr.appendChild(btnX);
+  
+  var body=document.createElement('div');
+  body.style.cssText='padding:12px 16px;max-height:340px;overflow-y:auto';
+  body.innerHTML=rows;
+  
+  var footer=document.createElement('div');
+  footer.style.cssText='padding:10px 16px;border-top:1px solid #eee';
+  var btnAdd=document.createElement('button');
+  btnAdd.style.cssText='width:100%;padding:9px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer';
+  btnAdd.textContent='+ Agregar evento';
+  btnAdd.onclick=function(){abrirFormEvento(iso);};
+  footer.appendChild(btnAdd);
+  
+  box.appendChild(hdr);box.appendChild(body);box.appendChild(footer);
+  mfi.innerHTML='';
+  mfi.appendChild(box);
+  mf.classList.add('o');
 }
 
 function abrirFormEvento(iso){
