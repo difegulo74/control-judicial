@@ -883,9 +883,9 @@ function importarParche(){
 async function init(){
   // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v32')){
+    if(!localStorage.getItem('cj_cal_limpio_v33')){
       localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v32','1');
+      localStorage.setItem('cj_cal_limpio_v33','1');
     }
   }catch(ex){}
   // Show historical data immediately
@@ -2046,10 +2046,14 @@ function rCal(){
     }catch(e){}
   });
 
-  // Solo eventos manuales del usuario (los auto se generan dinámicamente arriba)
-  (localDB.eventos||[]).filter(e=>!e.auto).forEach(e=>{
-    if(e.fecha&&e.fecha.split('-')[0]===String(y))
-      addEv(e.fecha,'user',e.lbl,e.color||'#1a7f4b');
+  // Eventos del usuario: abreviar cualquier radicación completa que pudiera existir
+  (localDB.eventos||[]).forEach(e=>{
+    if(!e.fecha||e.fecha.split('-')[0]!==String(y))return;
+    if(e.auto)return; // Los auto se generan arriba dinámicamente
+    var lbl=e.lbl||'';
+    // Abreviar si el lbl contiene una radicación completa (patrón: 7+ segmentos con guión)
+    lbl=lbl.replace(/\d{5}-\d{2}-\d{2}-\d{3}-\d{4}-\d{5}-\d{2}/g,function(m){return abrevRad(m);});
+    addEv(e.fecha,'user',lbl,e.color||'#1a7f4b');
   });
 
   const grid=document.getElementById('cal-grid');grid.innerHTML='';
