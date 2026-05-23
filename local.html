@@ -679,6 +679,11 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
+function abrevRad(rad){
+  if(!rad)return '';
+  var p=rad.split('-');
+  return p.length>=3?p.slice(-3).join('-'):rad;
+}
 var APP_VERSION='2.0';
 var APP_NAME='Control Judicial';
 
@@ -894,6 +899,18 @@ function importarParche(){
 }
 
 async function init(){
+  // Limpiar eventos con radicación completa del localStorage
+  try{
+    var _evs2=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
+    var _manuales2=_evs2.filter(function(e){
+      if(e.auto)return false;
+      var l=e.lbl||'';
+      if((l.match(/-/g)||[]).length>=5)return false;
+      return true;
+    });
+    localStorage.setItem('cj_eventos_v3',JSON.stringify(_manuales2));
+  }catch(ex){}
+
   localDB=cargarLocalDB();
   mergeHistorico();
   localDB.eventos=cargarEventosLocal();
@@ -1269,7 +1286,6 @@ async function guardarT(){
   await fbSave(`tutelas_${anio}`,t.id,t);
   cerrar();rT();
   // Agregar eventos al calendario
-  agregarEventosCalendario(t,'T');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1563,7 +1579,6 @@ async function guardarD(){
     fechaDecision:'',resultado:'',nulidades:[],ultimaNulidad:null};
   await fbSave(`desacatos_${anio}`,d.id,d);
   cerrar();rD();
-  agregarEventosCalendario(d,'D');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1766,12 +1781,14 @@ function agregarEventosCalendario(r,tipo){
     if(!eventos.find(e=>e.fecha===fecha&&e.radicacion===r.radicacion&&e.lbl===lbl))
       eventos.push({id:Date.now()+Math.random(),fecha,lbl,radicacion:r.radicacion,color,auto:true});
   };
-  addEv(tc.dia9,`⚠ Alerta D9 (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#d4770a');
-  addEv(tc.vce,`🔴 Vence (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#c0392b');
+  var _rad=abrevRad(r.radicacion);
+  var _tl=tipo==='T'?'Tutela':'Desacato';
+  addEv(tc.dia9,'Fallo - Día '+(r.alertaDias||9)+' '+_tl+': '+_rad,'#d4770a');
+  addEv(tc.vce,'Vence '+_tl+': '+_rad,'#c0392b');
   if(tipo==='T'){
-    addEv(tc.remCC,`📬 Remisión C.C.: ${r.radicacion}`,'#1a5fa8');
+    addEv(tc.remCC,'Remite Corte C.: '+_rad,'#1a5fa8');
   }else{
-    addEv(tc.remCons,`📋 Remisión consulta: ${r.radicacion}`,'#1a5fa8');
+    addEv(tc.remCons,'Consulta: '+_rad,'#1a5fa8');
   }
   localDB.eventos=eventos;
   try{localStorage.setItem('cj_eventos_v3',JSON.stringify(eventos));}catch(e){}
@@ -1905,11 +1922,13 @@ function rCal(){
     const tipo=r.fechaSolicitud?'D':'T';
     try{
       const tc=r.fechaSolicitud?termD(r):termT(r);
-      addEv(tc.dia9,'alert',`⚠ Alerta D9 ${tipo}:${r.radicacion}`,'#d4770a');
-      addEv(tc.vce,'venc',`🔴 Vence ${tipo}:${r.radicacion}`,'#c0392b');
-      if(tipo==='T'&&tc.remCC)addEv(tc.remCC,'event',`📬 Remisión CC:${r.radicacion}`,'#1a5fa8');
-      if(tipo==='D'&&tc.remCons)addEv(tc.remCons,'event',`📋 Consulta:${r.radicacion}`,'#1a5fa8');
-      if(tc.vce2i)addEv(tc.vce2i,'venc',`⏰ Vence 2ªInst:${r.radicacion}`,'#c0392b');
+      var _n=abrevRad(r.radicacion);
+      var _tp=tipo==='T'?'Tutela':'Desacato';
+      addEv(tc.dia9,'alert','Fallo - Día '+(r.alertaDias||9)+' '+_tp+': '+_n,'#d4770a');
+      addEv(tc.vce,'venc','Vence '+_tp+': '+_n,'#c0392b');
+      if(tipo==='T'&&tc.remCC)addEv(tc.remCC,'event','Remite Corte C. — '+_n,'#1a5fa8');
+      if(tipo==='D'&&tc.remCons)addEv(tc.remCons,'event','Consulta — '+_n,'#1a5fa8');
+      if(tc.vce2i)addEv(tc.vce2i,'venc','Vence 2ªI — '+_n,'#c0392b');
     }catch(e){}
   });
 
