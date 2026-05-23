@@ -1874,43 +1874,38 @@ function elimEvento(idx){
 
 
 function abrirDia(iso, evs){
-  const [y,m,d]=iso.split('-');
-  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-  const titulo=`${parseInt(d)} de ${meses[parseInt(m)-1]} de ${y}`;
-  
-  // Eventos del día
-  let htmlEvs='';
+  var parts=iso.split('-');
+  var y=parts[0],m=parts[1],d=parts[2];
+  var meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  var titulo=parseInt(d)+' de '+meses[parseInt(m)-1]+' de '+y;
+  var htmlEvs='';
   if(evs&&evs.length){
-    htmlEvs='<div style="margin-bottom:12px">'+
-    evs.map((e,i)=>{
-      const esManual=e.tipo==='user';
-      const idx=(localDB.eventos||[]).findIndex(ev=>ev.fecha===iso&&ev.lbl===e.lbl);
-      const btnElim=esManual&&isAdmin&&idx>=0?
-        `<button onclick="eliminarEvento(${idx})" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px;padding:2px 6px">🗑</button>`:'';
-      const btnEdit=esManual&&isAdmin&&idx>=0?
-        `<button onclick="editarEvento(${idx},'${iso}')" style="background:none;border:none;cursor:pointer;color:#1a5fa8;font-size:14px;padding:2px 6px">✏️</button>`:'';
-      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee">
-        <span style="width:8px;height:8px;border-radius:50%;background:${e.color||'#1a5fa8'};flex-shrink:0;display:inline-block"></span>
-        <span style="flex:1;font-size:12px;color:#333">${e.lbl}</span>
-        ${btnEdit}${btnElim}
-      </div>`;
-    }).join('')+
-    '</div>';
+    htmlEvs='<div style="margin-bottom:12px">';
+    for(var i=0;i<evs.length;i++){
+      var e=evs[i];
+      var esManual=e.tipo==='user';
+      var idx2=-1;
+      if(esManual&&localDB.eventos){
+        for(var j=0;j<localDB.eventos.length;j++){
+          if(localDB.eventos[j].fecha===iso&&localDB.eventos[j].lbl===e.lbl){idx2=j;break;}
+        }
+      }
+      var btnElim=esManual&&isAdmin&&idx2>=0?'<button onclick="eliminarEvento('+idx2+')" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px;padding:2px 6px">🗑</button>':'';
+      var btnEdit=esManual&&isAdmin&&idx2>=0?'<button onclick="editarEvento('+idx2+',''+iso+'')" style="background:none;border:none;cursor:pointer;color:#1a5fa8;font-size:14px;padding:2px 6px">✏️</button>':'';
+      htmlEvs+='<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee">'+
+        '<span style="width:8px;height:8px;border-radius:50%;background:'+(e.color||'#1a5fa8')+';flex-shrink:0;display:inline-block"></span>'+
+        '<span style="flex:1;font-size:12px;color:#333">'+e.lbl+'</span>'+
+        btnEdit+btnElim+'</div>';
+    }
+    htmlEvs+='</div>';
   } else {
     htmlEvs='<div style="color:#999;font-size:12px;text-align:center;padding:12px 0">Sin eventos este día</div>';
   }
-  
-  const btnAgregar=`<button onclick="abrirFormEvento('${iso}')" class="btn btn-p btn-sm" style="width:100%;justify-content:center;margin-top:8px">+ Agregar evento</button>`;
-  
-  const mfi=document.getElementById('mfi');
-  mfi.innerHTML=`
-    <div class="mbox" style="max-width:380px">
-      <div class="mhdr"><span>${titulo}</span><button class="mc" onclick="cerrar()">×</button></div>
-      <div class="mbdy" style="padding:16px">
-        ${htmlEvs}
-        ${btnAgregar}
-      </div>
-    </div>`;
+  var btnAgregar='<button onclick="abrirFormEvento(''+iso+'')" class="btn btn-p btn-sm" style="width:100%;justify-content:center;margin-top:8px">+ Agregar evento</button>';
+  var mfi=document.getElementById('mfi');
+  mfi.innerHTML='<div class="mbox" style="max-width:380px">'+
+    '<div class="mhdr"><span>'+titulo+'</span><button class="mc" onclick="cerrar()">×</button></div>'+
+    '<div class="mbdy" style="padding:16px">'+htmlEvs+btnAgregar+'</div></div>';
   document.getElementById('mf').classList.add('o');
 }
 
