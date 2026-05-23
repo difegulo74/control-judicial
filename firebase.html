@@ -1698,7 +1698,7 @@ function _mostrarConfig(){
     const vl2=document.getElementById('ver-lbl2');
     if(vl)vl.textContent='v'+v;
     if(vl2)vl2.textContent='v'+v;
-    document.getElementById('mcfg').classList.add('o');
+    document.getElementById('mcfg').classList.add('o');setTimeout(_actualizarEstadoNotif,100);
   })();
 }
 function _renderResponsables(){
@@ -2241,13 +2241,35 @@ document.getElementById('mcfg').addEventListener('click',e=>{if(e.target===e.cur
 // ═══════════════════════════════════════════════════════
 // NOTIFICACIONES DEL NAVEGADOR
 // ═══════════════════════════════════════════════════════
+function _actualizarEstadoNotif(){
+  const el=document.getElementById('notif-estado');
+  if(!el)return;
+  if(!('Notification' in window)){el.textContent='Sin soporte en este navegador';return;}
+  const estados={'granted':'✓ Alertas activas','denied':'✗ Alertas bloqueadas — ver instrucciones','default':'⚪ Sin configurar — haga clic en Activar'};
+  el.textContent=estados[Notification.permission]||'Estado desconocido';
+  el.style.background=Notification.permission==='granted'?'#d4edda':Notification.permission==='denied'?'#f8d7da':'#fff3cd';
+  el.style.color=Notification.permission==='granted'?'#155724':Notification.permission==='denied'?'#721c24':'#856404';
+}
+
 function solicitarNotificaciones(){
-  if(Notification&&Notification.permission==='default'){
-    Notification.requestPermission().then(p=>{
-      if(p==='granted')verificarVencimientosHoy();
-    });
-  }else if(Notification&&Notification.permission==='granted'){
+  if(!('Notification' in window)){
+    alert('Este navegador no soporta notificaciones de escritorio.');
+    return;
+  }
+  if(Notification.permission==='granted'){
     verificarVencimientosHoy();
+    alert('✓ Alertas activas. Se verificarán vencimientos del día de hoy.');
+  } else if(Notification.permission==='denied'){
+    alert('⚠ Las alertas están bloqueadas en este navegador.\n\nPara activarlas:\n1. Haga clic en el candado (🔒) en la barra de dirección\n2. Busque "Notificaciones"\n3. Cámbielo a "Permitir"\n4. Recargue la página');
+  } else {
+    Notification.requestPermission().then(function(p){
+      if(p==='granted'){
+        verificarVencimientosHoy();
+        alert('✓ Alertas activadas correctamente.');
+      } else {
+        alert('No se concedió permiso para alertas.');
+      }
+    });
   }
 }
 function verificarVencimientosHoy(){
