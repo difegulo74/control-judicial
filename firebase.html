@@ -883,9 +883,9 @@ function importarParche(){
 async function init(){
   // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v33')){
+    if(!localStorage.getItem('cj_cal_limpio_v34')){
       localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v33','1');
+      localStorage.setItem('cj_cal_limpio_v34','1');
     }
   }catch(ex){}
   // Show historical data immediately
@@ -2046,13 +2046,15 @@ function rCal(){
     }catch(e){}
   });
 
-  // Eventos del usuario: abreviar cualquier radicación completa que pudiera existir
+  // Eventos guardados: abreviar radicaciones (con o sin guiones)
   (localDB.eventos||[]).forEach(e=>{
     if(!e.fecha||e.fecha.split('-')[0]!==String(y))return;
-    if(e.auto)return; // Los auto se generan arriba dinámicamente
+    if(e.auto)return;
     var lbl=e.lbl||'';
-    // Abreviar si el lbl contiene una radicación completa (patrón: 7+ segmentos con guión)
-    lbl=lbl.replace(/\d{5}-\d{2}-\d{2}-\d{3}-\d{4}-\d{5}-\d{2}/g,function(m){return abrevRad(m);});
+    // Abreviar radicación con guiones: 73001-40-09-014-2026-00085-00
+    lbl=lbl.replace(/\d{5}-\d{2}-\d{2}-\d{3}-(\d{4}-\d{5}-\d{2})/g,'$1');
+    // Abreviar radicación sin guiones (23 dígitos): año-consecutivo-sufijo
+    lbl=lbl.replace(/\d{23}/g,function(m){return m.slice(12,16)+'-'+m.slice(16,21)+'-'+m.slice(21,23);});
     addEv(e.fecha,'user',lbl,e.color||'#1a7f4b');
   });
 
