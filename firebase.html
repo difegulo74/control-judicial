@@ -1229,11 +1229,11 @@ function pvT(){
   box.innerHTML=`<div class="tbox bl">
     <h4>⏰ Términos — festivos Colombia verificados</h4>
     ${trows([
-      ['Día 9 — alerta para decisión',tc.dia9,'wa'],
+      ['Fallo - Día 9',tc.dia9,'wa'],
       ['Día 10 — vencimiento del fallo',tc.vce,'al'],
       ['+ 2 días — fin notificación en correo',tc.cor2,''],
       ['+ 3 días — ejecutoria',tc.eje3,''],
-      ['Siguiente hábil — remisión C.C. (sin impugnación)',tc.remCC,'']
+      ['Día 6 Ejecutoria Remite Corte C.',tc.remCC,'']
     ])}
   </div>`;
 }
@@ -1347,7 +1347,7 @@ function aDT(id){
           </select>
         </div>
         <div class="fsec">Corte Constitucional</div>
-        <div class="fi"><label>Fecha remisión C.C.</label><input type="date" value="${t.fechaRemCC||''}" onchange="updT('${id}','fechaRemCC',this.value)"></div>
+        <div class="fi"><label>Fecha Remite Corte C.</label><input type="date" value="${t.fechaRemCC||''}" onchange="updT('${id}','fechaRemCC',this.value)"></div>
         <div class="fi"><label>Fecha regreso C.C.</label><input type="date" value="${t.fechaRegresoCC||''}" onchange="updT('${id}','fechaRegresoCC',this.value)"></div>
         <div class="fsec">Control</div>
         <div class="fi"><label>Estado procesal</label>
@@ -1448,7 +1448,7 @@ function pvNul(tipo){
     <h4>↻ Nuevos términos desde la fecha de nulidad</h4>
     ${tipo==='t'?trows([
       ['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al'],
-      ['Ejecutoria',tc.eje3,''],['Remisión C.C.',tc.remCC,'']
+      ['Ejecutoria',tc.eje3,''],['Remite Corte C.',tc.remCC,'']
     ]):trows([
       ['Nuevo req. previo D1',tc.req,''],['Nueva apertura D2',tc.aper,''],
       ['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al']
@@ -1543,7 +1543,7 @@ function pvD(){
     <h4>⏰ Términos — 10 días calendario colombiano</h4>
     ${trows([
       ['Día 1 — requerimiento previo',tc.req,''],['Día 2 — auto apertura formal',tc.aper,''],
-      ['Día 9 — alerta para decisión',tc.dia9,'wa'],['Día 10 — decisión (vencimiento)',tc.vce,'al'],
+      ['Fallo - Día 9',tc.dia9,'wa'],['Día 10 — vencimiento fallo',tc.vce,'al'],
       ['Día 11 — remisión consulta',tc.remCons,''],['Día 14 — resultado consulta',tc.resCons,''],
       ['Día 15 — remisión oficios',tc.ofic,'']
     ])}
@@ -1780,7 +1780,7 @@ function agregarEventosCalendario(r,tipo){
   addEv(tc.dia9,`⚠ Alerta D9 (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#d4770a');
   addEv(tc.vce,`🔴 Vence (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#c0392b');
   if(tipo==='T'){
-    addEv(tc.remCC,`📬 Remisión C.C.: ${r.radicacion}`,'#1a5fa8');
+    addEv(tc.remCC,`📬 Remite Corte C.: ${r.radicacion}`,'#1a5fa8');
   }else{
     addEv(tc.remCons,`📋 Remisión consulta: ${r.radicacion}`,'#1a5fa8');
   }
@@ -1913,10 +1913,10 @@ function abrirDia(iso, evs){
       var colorDot=e.color||'#1a5fa8';
       var tipoTag=e.tipo==='venc'?'Vencimiento':e.tipo==='alert'?'Alerta':e.tipo==='user'?'Evento manual':e.tipo==='event'?'Procesal':'';
       rows+='<tr>'+
-        '<td style="padding:5px 6px 5px 0;vertical-align:middle"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+colorDot+'"></span></td>'+
-        '<td style="padding:5px 0;font-size:11px;color:#1a3a5c;font-weight:600;white-space:nowrap;padding-right:8px">'+tipoTag+'</td>'+
-        '<td style="padding:5px 0;font-size:12px;color:#333;line-height:1.3">'+e.lbl+'</td>'+
-        '<td style="padding:5px 0 5px 6px">'+acciones+'</td>'+
+        '<td style="padding:4px 6px 4px 0;vertical-align:middle"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+colorDot+'"></span></td>'+
+        '<td style="padding:4px 0;font-size:10px;color:#666;white-space:nowrap;padding-right:6px">'+tipoTag+'</td>'+
+        '<td style="padding:4px 0;font-size:11px;color:#222;line-height:1.3">'+e.lbl+'</td>'+
+        '<td style="padding:4px 0 4px 4px">'+acciones+'</td>'+
         '</tr>';
     }
   } else {
@@ -1929,12 +1929,12 @@ function abrirDia(iso, evs){
   // Construir DOM directamente sin innerHTML con onclick
   var box=document.createElement('div');
   box.className='mbox';
-  box.style.cssText='max-width:400px;border-radius:12px;overflow:hidden';
+  box.style.cssText='max-width:380px;width:90vw;border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.15)';
   
   var hdr=document.createElement('div');
-  hdr.style.cssText='padding:14px 16px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between';
+  hdr.style.cssText='padding:10px 14px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between;background:#f8f9fa';
   var ttl=document.createElement('div');
-  ttl.style.cssText='font-size:14px;font-weight:700;color:#1a3a5c';
+  ttl.style.cssText='font-size:13px;font-weight:700;color:#1a3a5c';
   ttl.textContent='📅 '+titulo;
   var btnX=document.createElement('button');
   btnX.className='mc';
@@ -1944,13 +1944,13 @@ function abrirDia(iso, evs){
   hdr.appendChild(ttl);hdr.appendChild(btnX);
   
   var body=document.createElement('div');
-  body.style.cssText='padding:12px 16px;max-height:340px;overflow-y:auto';
+  body.style.cssText='padding:8px 16px;max-height:260px;overflow-y:auto';
   body.innerHTML='<table style="width:100%;border-collapse:collapse">'+rows+'</table>';
   
   var footer=document.createElement('div');
-  footer.style.cssText='padding:10px 16px;border-top:1px solid #eee';
+  footer.style.cssText='padding:8px 14px;border-top:1px solid #eee;background:#f8f9fa';
   var btnAdd=document.createElement('button');
-  btnAdd.style.cssText='width:100%;padding:9px;background:#1a3a5c;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer';
+  btnAdd.style.cssText='width:100%;padding:7px;background:#1a3a5c;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer';
   btnAdd.textContent='+ Agregar evento';
   btnAdd.onclick=function(){abrirFormEvento(iso);};
   footer.appendChild(btnAdd);
