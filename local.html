@@ -901,9 +901,9 @@ function importarParche(){
 async function init(){
   // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v34')){
+    if(!localStorage.getItem('cj_cal_limpio_v35')){
       localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v34','1');
+      localStorage.setItem('cj_cal_limpio_v35','1');
     }
   }catch(ex){}
 
@@ -1892,9 +1892,19 @@ function elimEvento(idx){
 }
 
 function rCal(){
-  // Reload eventos from localStorage to ensure we have latest
+  // Reload eventos y abreviar radicaciones completas en el momento de leer
   try{
-    const evGuardados=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
+    var evGuardados=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
+    evGuardados=evGuardados.map(function(e){
+      if(!e.lbl)return e;
+      var l=e.lbl;
+      // Abreviar radicación con guiones: mantener solo año-consecutivo-sufijo
+      l=l.replace(/\d{5}-\d{2}-\d{2}-\d{3}-(\d{4}-\d{5}-\d{2})/g,'$1');
+      // Abreviar radicación sin guiones (23 dígitos)
+      l=l.replace(/\d{23}/g,function(m){return m.slice(12,16)+'-'+m.slice(16,21)+'-'+m.slice(21,23);});
+      e.lbl=l;
+      return e;
+    });
     if(evGuardados.length>0)localDB.eventos=evGuardados;
   }catch(e){}
   const sel=document.getElementById('cal-sel');
