@@ -606,6 +606,12 @@ function diff(ds){if(!ds)return null;return Math.ceil((new Date(ds+'T12:00:00')-
 // ═══════════════════════════════════════════════════════
 // TÉRMINOS PROCESALES
 // ═══════════════════════════════════════════════════════
+
+function abrevRad(rad){
+  if(!rad)return '';
+  var p=rad.split('-');
+  return p.length>=3?p.slice(-3).join('-'):rad;
+}
 function getAlertaDias(t){return parseInt(t.alertaDias)||9;}
 function getAlertaDiasTutela(t){return parseInt(t.alertaDias)||9;}
 function termT(t){
@@ -1777,12 +1783,14 @@ function agregarEventosCalendario(r,tipo){
     if(!eventos.find(e=>e.fecha===fecha&&e.radicacion===r.radicacion&&e.lbl===lbl))
       eventos.push({id:Date.now()+Math.random(),fecha,lbl,radicacion:r.radicacion,color,auto:true});
   };
-  addEv(tc.dia9,`⚠ Alerta D9 (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#d4770a');
-  addEv(tc.vce,`🔴 Vence (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#c0392b');
+  var rad=abrevRad(r.radicacion);
+  var tipoLbl=tipo==='T'?'Tutela':'Desacato';
+  addEv(tc.dia9,'Fallo - Día '+(r.alertaDias||9)+' '+tipoLbl+': '+rad,'#d4770a');
+  addEv(tc.vce,'Vence '+tipoLbl+': '+rad,'#c0392b');
   if(tipo==='T'){
-    addEv(tc.remCC,`📬 Remite Corte C.: ${r.radicacion}`,'#1a5fa8');
+    addEv(tc.remCC,'Remite Corte C.: '+rad,'#1a5fa8');
   }else{
-    addEv(tc.remCons,`📋 Remisión consulta: ${r.radicacion}`,'#1a5fa8');
+    addEv(tc.remCons,'Consulta: '+rad,'#1a5fa8');
   }
   localDB.eventos=eventos;
   try{localStorage.setItem('cj_eventos_v3',JSON.stringify(eventos));}catch(e){}
@@ -2023,7 +2031,7 @@ function rCal(){
   // Automatic events from tutelas/desacatos
   [...tA(),...dA()].forEach(r=>{
     const tipo=r.fechaSolicitud?'Desacato':'Tutela';
-    const nom=(r.accionante||r.radicacion||'').substring(0,25);
+    var nom=abrevRad(r.radicacion);
     try{
       const tc=r.fechaSolicitud?termD(r):termT(r);
       addEv(tc.dia9,'alert','Fallo - Día '+getAlertaDiasTutela(r)+' '+tipo+': '+nom,'#d4770a');
@@ -2252,25 +2260,43 @@ function _actualizarEstadoNotif(){
 }
 
 function solicitarNotificaciones(){
-  if(!('Notification' in window)){
-    alert('Este navegador no soporta notificaciones de escritorio.');
-    return;
-  }
-  if(Notification.permission==='granted'){
-    verificarVencimientosHoy();
-    alert('✓ Alertas activas. Se verificarán vencimientos del día de hoy.');
-  } else if(Notification.permission==='denied'){
-    alert('⚠ Las alertas están bloqueadas en este navegador.\n\nPara activarlas:\n1. Haga clic en el candado (🔒) en la barra de dirección\n2. Busque "Notificaciones"\n3. Cámbielo a "Permitir"\n4. Recargue la página');
+  // Mostrar vencimientos del día en pantalla (funciona en todos los dispositivos)
+  var hoyISO=hoy();
+  var alertas=[];
+  var todos=[...tA(),...dA()];
+  todos.forEach(function(r){
+    var tipo=r.fechaSolicitud?'Desacato':'Tutela';
+    var tc=r.fechaSolicitud?termD(r):termT(r);
+    var rad=abrevRad(r.radicacion);
+    if(tc.dia9===hoyISO) alertas.push('⚠ Fallo Día '+(r.alertaDias||9)+' HOY — '+tipo+': '+rad);
+    if(tc.vce===hoyISO) alertas.push('🔴 VENCE HOY — '+tipo+': '+rad);
+    if(tc.remCC===hoyISO) alertas.push('📬 Remite Corte C. HOY — '+rad);
+  });
+  if(alertas.length===0){
+    _mostrarBannerAlerta('✓ Sin vencimientos ni alertas para hoy ('+hoyISO+')','#1a7f4b');
   } else {
-    Notification.requestPermission().then(function(p){
-      if(p==='granted'){
-        verificarVencimientosHoy();
-        alert('✓ Alertas activadas correctamente.');
-      } else {
-        alert('No se concedió permiso para alertas.');
-      }
-    });
+    _mostrarBannerAlerta(alertas.join('\n'),'#c0392b');
   }
+  // Intentar notificación del navegador si está disponible (PC/Android Chrome)
+  if('Notification' in window && Notification.permission==='granted'){
+    alertas.forEach(function(msg){new Notification('Control Judicial',{body:msg});});
+  } else if('Notification' in window && Notification.permission==='default'){
+    Notification.requestPermission();
+  }
+}
+function _mostrarBannerAlerta(msg,color){
+  var banner=document.getElementById('alerta-banner');
+  if(!banner){
+    banner=document.createElement('div');
+    banner.id='alerta-banner';
+    banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;padding:10px 16px;font-size:12px;font-weight:600;color:#fff;white-space:pre-line;cursor:pointer;line-height:1.5';
+    banner.onclick=function(){banner.style.display='none';};
+    document.body.appendChild(banner);
+  }
+  banner.style.background=color;
+  banner.textContent=msg+' (toque para cerrar)';
+  banner.style.display='block';
+  setTimeout(function(){banner.style.display='none';},15000);
 }
 function verificarVencimientosHoy(){
   const hoyISO=hoy();
@@ -2328,7 +2354,15 @@ window.abrirConfig=abrirConfig;window.cerrarCfg=cerrarCfg;window.guardarCfg=guar
 window.exportarDatos=exportarDatos;window.importarDatos=importarDatos;window.cargarJSON=cargarJSON;
 window.abrirEvento=abrirEvento;
 function abrirCalColombia(){
-  window.open('https://www.calendariocolombia.com','_blank');
+  var ua=navigator.userAgent;
+  var esIOS=/iPhone|iPad|iPod/i.test(ua);
+  var esAndroid=/Android/i.test(ua);
+  var url=esIOS?'https://apps.apple.com/co/app/calendario-colombia/id1458023810':
+    esAndroid?'https://play.google.com/store/apps/details?id=com.dnamobile.colombiacalendar&hl=es_CO':
+    'https://www.calendariocolombia.com';
+  var a=document.createElement('a');
+  a.href=url;a.target='_blank';a.rel='noopener';
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
 window.abrirDia=abrirDia;window.abrirFormEvento=abrirFormEvento;window.eliminarEvento=eliminarEvento;window.editarEvento=editarEvento;window.abrirCalColombia=abrirCalColombia;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
