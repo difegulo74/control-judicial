@@ -442,7 +442,6 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <button class="btn btn-sm" onclick="abrirEvento()" style="background:var(--gr);color:#fff;border-color:var(--gr)">+ Agregar evento</button>
   </div>
   <div class="cal-links">
-    <button class="cal-link-btn col" onclick="abrirCalColombia()">📱 Calendario Colombia App</button>
     <button class="cal-link-btn web" onclick="window.open('https://www.calendariodecolombia.com/','_blank')">🌐 CalendarioColombia.com</button>
     <button class="cal-link-btn" style="background:var(--n3);color:#fff" onclick="verEventos()">☰ Ver todos los eventos</button>
   </div>
@@ -882,20 +881,12 @@ function importarParche(){
 }
 
 async function init(){
-  // Limpiar eventos auto viejos que tengan nombre completo en lugar de radicación abreviada
+  // Eliminar eventos auto (se generan dinámicamente en rCal con radicación abreviada)
   try{
     var evs=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
-    var changed=false;
-    evs.forEach(function(e){
-      if(e.auto&&e.radicacion){
-        var abrev=abrevRad(e.radicacion);
-        if(e.lbl&&e.lbl.indexOf(e.radicacion)>=0){
-          e.lbl=e.lbl.replace(e.radicacion,abrev);
-          changed=true;
-        }
-      }
-    });
-    if(changed)localStorage.setItem('cj_eventos_v3',JSON.stringify(evs));
+    var soloManuales=evs.filter(function(e){return !e.auto;});
+    if(soloManuales.length!==evs.length)
+      localStorage.setItem('cj_eventos_v3',JSON.stringify(soloManuales));
   }catch(ex){}
   // Show historical data immediately
   anios=[...new Set([...(PRELOADED_DB.anios||[2024,2025,2026])])].sort((a,b)=>a-b);
@@ -1287,7 +1278,6 @@ async function guardarT(){
   await fbSave(`tutelas_${anio}`,t.id,t);
   cerrar();rT();
   // Agregar eventos al calendario
-  agregarEventosCalendario(t,'T');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1590,7 +1580,6 @@ async function guardarD(){
     fechaDecision:'',resultado:'',nulidades:[],ultimaNulidad:null};
   await fbSave(`desacatos_${anio}`,d.id,d);
   cerrar();rD();
-  agregarEventosCalendario(d,'D');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2057,16 +2046,10 @@ function rCal(){
     }catch(e){}
   });
 
-  // Manual/auto events — para eventos auto usar radicación abreviada
-  (localDB.eventos||[]).forEach(e=>{
-    if(!e.fecha||e.fecha.split('-')[0]!==String(y))return;
-    var lbl=e.lbl||'';
-    if(e.auto&&e.radicacion){
-      // Regenerar label con radicación abreviada
-      var radAbrev=abrevRad(e.radicacion);
-      lbl=lbl.replace(e.radicacion,radAbrev);
-    }
-    addEv(e.fecha,'user',lbl,e.color||'#1a7f4b');
+  // Solo eventos manuales del usuario (los auto se generan dinámicamente arriba)
+  (localDB.eventos||[]).filter(e=>!e.auto).forEach(e=>{
+    if(e.fecha&&e.fecha.split('-')[0]===String(y))
+      addEv(e.fecha,'user',e.lbl,e.color||'#1a7f4b');
   });
 
   const grid=document.getElementById('cal-grid');grid.innerHTML='';
@@ -2374,21 +2357,9 @@ window.verifySec=verifySec;window.cerrarSec=cerrarSec;
 window.abrirConfig=abrirConfig;window.cerrarCfg=cerrarCfg;window.guardarCfg=guardarCfg;
 window.exportarDatos=exportarDatos;window.importarDatos=importarDatos;window.cargarJSON=cargarJSON;
 window.abrirEvento=abrirEvento;
-function abrirCalColombia(){
-  var ua=navigator.userAgent;
-  var esIOS=/iPhone|iPad|iPod/i.test(ua);
-  var esAndroid=/Android/i.test(ua);
-  if(esIOS){
-    // iOS Safari: usar location.href para evitar bloqueo popup
-    window.location.href='https://apps.apple.com/co/app/calendario-colombia/id1458023810';
-  } else if(esAndroid){
-    window.open('https://play.google.com/store/apps/details?id=com.dnamobile.colombiacalendar&hl=es_CO','_blank');
-  } else {
-    window.open('https://www.calendariocolombia.com','_blank');
-  }
-}
 
-window.abrirDia=abrirDia;window.abrirFormEvento=abrirFormEvento;window.eliminarEvento=eliminarEvento;window.editarEvento=editarEvento;window.abrirCalColombia=abrirCalColombia;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
+
+window.abrirDia=abrirDia;window.abrirFormEvento=abrirFormEvento;window.eliminarEvento=eliminarEvento;window.editarEvento=editarEvento;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
 window.rCal=rCal;window.setPer=setPer;
 window.cerrar=cerrar;window.cerrar2=cerrar2;
 
