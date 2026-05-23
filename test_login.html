@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Test Login</title>
+<style>
+body{font-family:Arial,sans-serif;background:#0f2a45;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
+.box{background:#fff;border-radius:12px;padding:30px;width:300px;text-align:center}
+h2{color:#1a3a5c;margin-bottom:20px}
+input{width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;font-size:16px;text-align:center;box-sizing:border-box;margin-bottom:10px}
+button{width:100%;padding:12px;background:#1a3a5c;color:#fff;border:none;border-radius:6px;font-size:15px;cursor:pointer}
+#msg{color:red;font-size:12px;margin-top:8px;min-height:16px}
+#app{display:none;background:#fff;border-radius:12px;padding:30px;width:300px;text-align:center}
+#app h2{color:green}
+</style>
+</head>
+<body>
+<div id="login" class="box">
+  <h2>⚖️ Control Judicial</h2>
+  <p style="color:#666;font-size:12px;margin-bottom:16px">Área Constitucional</p>
+  <input type="password" id="pwd" placeholder="Contraseña">
+  <button onclick="login()">Ingresar</button>
+  <div id="msg"></div>
+</div>
+<div id="app">
+  <h2>✓ Login exitoso</h2>
+  <p id="tipo" style="color:#666"></p>
+  <button onclick="location.reload()">Salir</button>
+</div>
+<script>
+function getPwd(t){return localStorage.getItem('cj_pwd_'+t)||(t==='user'?'0000':'2029Rj75');}
+function login(){
+  var pwd=document.getElementById('pwd').value;
+  var msg=document.getElementById('msg');
+  if(pwd===getPwd('admin')){show('Administrador');}
+  else if(pwd===getPwd('user')){show('Usuario general');}
+  else{msg.textContent='Contraseña incorrecta';document.getElementById('pwd').value='';}
+}
+function show(tipo){
+  document.getElementById('login').style.display='none';
+  document.getElementById('app').style.display='block';
+  document.getElementById('tipo').textContent='Acceso como: '+tipo;
+}
+document.getElementById('pwd').addEventListener('keydown',function(e){if(e.key==='Enter')login();});
+</script>
+</body>
+</html>

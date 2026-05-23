@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Control Judicial — Área Constitucional</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+  background:linear-gradient(135deg,#0a1c2e,#1a3a5c,#234e78);
+  min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.wrap{width:min(440px,100%);text-align:center}
+.logo{width:72px;height:72px;background:rgba(255,255,255,.12);border-radius:18px;
+  display:flex;align-items:center;justify-content:center;margin:0 auto 20px;font-size:36px}
+h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:6px}
+.sub{color:rgba(255,255,255,.55);font-size:12px;margin-bottom:32px;line-height:1.5}
+.cards{display:flex;flex-direction:column;gap:14px;margin-bottom:24px}
+.card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.15);
+  border-radius:16px;padding:20px;cursor:pointer;transition:.2s;text-decoration:none;
+  display:block;text-align:left}
+.card:hover{background:rgba(255,255,255,.13);transform:translateY(-2px)}
+.card:active{transform:scale(.98)}
+.card-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.card-icon{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;
+  justify-content:center;font-size:22px;flex-shrink:0}
+.card-icon.local{background:#1a7f4b}
+.card-icon.fb{background:#f57c00}
+.card-title{font-size:16px;font-weight:700;color:#fff}
+.card-sub{font-size:11px;color:rgba(255,255,255,.55)}
+.card-desc{font-size:12px;color:rgba(255,255,255,.7);line-height:1.5}
+.card-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(255,255,255,.1);
+  border-radius:20px;padding:3px 10px;font-size:10px;color:rgba(255,255,255,.7);margin-top:10px}
+.dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.dot.gr{background:#2ecc71}.dot.or{background:#f39c12}
+.footer{color:rgba(255,255,255,.3);font-size:10px;line-height:1.6}
+.ver{color:rgba(255,255,255,.2);font-size:9px;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="logo">⚖️</div>
+  <h1>Control Judicial</h1>
+  <div class="sub">Área Constitucional</div>
+  
+  <div class="cards">
+    <a class="card" href="local.html">
+      <div class="card-top">
+        <div class="card-icon local">💾</div>
+        <div>
+          <div class="card-title">Versión Local</div>
+          <div class="card-sub">Sin internet requerido</div>
+        </div>
+      </div>
+      <div class="card-desc">Funciona completamente sin conexión a internet. Los datos se guardan en este dispositivo. Para sincronizar con otros dispositivos use Exportar/Importar.</div>
+      <div class="card-badge"><span class="dot gr"></span> Disponible sin internet</div>
+    </a>
+    
+    <a class="card" href="firebase.html">
+      <div class="card-top">
+        <div class="card-icon fb">🔄</div>
+        <div>
+          <div class="card-title">Versión Sincronizada</div>
+          <div class="card-sub">Tiempo real — requiere internet</div>
+        </div>
+      </div>
+      <div class="card-desc">Todos los dispositivos del despacho ven los mismos datos al instante. Requiere conexión a internet. Recomendada para trabajo en equipo.</div>
+      <div class="card-badge"><span class="dot or"></span> Requiere internet</div>
+    </a>
+  </div>
+  
+  <div class="footer">
+    © Control Judicial<br>
+    Uso exclusivo interno
+  </div>
+  <div class="ver">v2.0 · 2026</div>
+</div>
+</body>
+</html>
