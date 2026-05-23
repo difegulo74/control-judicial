@@ -259,7 +259,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .cal-day.ev-user{background:#e8f8e8}
 .ev-dot{width:4px;height:4px;border-radius:50%;margin:1px auto 0}
 .cal-tip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--n);color:#fff;font-size:8px;padding:3px 7px;border-radius:5px;white-space:nowrap;z-index:100;margin-bottom:2px;max-width:200px;text-align:center;word-break:break-word;white-space:normal;min-width:80px}
-.cal-day:hover .cal-tip{display:block}
+.cal-day:hover .cal-tip{display:block}.cal-tip{max-width:220px;white-space:normal;word-break:break-word;z-index:9999;position:fixed;background:#1a3a5c;color:#fff;font-size:10px;padding:4px 8px;border-radius:6px;pointer-events:none;transform:translateX(-50%);left:50%;bottom:calc(100% + 4px)}
 .cal-day:hover{background:var(--bg)}
 .cal-day.fest:hover{background:#fbc8c4}
 .cal-day.ss:hover{background:#ffe8a0}
@@ -1872,6 +1872,85 @@ function elimEvento(idx){
   rCal();
 }
 
+
+function abrirDia(iso, evs){
+  const [y,m,d]=iso.split('-');
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+  const titulo=`${parseInt(d)} de ${meses[parseInt(m)-1]} de ${y}`;
+  
+  // Eventos del día
+  let htmlEvs='';
+  if(evs&&evs.length){
+    htmlEvs='<div style="margin-bottom:12px">'+
+    evs.map((e,i)=>{
+      const esManual=e.tipo==='user';
+      const idx=(localDB.eventos||[]).findIndex(ev=>ev.fecha===iso&&ev.lbl===e.lbl);
+      const btnElim=esManual&&isAdmin&&idx>=0?
+        `<button onclick="eliminarEvento(${idx})" style="background:none;border:none;cursor:pointer;color:#c0392b;font-size:14px;padding:2px 6px">🗑</button>`:'';
+      const btnEdit=esManual&&isAdmin&&idx>=0?
+        `<button onclick="editarEvento(${idx},'${iso}')" style="background:none;border:none;cursor:pointer;color:#1a5fa8;font-size:14px;padding:2px 6px">✏️</button>`:'';
+      return `<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid #eee">
+        <span style="width:8px;height:8px;border-radius:50%;background:${e.color||'#1a5fa8'};flex-shrink:0;display:inline-block"></span>
+        <span style="flex:1;font-size:12px;color:#333">${e.lbl}</span>
+        ${btnEdit}${btnElim}
+      </div>`;
+    }).join('')+
+    '</div>';
+  } else {
+    htmlEvs='<div style="color:#999;font-size:12px;text-align:center;padding:12px 0">Sin eventos este día</div>';
+  }
+  
+  const btnAgregar=`<button onclick="abrirFormEvento('${iso}')" class="btn btn-p btn-sm" style="width:100%;justify-content:center;margin-top:8px">+ Agregar evento</button>`;
+  
+  const mfi=document.getElementById('mfi');
+  mfi.innerHTML=`
+    <div class="mbox" style="max-width:380px">
+      <div class="mhdr"><span>${titulo}</span><button class="mc" onclick="cerrar()">×</button></div>
+      <div class="mbdy" style="padding:16px">
+        ${htmlEvs}
+        ${btnAgregar}
+      </div>
+    </div>`;
+  document.getElementById('mf').classList.add('o');
+}
+
+function abrirFormEvento(iso){
+  cerrar();
+  setTimeout(()=>{
+    document.getElementById('mfi').innerHTML='';
+    abrirEvento();
+    setTimeout(()=>{const el=document.getElementById('ev-fecha');if(el)el.value=iso||'';},50);
+  },150);
+}
+
+function eliminarEvento(idx){
+  if(!confirm('¿Eliminar este evento?'))return;
+  localDB.eventos.splice(idx,1);
+  guardarLocal(localDB);
+  cerrar();
+  rCal();
+}
+
+function editarEvento(idx, iso){
+  cerrar();
+  setTimeout(()=>{
+    const ev=localDB.eventos[idx];
+    if(!ev)return;
+    document.getElementById('mfi').innerHTML='';
+    abrirEvento();
+    setTimeout(()=>{
+      const elFecha=document.getElementById('ev-fecha');
+      const elDesc=document.getElementById('ev-desc');
+      const elRad=document.getElementById('ev-rad');
+      if(elFecha)elFecha.value=ev.fecha||iso;
+      if(elDesc)elDesc.value=ev.lbl||'';
+      if(elRad)elRad.value=ev.rad||'';
+      // Guardar índice para edición
+      window._editEvIdx=idx;
+    },50);
+  },150);
+}
+
 function rCal(){
   // Reload eventos from localStorage to ensure we have latest
   try{
@@ -1952,13 +2031,25 @@ function rCal(){
       if(evs.length)tip=(tip?tip+' | ':'')+evs.map(e=>e.lbl).join(' | ');
       const dot=evs.length?`<div class="ev-dot" style="background:${evs[0].color||'#1a5fa8'}"></div>`:'';
       cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip.substring(0,120)}</span>`:''}`;
-      // Click para agregar evento en ese día
+      // Click en día: mostrar eventos del día y opción de agregar
       if(!fest&&!ss){
-        cell.addEventListener('click',()=>{
-          document.getElementById('mfi').innerHTML='';
-          abrirEvento();
-          setTimeout(()=>{const el=document.getElementById('ev-fecha');if(el)el.value=iso;},50);
+        cell.addEventListener('click',(ev)=>{
+          ev.stopPropagation();
+          abrirDia(iso, evs);
         });
+      }
+      // Posicionar tooltip dinámicamente para evitar que se corte
+      const tipEl=cell.querySelector('.cal-tip');
+      if(tipEl){
+        cell.addEventListener('mouseenter',function(e){
+          const r=cell.getBoundingClientRect();
+          const tw=220;
+          let left=r.left+r.width/2-tw/2;
+          if(left<4)left=4;
+          if(left+tw>window.innerWidth-4)left=window.innerWidth-tw-4;
+          tipEl.style.cssText=`display:block;position:fixed;left:${left}px;top:${r.top-4}px;transform:translateY(-100%);width:${tw}px;z-index:9999`;
+        });
+        cell.addEventListener('mouseleave',function(){tipEl.style.display='none';});
       }
       days.appendChild(cell);
     }
@@ -2162,13 +2253,8 @@ window.abrirConfig=abrirConfig;window.cerrarCfg=cerrarCfg;window.guardarCfg=guar
 window.exportarDatos=exportarDatos;window.importarDatos=importarDatos;window.cargarJSON=cargarJSON;
 window.abrirEvento=abrirEvento;
 function abrirCalColombia(){
-  // Detect iOS vs Android vs desktop
-  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
-  const isAndroid=/Android/.test(navigator.userAgent);
-  if(isIOS){
-    // Try App Store first, fallback to web
-    window.open('https://apps.apple.com/co/app/colombia-calendar/id1458023810','_blank');
-  } else if(isAndroid){
+  window.open('https://www.calendariocolombia.com','_blank');
+} else if(isAndroid){
     window.open('market://details?id=com.dnamobile.colombiacalendar','_blank');
     setTimeout(()=>window.open('https://play.google.com/store/apps/details?id=com.dnamobile.colombiacalendar','_blank'),500);
   } else {
@@ -2176,7 +2262,7 @@ function abrirCalColombia(){
     alert('Calendario Colombia es una app para celular.\n\nEn Android: busque "Calendario Colombia" en Play Store.\nEn iPhone: busque "Colombia Calendar" en App Store.\n\nDesde el computador use CalendarioColombia.com');
   }
 }
-window.abrirCalColombia=abrirCalColombia;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
+window.abrirDia=abrirDia;window.abrirFormEvento=abrirFormEvento;window.eliminarEvento=eliminarEvento;window.editarEvento=editarEvento;window.abrirCalColombia=abrirCalColombia;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
 window.rCal=rCal;window.setPer=setPer;
 window.cerrar=cerrar;window.cerrar2=cerrar2;
 
