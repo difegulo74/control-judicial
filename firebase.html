@@ -796,6 +796,7 @@ function mergeHistorico(){
 }
 
 function escuchar(a){
+  if(!fbDb){setSS('e','Sin conexión Firebase');rT();return;}
   if(unsubT){unsubT();unsubT=null;}if(unsubD){unsubD();unsubD=null;}
   setSS('s','Sincronizando...');
   unsubT=fbDb.collection('tutelas_'+a).onSnapshot(snap=>{
@@ -1007,7 +1008,7 @@ function renderAnios(){
   anios.forEach(a=>{
     const b=document.createElement('button');
     b.className='ybtn'+(a===anio?' a':'');b.textContent=a;
-    b.onclick=()=>{anio=a;renderAnios();escuchar(a);};
+    b.onclick=()=>{anio=a;renderAnios();if(fbDb)escuchar(a);else rT();};
     c.appendChild(b);
   });
   document.getElementById('ystats').innerHTML=
@@ -1020,7 +1021,7 @@ function addAnio(){
   const nv=anios[anios.length-1]+1;
   if(!confirm(`¿Agregar el año ${nv}?`))return;
   localDB.anios.push(nv);guardarLocal(localDB);
-  anio=nv;renderAnios();escuchar(nv);
+  anio=nv;renderAnios();if(fbDb)escuchar(nv);else rT();
 }
 
 // ═══════════════════════════════════════════════════════
