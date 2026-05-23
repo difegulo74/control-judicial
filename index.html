@@ -40,6 +40,9 @@ h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:6px}
 .footer{color:rgba(255,255,255,.3);font-size:10px;line-height:1.6}
 .ver{color:rgba(255,255,255,.2);font-size:9px;margin-top:12px}
 </style>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a3a5c">
+<link rel="apple-touch-icon" href="icon-192.png">
 </head>
 <body>
 <div class="wrap">
@@ -79,5 +82,6 @@ h1{color:#fff;font-size:22px;font-weight:700;margin-bottom:6px}
   </div>
   <div class="ver">v2.0 · 2026</div>
 </div>
+<script>if("serviceWorker" in navigator)navigator.serviceWorker.register("/control-judicial/sw.js");</script>
 </body>
 </html>

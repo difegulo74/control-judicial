@@ -7,6 +7,9 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a3a5c">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Control Judicial</title>
 <style>
 /* INLINE ICON SYSTEM - no external dependencies */
@@ -2203,6 +2206,13 @@ window.cerrar=cerrar;window.cerrar2=cerrar2;
 document.getElementById('lbtn').addEventListener('click',function(){doLogin();});
 document.getElementById('lpwd').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 
+</script>
+<script>
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('/control-judicial/sw.js')
+    .then(function(r){console.log('SW registrado');})
+    .catch(function(e){console.log('SW error:',e);});
+}
 </script>
 </body>
 </html>
