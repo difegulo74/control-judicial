@@ -522,10 +522,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <div class="mbody" id="cfg-body"></div>
   </div>
 </div>
-<script>
-var PRELOADED_DB=null;
-var _dbReady=fetch('db.json').then(function(r){return r.json();}).then(function(d){PRELOADED_DB=d;}).catch(function(){PRELOADED_DB={anios:[],tutelas:{},desacatos:{}};});
-</script>
+<script src="datos_db.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
 // FESTIVOS COLOMBIA 2024-2031 — VERIFICADOS
@@ -760,7 +757,7 @@ function doLogin(){
   err.textContent='';
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('app').style.display='block';
-  _dbReady.then(function(){init();});
+  init();
 }
 function doLogout(){
   if(!confirm('¿Cerrar sesión?'))return;
