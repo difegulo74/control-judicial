@@ -883,9 +883,9 @@ function importarParche(){
 async function init(){
   // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v31')){
+    if(!localStorage.getItem('cj_cal_limpio_v32')){
       localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v31','1');
+      localStorage.setItem('cj_cal_limpio_v32','1');
     }
   }catch(ex){}
   // Show historical data immediately
@@ -2088,7 +2088,7 @@ function rCal(){
         else cell.classList.add('ev-event');
       }
       let tip=CAL_LBL[iso]||'';
-      if(evs.length){const lbls=evs.slice(0,3).map(e=>{var l=e.lbl||'';return l.length>35?l.substring(0,33)+'…':l;});if(evs.length>3)lbls.push('+'+(evs.length-3)+' más');tip=(tip?tip+' | ':'')+lbls.join(' · ');}
+      if(evs.length){const lbls=evs.slice(0,3).map(e=>e.lbl||'');if(evs.length>3)lbls.push('+'+(evs.length-3)+' más');tip=(tip?tip+' | ':'')+lbls.join(' · ');}
       const dot=evs.length?`<div class="ev-dot" style="background:${evs[0].color||'#1a5fa8'}"></div>`:'';
       cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip.substring(0,120)}</span>`:''}`;
       // Click en día: mostrar eventos del día y opción de agregar

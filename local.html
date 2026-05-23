@@ -901,9 +901,9 @@ function importarParche(){
 async function init(){
   // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v31')){
+    if(!localStorage.getItem('cj_cal_limpio_v32')){
       localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v31','1');
+      localStorage.setItem('cj_cal_limpio_v32','1');
     }
   }catch(ex){}
 
