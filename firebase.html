@@ -881,12 +881,9 @@ function importarParche(){
 }
 
 async function init(){
-  // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
+  // Borrar SOLO eventos del calendario (no afecta contraseñas ni responsables)
   try{
-    if(!localStorage.getItem('cj_cal_limpio_v35')){
-      localStorage.removeItem('cj_eventos_v3');
-      localStorage.setItem('cj_cal_limpio_v35','1');
-    }
+    localStorage.removeItem('cj_eventos_v3');
   }catch(ex){}
   // Show historical data immediately
   anios=[...new Set([...(PRELOADED_DB.anios||[2024,2025,2026])])].sort((a,b)=>a-b);
@@ -2011,20 +2008,11 @@ function editarEvento(idx, iso){
 }
 
 function rCal(){
-  // Reload eventos y abreviar radicaciones completas en el momento de leer
+  // Solo cargar eventos MANUALES del usuario (no los automáticos del sistema)
   try{
-    var evGuardados=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
-    evGuardados=evGuardados.map(function(e){
-      if(!e.lbl)return e;
-      var l=e.lbl;
-      // Abreviar radicación con guiones: mantener solo año-consecutivo-sufijo
-      l=l.replace(/\d{5}-\d{2}-\d{2}-\d{3}-(\d{4}-\d{5}-\d{2})/g,'$1');
-      // Abreviar radicación sin guiones (23 dígitos)
-      l=l.replace(/\d{23}/g,function(m){return m.slice(12,16)+'-'+m.slice(16,21)+'-'+m.slice(21,23);});
-      e.lbl=l;
-      return e;
-    });
-    if(evGuardados.length>0)localDB.eventos=evGuardados;
+    var _evTodos=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
+    var _evManuales=_evTodos.filter(function(e){return !e.auto&&!e.radicacion;});
+    localDB.eventos=_evManuales;
   }catch(e){}
   const sel=document.getElementById('cal-sel');
   const opts=[...new Set([...anios,2024,2025,2026,2027,2028,2029,2030])].sort();
