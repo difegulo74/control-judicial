@@ -7,7 +7,7 @@
 <meta http-equiv="Expires" content="0">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Control Judicial</title>
+<title>Control Judicial v30</title>
 <style>
 /* INLINE ICON SYSTEM - no external dependencies */
 [class^="ti ti-"],[class*=" ti ti-"]{
@@ -881,12 +881,17 @@ function importarParche(){
 }
 
 async function init(){
-  // Eliminar eventos auto (se generan dinámicamente en rCal con radicación abreviada)
+  // Limpiar eventos auto y radicaciones completas del localStorage
   try{
     var evs=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
-    var soloManuales=evs.filter(function(e){return !e.auto;});
-    if(soloManuales.length!==evs.length)
-      localStorage.setItem('cj_eventos_v3',JSON.stringify(soloManuales));
+    var manuales=evs.filter(function(e){
+      if(e.auto)return false;
+      // También eliminar si el lbl contiene una radicación completa (más de 20 chars con guiones)
+      var l=e.lbl||'';
+      var partes=l.match(/\d{5}-\d{2}-\d{2}-\d{3}-\d{4}-\d{5}-\d{2}/);
+      return !partes;
+    });
+    localStorage.setItem('cj_eventos_v3',JSON.stringify(manuales));
   }catch(ex){}
   // Show historical data immediately
   anios=[...new Set([...(PRELOADED_DB.anios||[2024,2025,2026])])].sort((a,b)=>a-b);
@@ -2088,7 +2093,7 @@ function rCal(){
         else cell.classList.add('ev-event');
       }
       let tip=CAL_LBL[iso]||'';
-      if(evs.length){const lbls=evs.slice(0,3).map(e=>e.lbl);if(evs.length>3)lbls.push('+'+(evs.length-3)+' más');tip=(tip?tip+' | ':'')+lbls.join(' · ');}
+      if(evs.length){const lbls=evs.slice(0,3).map(e=>{var l=e.lbl||'';return l.length>35?l.substring(0,33)+'…':l;});if(evs.length>3)lbls.push('+'+(evs.length-3)+' más');tip=(tip?tip+' | ':'')+lbls.join(' · ');}
       const dot=evs.length?`<div class="ev-dot" style="background:${evs[0].color||'#1a5fa8'}"></div>`:'';
       cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip.substring(0,120)}</span>`:''}`;
       // Click en día: mostrar eventos del día y opción de agregar
