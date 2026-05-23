@@ -849,8 +849,7 @@ function importarParche(){
       try{
         const patch=JSON.parse(ev.target.result);
         if(!patch.tipo||patch.tipo!=='parche_cj'){alert('Archivo inválido.');return;}
-        if(confirm('¿Aplicar v'+patch.version+'?
-'+(patch.descripcion||''))){
+        if(confirm('¿Aplicar v'+patch.version+'?\n'+(patch.descripcion||''))){
           if(patch.version)setVersion(patch.version);
           if(patch.code){const fn=new Function(patch.code);fn();}
           alert('✓ Actualización v'+patch.version+' aplicada.');
