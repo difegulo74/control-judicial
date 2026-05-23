@@ -1,0 +1,2204 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Control Judicial</title>
+<style>
+/* INLINE ICON SYSTEM - no external dependencies */
+[class^="ti ti-"],[class*=" ti ti-"]{
+  font-style:normal;font-weight:normal;display:inline-block;
+  line-height:1;vertical-align:middle;font-size:inherit;
+}
+.ti.ti\\-scale::before{content:"⚖"}
+.ti.ti\\-alert\\-octagon::before{content:"🚨"}
+.ti.ti\\-alert\\-triangle::before{content:"⚠"}
+.ti.ti\\-bell::before{content:"🔔"}
+.ti.ti\\-calendar::before{content:"📅"}
+.ti.ti\\-calendar\\-plus::before{content:"📅"}
+.ti.ti\\-calendar\\-time::before{content:"⏰"}
+.ti.ti\\-chart\\-bar::before{content:"📊"}
+.ti.ti\\-check::before{content:"✓"}
+.ti.ti\\-device\\-mobile::before{content:"📱"}
+.ti.ti\\-download::before{content:"⬇"}
+.ti.ti\\-edit::before{content:"✏"}
+.ti.ti\\-external\\-link::before{content:"↗"}
+.ti.ti\\-eye::before{content:"👁"}
+.ti.ti\\-file\\-text::before{content:"📄"}
+.ti.ti\\-globe::before{content:"🌐"}
+.ti.ti\\-inbox::before{content:"📥"}
+.ti.ti\\-layout\\-list::before{content:"☰"}
+.ti.ti\\-list::before{content:"☰"}
+.ti.ti\\-lock\\-open::before{content:"🔓"}
+.ti.ti\\-logout::before{content:"↩"}
+.ti.ti\\-plus::before{content:"+"}
+.ti.ti\\-rotate\\-clockwise::before{content:"↻"}
+.ti.ti\\-settings::before{content:"⚙"}
+.ti.ti\\-shield\\-lock::before{content:"🔒"}
+.ti.ti\\-trash::before{content:"🗑"}
+.ti.ti\\-upload::before{content:"⬆"}
+.ti.ti\\-wifi\\-off::before{content:"📵"}
+.ti.ti\\-x::before{content:"✕"}
+</style>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --n:#0f2a45;--n2:#1a3a5c;--n3:#234e78;
+  --bg:#f2f4f8;--card:#fff;
+  --t:#1a1d23;--t2:#5a6072;--t3:#9aa0b2;
+  --bd:#e3e6ef;--bd2:#c8cee0;
+  --gr:#1a7f4b;--gr-bg:#edf7f2;
+  --rd:#c0392b;--rd-bg:#fdf2f0;
+  --or:#d4770a;--or-bg:#fef8ec;
+  --bl:#1a5fa8;--bl-bg:#eef4fc;
+  --pu:#6c3fc5;--pu-bg:#f3effc;
+  --gy:#6c7589;--gy-bg:#f0f1f5;
+  --nu:#8b0000;--nu-bg:#ffe4e1;
+  --hc:#0066cc;--hc-bg:#ddeeff;
+  --r:8px;--r2:12px;
+  --sh:0 1px 3px rgba(0,0,0,.08);
+  --sh2:0 4px 16px rgba(0,0,0,.13);
+  --sh3:0 8px 32px rgba(0,0,0,.2);
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--t);font-size:14px;line-height:1.5;min-height:100vh;overflow-x:hidden}
+
+/* LOGIN */
+#login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0a1c2e,#1a3a5c,#234e78);display:flex;align-items:center;justify-content:center;z-index:9999;padding:20px}
+.lbox{background:#fff;border-radius:18px;padding:36px 30px;width:min(360px,100%);box-shadow:var(--sh3);text-align:center}
+.llogo{width:60px;height:60px;background:var(--n2);border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;font-size:30px;color:#fff}
+.ltitle{font-size:20px;font-weight:700;color:var(--n2);margin-bottom:4px}
+.lsub{font-size:12px;color:var(--t2);margin-bottom:24px;line-height:1.4}
+.linput{width:100%;padding:12px 16px;border:1.5px solid var(--bd2);border-radius:var(--r);font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:14px;transition:.15s}
+.linput:focus{outline:none;border-color:var(--n2);box-shadow:0 0 0 3px rgba(26,58,92,.1)}
+.lbtn{width:100%;padding:13px;background:var(--n2);color:#fff;border:none;border-radius:var(--r);font-size:15px;font-weight:600;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px}
+.lbtn:hover{background:var(--n)}
+.lerr{color:var(--rd);font-size:12px;min-height:18px}
+
+/* TOPBAR */
+.topbar{background:var(--n);height:54px;padding:0 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:200;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+.tlogo{width:30px;height:30px;background:rgba(255,255,255,.12);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:15px;flex-shrink:0}
+.tinfo{flex:1;min-width:0}
+.ttitle{font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tsub{font-size:8px;color:rgba(255,255,255,.42);text-transform:uppercase;letter-spacing:.05em}
+.spill{font-size:9px;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:3px;background:rgba(255,255,255,.1);padding:3px 8px;border-radius:20px;white-space:nowrap;flex-shrink:0}
+.sdot{width:6px;height:6px;border-radius:50%;background:#2ecc71;flex-shrink:0}
+.sdot.s{background:#f39c12;animation:bl 1s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.2}}
+.tibtn{padding:5px 9px;font-size:11px;border:1px solid rgba(255,255,255,.2);border-radius:var(--r);cursor:pointer;background:rgba(255,255,255,.08);color:rgba(255,255,255,.9);display:inline-flex;align-items:center;gap:3px}
+.tibtn:hover{background:rgba(255,255,255,.17)}
+
+/* YEARBAR */
+.yearbar{background:var(--card);border-bottom:1px solid var(--bd);padding:0 14px;height:40px;display:flex;align-items:center;gap:8px;position:sticky;top:54px;z-index:190;overflow-x:auto}
+.yl{font-size:9px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;white-space:nowrap}
+.ybtns{display:flex;gap:3px}
+.ybtn{padding:3px 10px;font-size:11px;font-weight:600;border:1px solid var(--bd2);border-radius:20px;cursor:pointer;background:transparent;color:var(--t2);white-space:nowrap}
+.ybtn.a{background:var(--n2);color:#fff;border-color:var(--n2)}
+.yadd{padding:3px 8px;font-size:10px;border:1px dashed var(--bd2);border-radius:20px;cursor:pointer;background:none;color:var(--t3);display:inline-flex;align-items:center;gap:2px;flex-shrink:0}
+.ystats{margin-left:auto;display:flex;gap:10px;flex-shrink:0}
+.ystat{font-size:10px;color:var(--t2);white-space:nowrap}
+.ystat b{color:var(--t);font-weight:700}
+
+/* NULIDAD BANNER */
+.nul-banner{display:none;background:var(--nu-bg);border-bottom:2px solid var(--nu);padding:6px 14px;font-size:11px;font-weight:700;color:var(--nu);align-items:center;gap:6px;cursor:pointer;position:sticky;top:94px;z-index:185}
+.nul-banner.show{display:flex}
+.nul-banner i{animation:pulse 1.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* TABS */
+.tabs{background:var(--card);border-bottom:1px solid var(--bd);padding:0 14px;display:flex;position:sticky;top:94px;z-index:180;overflow-x:auto}
+.tabs.with-nul{top:126px}
+.tab{padding:9px 11px;font-size:11px;font-weight:500;color:var(--t2);cursor:pointer;border-bottom:2px solid transparent;display:flex;align-items:center;gap:4px;white-space:nowrap;flex-shrink:0}
+.tab.a{color:var(--n2);border-bottom-color:var(--n2);font-weight:600}
+.tcnt{border-radius:20px;padding:1px 6px;font-size:9px;font-weight:700}
+
+/* PANELS */
+.panel{display:none;padding:12px 14px}
+.panel.a{display:block}
+
+/* STATS */
+.toolbar{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.srow{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+.sc{background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);padding:7px 10px;min-width:60px;box-shadow:var(--sh)}
+.sc .v{font-size:18px;font-weight:800;line-height:1}
+.sc .l{font-size:8px;color:var(--t2);text-transform:uppercase;letter-spacing:.05em;margin-top:2px}
+.sc.red .v{color:var(--rd)}.sc.or .v{color:var(--or)}.sc.gr .v{color:var(--gr)}.sc.bl .v{color:var(--bl)}
+.sc.nu{border:2px solid var(--nu);cursor:pointer}.sc.nu .v,.sc.nu .l{color:var(--nu)}
+
+/* BUTTONS */
+.btn{padding:7px 12px;font-size:11px;font-weight:600;border:1px solid var(--bd2);border-radius:var(--r);cursor:pointer;background:var(--card);color:var(--t);display:inline-flex;align-items:center;gap:5px;white-space:nowrap;box-shadow:var(--sh)}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--n2);color:#fff;border-color:var(--n2)}
+.btn-p:hover{background:var(--n)}
+.btn-sm{padding:4px 8px;font-size:10px;box-shadow:none}
+.btn-ic{padding:4px 7px;font-size:13px;box-shadow:none}
+.btn-d{color:var(--rd);border-color:#f5c6c2}
+.btn-d:hover{background:var(--rd-bg)}
+.btn-nu{color:var(--nu);border-color:var(--nu);background:var(--nu-bg)}
+
+/* FILTERS */
+.fbar{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.fbar input,.fbar select{font-size:11px;padding:5px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--card);color:var(--t);box-shadow:var(--sh)}
+.fbar input{flex:1;min-width:130px}
+
+/* TABLE */
+.tw{background:var(--card);border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;box-shadow:var(--sh)}
+.tws{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;min-width:720px;font-size:11px}
+thead tr{background:var(--bg)}
+th{padding:8px 10px;text-align:left;font-weight:700;font-size:9px;color:var(--t3);border-bottom:1px solid var(--bd);white-space:nowrap;text-transform:uppercase;letter-spacing:.05em}
+td{padding:8px 10px;border-bottom:1px solid var(--bd);vertical-align:middle}
+tr:last-child td{border-bottom:none}
+tbody tr:hover td{background:var(--bg)}
+tr.has-nul td{background:var(--nu-bg)!important}
+.ra{font-family:'SF Mono','Courier New',monospace;font-size:9px;color:var(--t2)}
+.trunc{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ract{display:flex;gap:2px}
+
+/* BADGES */
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:9px;font-weight:700;white-space:nowrap}
+.bg{background:var(--gr-bg);color:var(--gr)}.br{background:var(--rd-bg);color:var(--rd)}
+.bo{background:var(--or-bg);color:var(--or)}.bgy{background:var(--gy-bg);color:var(--gy)}
+.bb{background:var(--bl-bg);color:var(--bl)}.bp{background:var(--pu-bg);color:var(--pu)}
+.bnu{background:var(--nu-bg);color:var(--nu);border:1px solid var(--nu)}
+.bhc{background:var(--hc-bg);color:var(--hc);border:1px solid var(--hc)}
+.nul-ico{color:var(--nu);animation:pulse 1.5s infinite;font-size:13px}
+.hc-tag{background:var(--hc-bg);color:var(--hc);border:1px solid var(--hc);border-radius:4px;font-size:8px;font-weight:700;padding:1px 4px;margin-left:3px;vertical-align:middle}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 16px;color:var(--t3)}
+.empty i{font-size:36px;display:block;margin-bottom:8px;opacity:.2}
+.empty p{font-size:12px;color:var(--t2)}
+
+/* MODAL */
+.mbg{display:none;position:fixed;inset:0;background:rgba(10,18,35,.62);z-index:500;align-items:flex-start;justify-content:center;padding:14px;overflow-y:auto}
+.mbg.o{display:flex}
+.modal{background:var(--card);border-radius:var(--r2);border:1px solid var(--bd);width:min(720px,100%);margin:auto;box-shadow:var(--sh3)}
+.mhdr{padding:14px 16px 10px;border-bottom:1px solid var(--bd);display:flex;align-items:flex-start;gap:10px;position:sticky;top:0;background:var(--card);z-index:1;border-radius:var(--r2) var(--r2) 0 0}
+.mico{width:36px;height:36px;border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.mico.n{background:#e8f0f8;color:var(--n2)}.mico.r{background:var(--rd-bg);color:var(--rd)}
+.mico.nu{background:var(--nu-bg);color:var(--nu)}.mico.cal{background:#fff8dc;color:#b8860b}
+.mico.gr{background:var(--gr-bg);color:var(--gr)}
+.mhdr-t{flex:1;min-width:0}.mhdr h3{font-size:13px;font-weight:700;margin-bottom:2px}.mhdr p{font-size:10px;color:var(--t2)}
+.mcls{background:none;border:none;font-size:18px;cursor:pointer;color:var(--t3);padding:2px 5px;border-radius:var(--r);line-height:1;flex-shrink:0}
+.mbody{padding:14px 16px;max-height:72vh;overflow-y:auto}
+.mfoot{padding:10px 16px;border-top:1px solid var(--bd);display:flex;justify-content:flex-end;gap:6px;background:var(--bg);border-radius:0 0 var(--r2) var(--r2);flex-wrap:wrap}
+
+/* FORM */
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.fi{display:flex;flex-direction:column;gap:3px}
+.fi.full{grid-column:1/-1}
+.fi label{font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;letter-spacing:.06em}
+.fi input,.fi select,.fi textarea{font-size:12px;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);background:var(--card);color:var(--t);width:100%}
+.fi input:focus,.fi select:focus,.fi textarea:focus{outline:none;border-color:var(--n2);box-shadow:0 0 0 3px rgba(26,58,92,.08)}
+.fi textarea{resize:vertical;min-height:56px}
+.fi input[readonly]{background:var(--bg);font-weight:600;color:var(--n2);cursor:default}
+.fsec{grid-column:1/-1;font-size:9px;font-weight:800;color:var(--n2);text-transform:uppercase;letter-spacing:.08em;padding:7px 0 2px;border-bottom:1px solid var(--bd);margin-top:4px}
+.fsec.nu{color:var(--nu);border-color:var(--nu)}
+.fsec.gr{color:var(--gr);border-color:var(--gr)}
+.chk-row{display:flex;align-items:center;gap:8px;grid-column:1/-1;padding:6px 0}
+.chk-row input[type=checkbox]{width:16px;height:16px;cursor:pointer}
+.chk-row label{font-size:12px;color:var(--t);font-weight:500;cursor:pointer}
+
+/* TERMS BOX */
+.tbox{border-radius:var(--r);padding:10px 12px;margin-top:10px;grid-column:1/-1}
+.tbox.bl{background:var(--bl-bg);border:1px solid #c5d9f0}
+.tbox.rd{background:var(--rd-bg);border:1px solid #f5c6c2}
+.tbox.nl{background:var(--nu-bg);border:2px solid var(--nu)}
+.tbox h4{font-size:10px;font-weight:700;margin-bottom:7px;display:flex;align-items:center;gap:4px}
+.tbox.bl h4{color:var(--bl)}.tbox.rd h4{color:var(--rd)}.tbox.nl h4{color:var(--nu)}
+.tr2{display:flex;justify-content:space-between;align-items:center;padding:3px 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:10px}
+.tr2:last-child{border-bottom:none}
+.tlbl{color:var(--t2);flex:1;padding-right:8px}
+.tval{font-weight:600;font-family:'SF Mono','Courier New',monospace;color:var(--n2);white-space:nowrap;font-size:10px}
+.tval.al{color:var(--rd)}.tval.wa{color:var(--or)}
+
+/* NULIDAD HISTORY */
+.nul-hist{background:var(--nu-bg);border:1px solid var(--nu);border-radius:var(--r);padding:10px;margin-top:8px;grid-column:1/-1}
+.nul-hist h4{font-size:10px;font-weight:700;color:var(--nu);margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.nul-item{background:#fff;border:1px solid #f5c6c2;border-radius:6px;padding:7px 9px;margin-bottom:5px;font-size:10px}
+.nul-item:last-child{margin-bottom:0}
+.nul-item b{color:var(--nu)}
+
+/* PROGRESS */
+.pbar{display:flex;margin-bottom:12px;border-radius:var(--r);overflow:hidden;border:1px solid var(--bd)}
+.ps{flex:1;text-align:center;padding:5px 2px;font-size:8px;font-weight:700;color:var(--t3);border-right:1px solid var(--bd);text-transform:uppercase}
+.ps:last-child{border-right:none}
+.ps.done{background:var(--gr-bg);color:var(--gr)}.ps.act{background:var(--or-bg);color:var(--or)}
+.ps.nul{background:var(--nu-bg);color:var(--nu);font-weight:800}
+
+/* CALENDAR */
+.cal-hdr{display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+.cal-links{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.cal-link-btn{padding:6px 12px;font-size:11px;font-weight:600;border:none;border-radius:var(--r);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.cal-link-btn.col{background:#d4a017;color:#fff}
+.cal-link-btn.web{background:var(--n2);color:#fff}
+.cal-legend{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;padding:8px 10px;background:var(--card);border-radius:var(--r);border:1px solid var(--bd)}
+.leg{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--t2)}
+.leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.cal-yr-sel{font-size:11px;padding:5px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--card)}
+.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px}
+.cal-month{border:1px solid var(--bd);border-radius:var(--r2);overflow:hidden;box-shadow:var(--sh)}
+.cal-mhdr{background:var(--n2);color:#fff;font-size:11px;font-weight:700;padding:6px 10px;text-align:center;text-transform:uppercase;letter-spacing:.04em}
+.cal-dhdr{display:grid;grid-template-columns:repeat(7,1fr);background:var(--bg)}
+.cal-dh{font-size:8px;font-weight:700;color:var(--t3);text-align:center;padding:3px 1px;text-transform:uppercase}
+.cal-days{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-day{font-size:10px;text-align:center;padding:3px 1px;min-height:28px;display:flex;align-items:center;justify-content:center;flex-direction:column;border-right:1px solid var(--bd);border-bottom:1px solid var(--bd);position:relative;cursor:pointer;transition:.1s}
+.cal-day:nth-child(7n){border-right:none}
+.cal-day.empty{background:var(--bg);cursor:default}
+.cal-day.sab,.cal-day.dom{color:var(--t3)}
+.cal-day.fest{background:#fde8e7;color:var(--rd);font-weight:700}
+.cal-day.ss{background:#fff3cd;color:#856404;font-weight:600}
+.cal-day.hoy{outline:2px solid var(--n2);outline-offset:-2px;border-radius:3px;font-weight:800}
+.cal-day.ev-venc{background:#fde8e7}
+.cal-day.ev-alert{background:#fff3e0}
+.cal-day.ev-event{background:#e8f0ff}
+.cal-day.ev-user{background:#e8f8e8}
+.ev-dot{width:4px;height:4px;border-radius:50%;margin:1px auto 0}
+.cal-tip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--n);color:#fff;font-size:8px;padding:3px 7px;border-radius:5px;white-space:nowrap;z-index:100;margin-bottom:2px;max-width:200px;text-align:center;word-break:break-word;white-space:normal;min-width:80px}
+.cal-day:hover .cal-tip{display:block}
+.cal-day:hover{background:var(--bg)}
+.cal-day.fest:hover{background:#fbc8c4}
+.cal-day.ss:hover{background:#ffe8a0}
+
+/* ESTADÍSTICA SIERJU */
+.sierju-wrap{padding:0}
+.sierju-header{background:var(--n2);color:#fff;padding:14px 16px;border-radius:var(--r2) var(--r2) 0 0;margin-bottom:0}
+.sierju-header h2{font-size:14px;font-weight:700;margin-bottom:2px}
+.sierju-header p{font-size:10px;opacity:.75}
+.sierju-content{background:var(--card);border:1px solid var(--bd);border-top:none;border-radius:0 0 var(--r2) var(--r2);padding:14px;box-shadow:var(--sh)}
+.per-tabs{display:flex;gap:4px;margin-bottom:14px;flex-wrap:wrap}
+.per-tab{padding:5px 12px;font-size:11px;font-weight:500;border:1px solid var(--bd2);border-radius:20px;cursor:pointer;background:var(--card);color:var(--t2)}
+.per-tab.a{background:var(--n2);color:#fff;border-color:var(--n2)}
+.sierju-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.sierju-table-wrap{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden}
+.sierju-table-title{background:var(--n3);color:#fff;padding:8px 12px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px}
+.sierju-table{width:100%;border-collapse:collapse;font-size:10px}
+.sierju-table th{background:#f8f9fc;padding:6px 8px;text-align:center;font-weight:700;font-size:9px;color:var(--t3);border-bottom:1px solid var(--bd);border-right:1px solid var(--bd)}
+.sierju-table th:first-child{text-align:left}
+.sierju-table th:last-child{border-right:none}
+.sierju-table td{padding:5px 8px;border-bottom:1px solid var(--bd);border-right:1px solid var(--bd);text-align:center;vertical-align:middle}
+.sierju-table td:first-child{text-align:left;font-weight:500}
+.sierju-table td:last-child{border-right:none}
+.sierju-table tr:last-child td{border-bottom:none;font-weight:700;background:#f0f4f8}
+.sierju-table tr.total-row td{background:var(--n2)!important;color:#fff!important;font-weight:700!important}
+.sierju-num{font-weight:700;font-size:12px}
+.sierju-num.zero{color:var(--t3);font-weight:400}
+.sierju-num.pos{color:var(--gr)}
+.sierju-num.neg{color:var(--rd)}
+.resumen-card{background:var(--card);border:1px solid var(--bd);border-radius:var(--r);margin-top:14px;overflow:hidden}
+.resumen-title{background:var(--n3);color:#fff;padding:8px 12px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:6px}
+
+/* SEGURIDAD */
+.sec-input{width:100%;padding:12px;border:1.5px solid var(--bd2);border-radius:var(--r);font-size:16px;text-align:center;letter-spacing:3px;margin-bottom:8px}
+.sec-err{color:var(--rd);font-size:11px;min-height:16px;text-align:center}
+
+/* OFFLINE */
+.offline-bar{display:none;background:#e67e22;color:#fff;text-align:center;padding:5px;font-size:10px;font-weight:600}
+.offline-bar.show{display:block}
+
+@media(max-width:600px){
+  .fg{grid-template-columns:1fr}
+  .fi.full,.fsec,.tbox,.nul-hist,.chk-row{grid-column:1}
+  .sierju-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="lbox">
+    <div class="llogo">⚖️</div>
+    <div class="ltitle">Control Judicial</div>
+    <div class="lsub">Área Constitucional</div>
+    <input class="linput" type="password" id="lpwd" placeholder="••••" maxlength="20">
+    <button class="lbtn" id="lbtn">🔓 Ingresar</button>
+    <div class="lerr" id="lerr"></div>
+    <div style="margin-top:12px;font-size:9px;color:var(--t3)">© Uso exclusivo interno — Área Constitucional</div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+<div class="offline-bar" id="offline-bar">📵 Sin conexión — modo local</div>
+<div class="topbar">
+  <div class="tlogo">⚖️</div>
+  <div class="tinfo">
+    <div class="ttitle">Control Judicial</div>
+    <div class="tsub">Área Constitucional</div>
+  </div>
+  <div style="display:flex;gap:5px;align-items:center;flex-shrink:0">
+    <div class="spill"><span class="sdot" id="sd"></span><span id="st">...</span></div>
+    <button class="tibtn" onclick="abrirConfig()" title="Configuración">⚙️</button>
+    <button class="tibtn" onclick="doLogout()" title="Salir">↩</button>
+  </div>
+</div>
+<div class="yearbar">
+  <span class="yl">Año</span>
+  <div class="ybtns" id="ybtns"></div>
+  <button class="yadd" onclick="addAnio()">+ Año</button>
+  <div class="ystats" id="ystats"></div>
+</div>
+<div class="nul-banner" id="nul-banner" onclick="switchTab('t');filtrarNul()">
+  🚨<span id="nul-txt">⚠ NULIDAD ACTIVA — REQUIERE NUEVO FALLO</span>
+</div>
+<div class="tabs" id="tabs">
+  <div class="tab a" onclick="switchTab('t')">📄 Tutelas <span class="tcnt" id="cnt-t" style="background:#e8f0f8;color:var(--n2)">0</span></div>
+  <div class="tab" onclick="switchTab('d')">⚠ Desacatos <span class="tcnt" id="cnt-d" style="background:var(--rd-bg);color:var(--rd)">0</span></div>
+  <div class="tab" onclick="switchTab('c')">📅 Calendario</div>
+  <div class="tab" onclick="switchTab('s')">📊 Estadística</div>
+</div>
+
+<!-- TUTELAS -->
+<div id="pt" class="panel a">
+  <div class="toolbar">
+    <div class="srow">
+      <div class="sc"><div class="v" id="st-to">0</div><div class="l">Total</div></div>
+      <div class="sc red"><div class="v" id="st-ve">0</div><div class="l">Vencidas</div></div>
+      <div class="sc or"><div class="v" id="st-pr">0</div><div class="l">Próximas</div></div>
+      <div class="sc gr"><div class="v" id="st-vi">0</div><div class="l">Vigentes</div></div>
+      <div class="sc bl"><div class="v" id="st-fa">0</div><div class="l">Falladas</div></div>
+      <div class="sc nu" onclick="filtrarNul()" title="Ver con nulidad"><div class="v" id="st-nu">0</div><div class="l">Nulidades</div></div>
+    </div>
+    <button class="btn btn-p" onclick="aFT()">+ Agregar</button>
+  </div>
+  <div class="fbar">
+    <input type="text" id="bqt" placeholder="Buscar radicación, accionante, accionado..." oninput="rT()">
+    <select id="fat" onchange="rT()">
+      <option value="">Todas las alertas</option>
+      <option value="VENCIDO">Vencidas</option><option value="PROXIMO">Próximas</option>
+      <option value="VIGENTE">Vigentes</option><option value="FALLADA">Falladas</option>
+      <option value="NULIDAD">Con nulidad</option><option value="HC">Hábeas Corpus</option>
+    </select>
+    <select id="fet" onchange="rT()">
+      <option value="">Todos los estados</option>
+      <option>En término</option><option>Fallada</option><option>Impugnada</option>
+      <option>En Corte Constitucional</option><option>Archivada</option><option>Desistimiento</option>
+    </select>
+  </div>
+  <div class="tw"><div class="tws">
+    <table>
+      <thead><tr>
+        <th style="width:28px"></th><th>Radicación</th><th>Accionante</th><th>Accionado</th>
+        <th>Derecho SIERJU</th><th>F.Admisión</th><th>Vence fallo</th>
+        <th>Alerta</th><th>Estado</th><th>Acciones</th>
+      </tr></thead>
+      <tbody id="tbt"></tbody>
+    </table>
+    <div id="empt" class="empty" style="display:none">
+      📥<p>No hay radicaciones para <strong id="al-t">este año</strong>.</p>
+    </div>
+  </div></div>
+</div>
+
+<!-- DESACATOS -->
+<div id="pd" class="panel">
+  <div class="toolbar">
+    <div class="srow">
+      <div class="sc"><div class="v" id="sd-to">0</div><div class="l">Total</div></div>
+      <div class="sc red"><div class="v" id="sd-ve">0</div><div class="l">Vencidos</div></div>
+      <div class="sc or"><div class="v" id="sd-pr">0</div><div class="l">Próximos</div></div>
+      <div class="sc gr"><div class="v" id="sd-ar">0</div><div class="l">Archivados</div></div>
+      <div class="sc nu" onclick="filtrarNulD()" title="Ver con nulidad"><div class="v" id="sd-nu">0</div><div class="l">Nulidades</div></div>
+    </div>
+    <button class="btn btn-p" onclick="aFD()">+ Agregar</button>
+  </div>
+  <div class="fbar">
+    <input type="text" id="bqd" placeholder="Buscar..." oninput="rD()">
+    <select id="fad" onchange="rD()">
+      <option value="">Todas las alertas</option>
+      <option value="VENCIDO">Vencidos</option><option value="PROXIMO">Próximos</option>
+      <option value="VIGENTE">Vigentes</option><option value="NULIDAD">Con nulidad</option>
+    </select>
+    <select id="fed" onchange="rD()">
+      <option value="">Todos los estados</option>
+      <option>Requerimiento previo</option><option>Apertura formal</option>
+      <option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option><option>Archivado</option>
+    </select>
+  </div>
+  <div class="tw"><div class="tws">
+    <table>
+      <thead><tr>
+        <th style="width:28px"></th><th>Radicación inc.</th><th>Tutela base</th><th>Incidentado</th>
+        <th>Derecho SIERJU</th><th>F.Solicitud</th><th>Req.Previo</th>
+        <th>Apertura</th><th>Vence D10</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
+      </tr></thead>
+      <tbody id="tbd"></tbody>
+    </table>
+    <div id="empd" class="empty" style="display:none">
+      📥<p>No hay incidentes para <strong id="al-d">este año</strong>.</p>
+    </div>
+  </div></div>
+</div>
+
+<!-- CALENDARIO -->
+<div id="pc" class="panel">
+  <div class="cal-hdr">
+    <span style="font-size:13px;font-weight:700;color:var(--n2)">Calendario Judicial</span>
+    <select id="cal-sel" class="cal-yr-sel" onchange="rCal()"></select>
+    <button class="btn btn-sm" onclick="abrirEvento()" style="background:var(--gr);color:#fff;border-color:var(--gr)">+ Agregar evento</button>
+  </div>
+  <div class="cal-links">
+    <button class="cal-link-btn col" onclick="abrirCalColombia()">📱 Calendario Colombia App</button>
+    <button class="cal-link-btn web" onclick="window.open('https://www.calendariodecolombia.com/','_blank')">🌐 CalendarioColombia.com</button>
+    <button class="cal-link-btn" style="background:var(--n3);color:#fff" onclick="verEventos()">☰ Ver todos los eventos</button>
+  </div>
+  <div class="cal-legend">
+    <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid #f5c6c2"></div>Festivo oficial</div>
+    <div class="leg"><div class="leg-dot" style="background:#fff3cd;border:1px solid #f0d080"></div>Semana Santa L-M-X (no hábil conocimiento)</div>
+    <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid var(--rd)"></div>Vencimiento</div>
+    <div class="leg"><div class="leg-dot" style="background:#fff3e0;border:1px solid var(--or)"></div>Alerta día 9</div>
+    <div class="leg"><div class="leg-dot" style="background:#e8f0ff;border:1px solid var(--bl)"></div>Evento procesal</div>
+    <div class="leg"><div class="leg-dot" style="background:#e8f8e8;border:1px solid var(--gr)"></div>Evento manual</div>
+  </div>
+  <div class="cal-grid" id="cal-grid"></div>
+</div>
+
+<!-- ESTADÍSTICA -->
+<div id="ps2" class="panel">
+  <div class="sierju-wrap">
+    <div class="sierju-header">
+      <h2>📊 Control Judicial</h2>
+      <p>Estadística SIERJU — Área Constitucional</p>
+    </div>
+    <div class="sierju-content">
+      <div class="per-tabs" id="per-tabs">
+        <button class="per-tab a" onclick="setPer(1,this)">Período 1 · Ene–Mar</button>
+        <button class="per-tab" onclick="setPer(2,this)">Período 2 · Abr–Jun</button>
+        <button class="per-tab" onclick="setPer(3,this)">Período 3 · Jul–Sep</button>
+        <button class="per-tab" onclick="setPer(4,this)">Período 4 · Oct–Dic</button>
+      </div>
+      <div class="sierju-grid">
+        <div class="sierju-table-wrap">
+          <div class="sierju-table-title">📄 Movimiento de Tutelas — <span id="slbl-t">Período 1 (Ene–Mar)</span></div>
+          <div style="overflow-x:auto"><table class="sierju-table" id="st-table"></table></div>
+        </div>
+        <div class="sierju-table-wrap">
+          <div class="sierju-table-title">⚠ Incidentes de Desacato — <span id="slbl-d">Período 1 (Ene–Mar)</span></div>
+          <div style="overflow-x:auto"><table class="sierju-table" id="sd-table"></table></div>
+        </div>
+      </div>
+      <div class="resumen-card">
+        <div class="resumen-title">☰ Resumen consolidado — <span id="sresumen-anio"></span></div>
+        <div style="overflow-x:auto;padding:12px">
+          <table class="sierju-table" id="sresumen-table"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- MODALES -->
+<div class="mbg" id="mf"><div class="modal" id="mfi"></div></div>
+<div class="mbg" id="md2"><div class="modal" id="mdi"></div></div>
+<div class="mbg" id="msec">
+  <div class="modal" style="max-width:340px">
+    <div class="mhdr">
+      <div class="mico nu">🔒</div>
+      <div class="mhdr-t"><h3 id="sec-tit">Verificación requerida</h3><p>Solo el administrador puede realizar esta acción</p></div>
+      <button class="mcls" onclick="cerrarSec()">✕</button>
+    </div>
+    <div style="padding:16px">
+      <input class="sec-input" type="password" id="sec-pwd" placeholder="Contraseña de administrador" maxlength="20">
+      <div class="sec-err" id="sec-err"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
+        <button class="btn" onclick="cerrarSec()">Cancelar</button>
+        <button class="btn btn-p" onclick="verifySec()">✓ Verificar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="mbg" id="mcfg">
+  <div class="modal" style="max-width:380px">
+    <div class="mhdr">
+      <div class="mico n">⚙️</div>
+      <div class="mhdr-t"><h3>Configuración</h3><p>Solo accesible para el administrador</p></div>
+      <button class="mcls" onclick="cerrarCfg()">✕</button>
+    </div>
+    <div class="mbody" id="cfg-body"></div>
+  </div>
+</div>
+<script>
+var PRELOADED_DB=null;
+var _dbReady=fetch('db.json').then(function(r){return r.json();}).then(function(d){PRELOADED_DB=d;}).catch(function(){PRELOADED_DB={anios:[],tutelas:{},desacatos:{}};});
+</script>
+<script>
+// ═══════════════════════════════════════════════════════
+// FESTIVOS COLOMBIA 2024-2031 — VERIFICADOS
+// ═══════════════════════════════════════════════════════
+const CAL_FEST={
+  "2024":["2024-01-01","2024-01-08","2024-03-25","2024-03-28","2024-03-29","2024-05-01","2024-05-13","2024-06-03","2024-06-10","2024-07-01","2024-07-20","2024-08-07","2024-08-19","2024-10-14","2024-11-04","2024-11-11","2024-12-08","2024-12-25"],
+  "2025":["2025-01-01","2025-01-06","2025-03-24","2025-04-17","2025-04-18","2025-05-01","2025-06-02","2025-06-23","2025-06-30","2025-06-30","2025-07-20","2025-08-07","2025-08-18","2025-10-13","2025-11-03","2025-11-17","2025-12-08","2025-12-25"],
+  "2026":["2026-01-01","2026-01-12","2026-03-23","2026-04-02","2026-04-03","2026-05-01","2026-05-18","2026-06-08","2026-06-15","2026-06-29","2026-07-20","2026-08-07","2026-08-17","2026-10-12","2026-11-02","2026-11-16","2026-12-08","2026-12-25"],
+  "2027":["2027-01-01","2027-01-11","2027-03-22","2027-03-25","2027-03-26","2027-05-01","2027-05-10","2027-05-31","2027-06-07","2027-07-05","2027-07-20","2027-08-07","2027-08-16","2027-10-18","2027-11-08","2027-11-15","2027-12-08","2027-12-25"],
+  "2028":["2028-01-01","2028-01-10","2028-03-20","2028-04-13","2028-04-14","2028-05-01","2028-05-29","2028-06-19","2028-06-26","2028-07-03","2028-07-20","2028-08-07","2028-08-15","2028-10-16","2028-11-06","2028-11-13","2028-12-08","2028-12-25"],
+  "2029":["2029-01-01","2029-01-08","2029-03-19","2029-04-05","2029-04-06","2029-05-01","2029-05-21","2029-06-11","2029-06-18","2029-07-02","2029-07-20","2029-08-07","2029-08-20","2029-10-15","2029-11-05","2029-11-17","2029-12-08","2029-12-25"],
+  "2030":["2030-01-01","2030-01-07","2030-03-25","2030-04-18","2030-04-19","2030-05-01","2030-06-03","2030-06-24","2030-07-01","2030-07-20","2030-08-07","2030-08-19","2030-10-14","2030-11-04","2030-11-11","2030-12-08","2030-12-25"],
+  "2031":["2031-01-01","2031-01-06","2031-03-17","2031-04-10","2031-04-11","2031-05-01","2031-05-26","2031-06-16","2031-06-23","2031-06-30","2031-07-20","2031-08-07","2031-08-18","2031-10-13","2031-11-03","2031-11-17","2031-12-08","2031-12-25"]
+};
+const CAL_SS={
+  "2024":["2024-03-25","2024-03-26","2024-03-27"],
+  "2025":["2025-04-14","2025-04-15","2025-04-16"],
+  "2026":["2026-03-30","2026-03-31","2026-04-01"],
+  "2027":["2027-03-22","2027-03-23","2027-03-24"],
+  "2028":["2028-04-10","2028-04-11","2028-04-12"],
+  "2029":["2029-04-02","2029-04-03","2029-04-04"],
+  "2030":["2030-04-15","2030-04-16","2030-04-17"],
+  "2031":["2031-04-07","2031-04-08","2031-04-09"]
+};
+const CAL_LBL={
+  "2026-01-01":"Año Nuevo","2026-01-12":"Reyes Magos","2026-03-23":"San José",
+  "2026-03-30":"Lunes Santo — no hábil juzgados conocimiento",
+  "2026-03-31":"Martes Santo — no hábil juzgados conocimiento",
+  "2026-04-01":"Miércoles Santo — no hábil juzgados conocimiento",
+  "2026-04-02":"Jueves Santo","2026-04-03":"Viernes Santo",
+  "2026-05-01":"Día del Trabajo","2026-05-18":"Ascensión del Señor",
+  "2026-06-08":"Corpus Christi","2026-06-15":"Sagrado Corazón de Jesús",
+  "2026-06-29":"San Pedro y San Pablo","2026-07-20":"Grito de Independencia",
+  "2026-08-07":"Batalla de Boyacá","2026-08-17":"Asunción de la Virgen",
+  "2026-10-12":"Día de la Raza","2026-11-02":"Todos los Santos",
+  "2026-11-16":"Independencia de Cartagena","2026-12-08":"Inmaculada Concepción","2026-12-25":"Navidad"
+};
+
+// ═══════════════════════════════════════════════════════
+// DERECHOS SIERJU
+// ═══════════════════════════════════════════════════════
+const DERECHOS_SIERJU=[
+  "Salud","Seguridad Social","Vida","Mínimo Vital","Igualdad","Educación",
+  "Debido Proceso","Derecho de Petición","Habeas Data",
+  "Derecho a la Información Pública","Derecho al Trabajo",
+  "Contra Providencias Judiciales","Vivienda","Otros"
+];
+
+// SIERJU: columnas por tipo
+// Tutelas: Ingresadas | Concede | Niega - Hecho Superado | Niega - Improcedente | Otras salidas
+// Marcadas con X (no aplican): ciertas combinaciones de derecho x salida
+// Per formulario: todas las filas tienen todas las columnas excepto las marcadas X
+// Según imágenes adjuntas: Habeas Data y Derecho Información no tienen columnas de concede/niega (X)
+const SIERJU_EXCLUIR_T={}; // ninguno excluido — el formulario muestra todas
+const SIERJU_EXCLUIR_D={}; // ninguno excluido
+
+// ═══════════════════════════════════════════════════════
+// UTILIDADES DE FECHA
+// ═══════════════════════════════════════════════════════
+function esFest(iso){const y=iso.split('-')[0];return (CAL_FEST[y]||[]).includes(iso);}
+function esSS(iso){const y=iso.split('-')[0];return (CAL_SS[y]||[]).includes(iso);}
+function esHabil(iso){
+  if(esFest(iso)||esSS(iso))return false;
+  const dow=new Date(iso+'T12:00:00').getDay();
+  return dow!==0&&dow!==6;
+}
+function dISO(d){return d.toISOString().split('T')[0];}
+function addD(ds,n){if(!ds)return '';const d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);return dISO(d);}
+function addFin(ds,n){
+  if(!ds)return '';let d=new Date(ds+'T12:00:00');d.setDate(d.getDate()+n);
+  let iso=dISO(d);while(!esHabil(iso)){d.setDate(d.getDate()+1);iso=dISO(d);}return iso;
+}
+function addHab(ds,n){
+  if(!ds)return '';let d=new Date(ds+'T12:00:00'),c=0;
+  while(c<n){d.setDate(d.getDate()+1);if(esHabil(dISO(d)))c++;}return dISO(d);
+}
+function fmt(ds){if(!ds)return '—';const[y,m,d]=ds.split('-');return `${d}/${m}/${y}`;}
+function hoy(){return new Date().toISOString().split('T')[0];}
+function diff(ds){if(!ds)return null;return Math.ceil((new Date(ds+'T12:00:00')-new Date(hoy()+'T12:00:00'))/864e5);}
+
+// ═══════════════════════════════════════════════════════
+// TÉRMINOS PROCESALES
+// ═══════════════════════════════════════════════════════
+function termT(t){
+  const base=t.ultimaNulidad||t.fechaAdmision;
+  if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:''};
+  const vce=addFin(base,10);
+  const dia9=addD(base,9);
+  const cor2=addD(vce,2);
+  const eje3=addD(cor2,3);
+  let remCC=addD(eje3,1);while(remCC&&!esHabil(remCC))remCC=addD(remCC,1);
+  const vce2i=t.fechaReparto2i?addHab(t.fechaReparto2i,20):'';
+  return{dia9,vce,cor2,eje3,remCC,vce2i};
+}
+function termD(d){
+  const base=d.ultimaNulidad||d.fechaSolicitud;
+  if(!base)return{req:'',aper:'',dia9:'',vce:'',remCons:'',resCons:'',ofic:''};
+  return{
+    req:addFin(base,1),aper:addFin(base,2),dia9:addD(base,9),
+    vce:addFin(base,10),remCons:addD(addFin(base,10),1),
+    resCons:addD(addD(addFin(base,10),1),3),
+    ofic:addD(addD(addD(addFin(base,10),1),3),1)
+  };
+}
+function trows(arr){
+  return arr.filter(Boolean).map(([l,v,c])=>`<div class="tr2"><span class="tlbl">${l}</span><span class="tval${c?' '+c:''}">${v&&v!=='—'?fmt(v):'—'}</span></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// ALERTAS
+// ═══════════════════════════════════════════════════════
+function hasNulActiva(r){
+  if(!r.nulidades||!r.nulidades.length)return false;
+  const ult=r.nulidades[r.nulidades.length-1].fecha;
+  if(!r.fechaFallo)return true;
+  return ult>r.fechaFallo;
+}
+function aKeyT(t){
+  if(hasNulActiva(t))return 'NULIDAD';
+  if(t.fechaFallo)return 'FALLADA';
+  if(!t.fechaAdmision)return 'SF';
+  const r=diff(termT(t).vce);
+  if(r===null)return 'SF';
+  if(r<0)return 'VENCIDO';if(r<=5)return 'PROXIMO';return 'VIGENTE';
+}
+function aKeyD(d){
+  if(hasNulActiva(d))return 'NULIDAD';
+  if(['Sanciona','No sanciona','Archivado'].includes(d.estado))return 'RESUELTO';
+  if(!d.fechaSolicitud)return 'SF';
+  const r=diff(termD(d).vce);
+  if(r<0)return 'VENCIDO';if(r<=2)return 'PROXIMO';return 'VIGENTE';
+}
+function aBadge(k,ds){
+  const r=ds?diff(ds):null;
+  const dias=r!==null?(r<0?`${Math.abs(r)}d`:r===0?'hoy':`${r}d`):'';
+  const mp={
+    NULIDAD:['bnu','⚠ NULIDAD',''],FALLADA:['bb','Fallada',''],SF:['bgy','Sin fecha',''],
+    RESUELTO:['bb','Resuelto',''],VENCIDO:['br','Vencido',dias],
+    PROXIMO:['bo','Próximo',dias],VIGENTE:['bg','Vigente',dias]
+  };
+  const[cls,lbl,d2]=mp[k]||['bgy','—',''];
+  return `<span class="badge ${cls}">${lbl}${d2?' · '+d2:''}</span>`;
+}
+function eBadge(e){
+  const m={'En término':'bg','Fallada':'bb','Impugnada':'bp','En Corte Constitucional':'bp',
+    'Archivada':'bgy','Desistimiento':'bgy','Devuelta por competencia':'bgy',
+    'Requerimiento previo':'bo','Apertura formal':'bo','Pendiente decisión':'bo',
+    'Sanciona':'br','No sanciona':'bg','Archivado':'bgy'};
+  return `<span class="badge ${m[e]||'bgy'}">${e||'—'}</span>`;
+}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+
+// ═══════════════════════════════════════════════════════
+// SISTEMA DE VERSIONES Y ACTUALIZACIONES
+// ═══════════════════════════════════════════════════════
+var APP_VERSION='2.0';
+var APP_NAME='Control Judicial';
+
+function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
+function setVersion(v){localStorage.setItem('cj_version',v);}
+
+// Aplicar parche de actualización
+async function aplicarParche(patchData){
+  try{
+    // El parche puede contener: funciones nuevas, estilos, correcciones
+    if(patchData.version){
+      setVersion(patchData.version);
+      console.log('Versión actualizada a '+patchData.version);
+    }
+    // Ejecutar código del parche si viene
+    if(patchData.code){
+      const fn=new Function(patchData.code);
+      fn();
+    }
+    // Actualizar datos si vienen en el parche
+    if(patchData.datos){
+      Object.keys(patchData.datos.tutelas||{}).forEach(yr=>{
+        if(!localDB.tutelas[yr])localDB.tutelas[yr]=[];
+        const ids=new Set(localDB.tutelas[yr].map(x=>String(x.id)));
+        (patchData.datos.tutelas[yr]||[]).forEach(t=>{
+          if(!ids.has(String(t.id)))localDB.tutelas[yr].push(t);
+          else{const idx=localDB.tutelas[yr].findIndex(x=>String(x.id)===String(t.id));if(idx>=0)localDB.tutelas[yr][idx]={...localDB.tutelas[yr][idx],...t};}
+        });
+      });
+      guardarLocal(localDB);
+    }
+    alert('✓ Actualización aplicada correctamente.\nVersión: '+getVersion()+'\nRecargue la página para ver los cambios.');
+    return true;
+  }catch(e){
+    alert('Error al aplicar actualización: '+e.message);
+    return false;
+  }
+}
+
+function importarParche(){
+  const input=document.createElement('input');
+  input.type='file';input.accept='.json,.patch';
+  input.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=async ev=>{
+      try{
+        const patch=JSON.parse(ev.target.result);
+        if(!patch.tipo||patch.tipo!=='parche_cj'){
+          alert('Archivo inválido. Debe ser un parche oficial de Control Judicial.');return;
+        }
+        if(confirm('¿Aplicar actualización v'+patch.version+'?\n\n'+( patch.descripcion||'Sin descripción'))){
+          await aplicarParche(patch);
+        }
+      }catch(ex){alert('Error leyendo el parche: '+ex.message);}
+    };
+    r.readAsText(file);
+  };
+  input.click();
+}
+window.importarParche=importarParche;
+
+// ═══════════════════════════════════════════════════════
+// AUTH & STORAGE — LOCAL
+// ═══════════════════════════════════════════════════════
+function getPwd(t){return localStorage.getItem('j14_pwd_'+t)||(t==='user'?'0000':'2029Rj75');}
+function setPwd(t,v){localStorage.setItem('j14_pwd_'+t,v);}
+let isAdmin=false;
+
+function doLogin(){
+  const pwd=document.getElementById('lpwd').value;
+  const err=document.getElementById('lerr');
+  if(pwd===getPwd('admin')){isAdmin=true;}
+  else if(pwd===getPwd('user')){isAdmin=false;}
+  else{err.textContent='Contraseña incorrecta.';document.getElementById('lpwd').value='';return;}
+  err.textContent='';
+  document.getElementById('login-overlay').style.display='none';
+  document.getElementById('app').style.display='block';
+  _dbReady.then(function(){init();});
+}
+function doLogout(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-overlay').style.display='flex';
+  document.getElementById('lpwd').value='';isAdmin=false;
+}
+
+const KEY='cj_local_v3';
+let localDB={tutelas:{},desacatos:{},anios:[2024,2025,2026],eventos:[]};
+let anios=[2024,2025,2026],anio=2026,tabAct='t',periodoStat=1;
+function tA(){return localDB.tutelas[anio]||[];}
+function dA(){return localDB.desacatos[anio]||[];}
+function setSS(s,msg){const dot=document.getElementById('sd'),txt=document.getElementById('st');dot.className='sdot'+(s==='s'?' s':'');txt.textContent=msg||(s==='s'?'Guardando...':s==='e'?'Error':'Local ✓');}
+window.addEventListener('online',()=>document.getElementById('offline-bar').classList.remove('show'));
+window.addEventListener('offline',()=>document.getElementById('offline-bar').classList.add('show'));
+
+function cargarEventosLocal(){try{return JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');}catch(e){return[];}}
+function guardarLocal(d){
+  try{
+    const s={...d};const evs=s.eventos||[];delete s.eventos;
+    localStorage.setItem(KEY,JSON.stringify(s));
+    localStorage.setItem('cj_eventos_v3',JSON.stringify(evs));
+    setSS('ok');
+  }catch(e){
+    try{localStorage.setItem('cj_eventos_v3',JSON.stringify(d.eventos||[]));}catch(e2){}
+    setSS('ok');
+  }
+}
+function cargarLocalDB(){
+  try{
+    const d=JSON.parse(localStorage.getItem(KEY)||'null');
+    if(d){try{d.eventos=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');}catch(e){d.eventos=[];}return d;}
+  }catch(e){}
+  return{tutelas:{},desacatos:{},anios:[2024,2025,2026],eventos:[]};
+}
+
+async function fbSave(col,id,data){
+  setSS('s');
+  const p=col.split('_');const tipo=p[0];const yr=parseInt(p[1]);
+  if(!localDB[tipo])localDB[tipo]={};
+  if(!localDB[tipo][yr])localDB[tipo][yr]=[];
+  const arr=localDB[tipo][yr];
+  const idx=arr.findIndex(x=>String(x.id)===String(id));
+  if(idx>=0)arr[idx]=data;else arr.unshift(data);
+  guardarLocal(localDB);
+}
+async function fbDel(col,id){
+  const p=col.split('_');const tipo=p[0];const yr=parseInt(p[1]);
+  if(localDB[tipo]&&localDB[tipo][yr])
+    localDB[tipo][yr]=localDB[tipo][yr].filter(x=>String(x.id)!==String(id));
+  guardarLocal(localDB);
+}
+
+function mergeHistorico(){
+  Object.keys(PRELOADED_DB.tutelas).forEach(yr=>{
+    if(!localDB.tutelas[yr]||!localDB.tutelas[yr].length)
+      localDB.tutelas[yr]=[...PRELOADED_DB.tutelas[yr]];
+  });
+  Object.keys(PRELOADED_DB.desacatos).forEach(yr=>{
+    if(!localDB.desacatos[yr]||!localDB.desacatos[yr].length)
+      localDB.desacatos[yr]=[...PRELOADED_DB.desacatos[yr]];
+  });
+  PRELOADED_DB.anios.forEach(a=>{if(!localDB.anios.includes(a))localDB.anios.push(a);});
+}
+
+function escuchar(a){
+  if(!localDB.tutelas[a])localDB.tutelas[a]=[];
+  if(!localDB.desacatos[a])localDB.desacatos[a]=[];
+  rActivo();renderAnios();actualizarBanner();
+}
+
+function exportarDatos(){
+  const data={tutelas:localDB.tutelas,desacatos:localDB.desacatos,anios,eventos:localDB.eventos,exp:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='ControlJudicial_'+new Date().toISOString().split('T')[0]+'.json';a.click();
+}
+function importarDatos(){document.getElementById('fi-imp').click();}
+function cargarJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      Object.keys(d.tutelas||{}).forEach(yr=>{
+        if(!localDB.tutelas[yr])localDB.tutelas[yr]=[];
+        const ids=new Set(localDB.tutelas[yr].map(x=>String(x.id)));
+        (d.tutelas[yr]||[]).forEach(t=>{if(!ids.has(String(t.id)))localDB.tutelas[yr].push(t);});
+      });
+      Object.keys(d.desacatos||{}).forEach(yr=>{
+        if(!localDB.desacatos[yr])localDB.desacatos[yr]=[];
+        const ids=new Set(localDB.desacatos[yr].map(x=>String(x.id)));
+        (d.desacatos[yr]||[]).forEach(t=>{if(!ids.has(String(t.id)))localDB.desacatos[yr].push(t);});
+      });
+      if(d.eventos)localDB.eventos=[...new Set([...(localDB.eventos||[]),...d.eventos].map(JSON.stringify))].map(JSON.parse);
+      (d.anios||[]).forEach(a=>{if(!localDB.anios.includes(a))localDB.anios.push(a);});
+      guardarLocal(localDB);anios=[...new Set(localDB.anios)].sort((x,y)=>x-y);
+      renderAnios();rActivo();alert('Datos importados correctamente.');
+    }catch(ex){alert('Error: '+ex.message);}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+let secCb=null;
+function pedirAdmin(cb){secCb=cb;document.getElementById('sec-pwd').value='';document.getElementById('sec-err').textContent='';document.getElementById('msec').classList.add('o');}
+function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb=null;}
+function cerrarCfg(){document.getElementById('mcfg').classList.remove('o');}
+function guardarCfg(){
+  const u=document.getElementById('cfg-u').value,a=document.getElementById('cfg-a').value,a2=document.getElementById('cfg-a2').value;
+  if(a&&a!==a2){document.getElementById('cfg-err').textContent='Las contraseñas no coinciden';return;}
+  if(u)setPwd('user',u);if(a)setPwd('admin',a);
+  alert('Contraseñas actualizadas correctamente.');cerrarCfg();
+}
+function confElimT(id){pedirAdmin(async()=>{if(!confirm('¿ELIMINAR definitivamente?'))return;await fbDel('tutelas_'+anio,id);rT();});}
+function confElimD(id){pedirAdmin(async()=>{if(!confirm('¿ELIMINAR definitivamente?'))return;await fbDel('desacatos_'+anio,id);rD();});}
+function importarParche(){
+  const input=document.createElement('input');input.type='file';input.accept='.json,.patch';
+  input.onchange=async e=>{
+    const file=e.target.files[0];if(!file)return;
+    const r=new FileReader();
+    r.onload=async ev=>{
+      try{
+        const patch=JSON.parse(ev.target.result);
+        if(!patch.tipo||patch.tipo!=='parche_cj'){alert('Archivo inválido.');return;}
+        if(confirm('¿Aplicar v'+patch.version+'?
+'+(patch.descripcion||''))){
+          if(patch.version)setVersion(patch.version);
+          if(patch.code){const fn=new Function(patch.code);fn();}
+          alert('✓ Actualización v'+patch.version+' aplicada.');
+        }
+      }catch(ex){alert('Error: '+ex.message);}
+    };r.readAsText(file);
+  };input.click();
+}
+
+async function init(){
+  localDB=cargarLocalDB();
+  mergeHistorico();
+  localDB.eventos=cargarEventosLocal();
+  anios=[...new Set(localDB.anios||[2024,2025,2026])].sort((a,b)=>a-b);
+  anio=anios[anios.length-1];
+  renderAnios();escuchar(anio);
+  setSS('ok');
+  setTimeout(solicitarNotificaciones,2000);
+}
+
+// ═══════════════════════════════════════════════════════
+// RESPONSABLES — editable por el usuario
+// ═══════════════════════════════════════════════════════
+function getResponsables(){
+  try{
+    const r=JSON.parse(localStorage.getItem('cj_responsables')||'null');
+    if(r&&r.length)return r;
+  }catch(e){}
+  return['DIEGO','ERIKA','MILENA','ANA','DESPACHO'];
+}
+function setResponsables(arr){
+  localStorage.setItem('cj_responsables',JSON.stringify(arr));
+}
+function optsResponsables(sel){
+  return '<option value="">—</option>'+getResponsables().map(r=>`<option${sel===r?' selected':''}>${r}</option>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════
+// EXPORTAR A EXCEL — SheetJS CDN
+// ═══════════════════════════════════════════════════════
+function exportarExcel(){
+  if(typeof XLSX!=='undefined'){_genXlsx();return;}
+  setSS('s','Cargando Excel...');
+  const s=document.createElement('script');
+  s.src='https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js';
+  s.onload=()=>{setSS('ok');_genXlsx();};
+  s.onerror=()=>{setSS('e');alert('Sin conexión. Use Exportar JSON como respaldo.');};
+  document.head.appendChild(s);
+}
+function _genXlsx(){
+  const wb=XLSX.utils.book_new();
+  const fd=d=>{if(!d)return'';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;};
+  // TUTELAS
+  const trows=tA().map(t=>{
+    const tc=termT(t);
+    return{'Radicación':t.radicacion||'','Tipo':t.esHC?'Hábeas Corpus':'Tutela',
+      'Accionante':t.accionante||'','Cédula':t.cedula||'','Accionado':t.accionado||'',
+      'Vinculados':t.vinculados||'','Derecho SIERJU':t.derechoSierju||'',
+      'Otros derechos':t.derechos||'','Medida':t.medida||'',
+      'F.Reparto':fd(t.fechaReparto),'F.Admisión':fd(t.fechaAdmision),
+      'D9 Alerta':fd(tc.dia9),'D10 Vence':fd(tc.vce),
+      'Ejecutoria':fd(tc.eje3),'Remisión CC':fd(tc.remCC),
+      'F.Fallo':fd(t.fechaFallo),'Sentido':t.sentidoFallo||'',
+      'F.Impugnación':fd(t.fechaImpugnacion),'Juzgado 2ªI':t.juzgado2i||'',
+      'F.Reparto 2ªI':fd(t.fechaReparto2i),'Vence 2ªI':fd(tc.vce2i),
+      'Fallo 2ªI':t.fallo2i||'','F.RemCC':fd(t.fechaRemCC),'F.RegresoCC':fd(t.fechaRegresoCC),
+      'Estado':t.estado||'','Responsable':t.responsable||'',
+      'Nulidades':(t.nulidades||[]).length,'Observaciones':t.observaciones||''};
+  });
+  // DESACATOS
+  const drows=dA().map(d=>{
+    const tc=termD(d);
+    return{'Radicación inc.':d.radicacion||'','Tutela base':d.tutelaBase||'',
+      'Incidentante':d.incidentante||'','Incidentado':d.incidentado||'',
+      'Derecho SIERJU':d.derechoSierju||'','F.Fallo base':fd(d.fechaFalloBase),
+      'F.Solicitud':fd(d.fechaSolicitud),'D1 Req.Previo':fd(tc.req),'D2 Apertura':fd(tc.aper),
+      'D9 Alerta':fd(tc.dia9),'D10 Vence':fd(tc.vce),
+      'Remisión consulta':fd(tc.remCons),'F.Decisión':fd(d.fechaDecision),
+      'Estado':d.estado||'','Resultado':d.resultado||'',
+      'Nulidades':(d.nulidades||[]).length,'Observaciones':d.observaciones||''};
+  });
+  // SIERJU
+  const PERS=[{n:'P1 Ene-Mar',m:[1,2,3]},{n:'P2 Abr-Jun',m:[4,5,6]},
+              {n:'P3 Jul-Sep',m:[7,8,9]},{n:'P4 Oct-Dic',m:[10,11,12]}];
+  const DERS=DERECHOS_SIERJU;
+  const srows=[];
+  PERS.forEach(per=>{
+    DERS.forEach(der=>{
+      const tt=tA().filter(t=>{
+        if(!t.fechaAdmision)return false;
+        const m=parseInt(t.fechaAdmision.split('-')[1]);
+        return t.fechaAdmision.startsWith(String(anio))&&per.m.includes(m)&&t.derechoSierju===der;
+      });
+      const dd=dA().filter(d=>{
+        if(!d.fechaSolicitud)return false;
+        const m=parseInt(d.fechaSolicitud.split('-')[1]);
+        return d.fechaSolicitud.startsWith(String(anio))&&per.m.includes(m)&&d.derechoSierju===der;
+      });
+      if(tt.length||dd.length)srows.push({
+        'Período':per.n,'Derecho':der,
+        'T.Ingresadas':tt.length,
+        'T.Concede':tt.filter(t=>(t.sentidoFallo||'').includes('oncede')).length,
+        'T.Niega-HS':tt.filter(t=>(t.sentidoFallo||'').includes('hecho superado')).length,
+        'T.Niega-Imp':tt.filter(t=>(t.sentidoFallo||'').includes('mprocedente')||(t.sentidoFallo||'').includes('carencia')).length,
+        'T.Otras':tt.filter(t=>t.fechaFallo&&!['oncede','hecho','mprocedente','carencia'].some(x=>(t.sentidoFallo||'').includes(x))).length,
+        'D.Ingresados':dd.length,
+        'D.Sanciona':dd.filter(d=>d.estado==='Sanciona').length,
+        'D.NoSanciona':dd.filter(d=>d.estado==='No sanciona').length,
+        'D.Archivado':dd.filter(d=>d.estado==='Archivado').length
+      });
+    });
+  });
+  if(trows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trows),'Tutelas '+anio);
+  if(drows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(drows),'Desacatos '+anio);
+  if(srows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(srows),'SIERJU '+anio);
+  const fecha=new Date().toISOString().split('T')[0];
+  XLSX.writeFile(wb,'ControlJudicial_'+anio+'_'+fecha+'.xlsx');
+  alert('✓ Excel generado: ControlJudicial_'+anio+'_'+fecha+'.xlsx');
+}
+window.exportarExcel=exportarExcel;
+
+
+// ═══════════════════════════════════════════════════════
+// AÑOS
+// ═══════════════════════════════════════════════════════
+function renderAnios(){
+  const c=document.getElementById('ybtns');c.innerHTML='';
+  anios.forEach(a=>{
+    const b=document.createElement('button');
+    b.className='ybtn'+(a===anio?' a':'');b.textContent=a;
+    b.onclick=()=>{anio=a;renderAnios();escuchar(a);};
+    c.appendChild(b);
+  });
+  document.getElementById('ystats').innerHTML=
+    `<span class="ystat"><b>${tA().length}</b> tutelas</span><span class="ystat"><b>${dA().length}</b> desacatos</span>`;
+  document.getElementById('al-t').textContent=anio;
+  document.getElementById('al-d').textContent=anio;
+  document.getElementById('sresumen-anio').textContent=anio;
+}
+function addAnio(){
+  const nv=anios[anios.length-1]+1;
+  if(!confirm(`¿Agregar el año ${nv}?`))return;
+  localDB.anios.push(nv);guardarLocal(localDB);
+  anio=nv;renderAnios();escuchar(nv);
+}
+
+// ═══════════════════════════════════════════════════════
+// TABS
+// ═══════════════════════════════════════════════════════
+function switchTab(t){
+  tabAct=t;
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('a',['t','d','c','s'][i]===t));
+  ['pt','pd','pc','ps2'].forEach(id=>document.getElementById(id).classList.remove('a'));
+  const panMap={t:'pt',d:'pd',c:'pc',s:'ps2'};
+  document.getElementById(panMap[t]).classList.add('a');
+  if(t==='c')rCal();else if(t==='s')rStat();else rActivo();
+}
+function rActivo(){tabAct==='t'?rT():tabAct==='d'?rD():tabAct==='c'?rCal():rStat();}
+
+// ═══════════════════════════════════════════════════════
+// NULIDAD BANNER
+// ═══════════════════════════════════════════════════════
+function actualizarBanner(){
+  const nt=tA().filter(hasNulActiva).length;
+  const nd=dA().filter(hasNulActiva).length;
+  const tot=nt+nd;
+  const ban=document.getElementById('nul-banner');
+  ban.classList.toggle('show',tot>0);
+  document.getElementById('nul-txt').textContent=`⚠ ${tot} RADICACIÓN(ES) CON NULIDAD — REQUIEREN NUEVO FALLO INMEDIATO`;
+  document.getElementById('st-nu').textContent=nt;
+  document.getElementById('sd-nu').textContent=nd;
+  // Ajustar posición de tabs
+  const tabs=document.getElementById('tabs');
+  tabs.className='tabs'+(tot>0?' with-nul':'');
+}
+function filtrarNul(){switchTab('t');document.getElementById('fat').value='NULIDAD';rT();}
+function filtrarNulD(){switchTab('d');document.getElementById('fad').value='NULIDAD';rD();}
+
+// ═══════════════════════════════════════════════════════
+// RENDER TUTELAS
+// ═══════════════════════════════════════════════════════
+function rT(){
+  const rows=tA();
+  const q=(document.getElementById('bqt').value||'').toLowerCase();
+  const fa=document.getElementById('fat').value;
+  const fe=document.getElementById('fet').value;
+  let data=[...rows];
+  if(q)data=data.filter(t=>(t.radicacion+t.accionante+t.accionado+(t.derechoSierju||'')).toLowerCase().includes(q));
+  if(fa==='NULIDAD')data=data.filter(t=>hasNulActiva(t));
+  else if(fa==='HC')data=data.filter(t=>t.esHC);
+  else if(fa)data=data.filter(t=>aKeyT(t)===fa);
+  if(fe)data=data.filter(t=>t.estado===fe);
+
+  const venc=rows.filter(t=>aKeyT(t)==='VENCIDO').length;
+  const prox=rows.filter(t=>aKeyT(t)==='PROXIMO').length;
+  const vig=rows.filter(t=>aKeyT(t)==='VIGENTE').length;
+  const fal=rows.filter(t=>aKeyT(t)==='FALLADA').length;
+  document.getElementById('st-to').textContent=rows.length;
+  document.getElementById('st-ve').textContent=venc;
+  document.getElementById('st-pr').textContent=prox;
+  document.getElementById('st-vi').textContent=vig;
+  document.getElementById('st-fa').textContent=fal;
+  document.getElementById('cnt-t').textContent=rows.length;
+
+  const tbody=document.getElementById('tbt');tbody.innerHTML='';
+  document.getElementById('empt').style.display=data.length?'none':'block';
+
+  data.forEach(t=>{
+    const k=aKeyT(t),tc=termT(t),hn=hasNulActiva(t),isHC=!!t.esHC;
+    const tr=document.createElement('tr');
+    if(hn)tr.className='has-nul';
+    tr.innerHTML=`
+      <td><button class="btn btn-ic btn-sm" onclick="aDT('${t.id}')">👁</button></td>
+      <td class="ra">${t.radicacion||'—'}${isHC?'<span class="hc-tag">HC</span>':''}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}</td>
+      <td class="trunc" title="${esc(t.accionante)}">${t.accionante||'—'}</td>
+      <td class="trunc" title="${esc(t.accionado)}">${t.accionado||'—'}</td>
+      <td><span class="badge bgy" style="font-size:8px">${t.derechoSierju||'—'}</span></td>
+      <td style="font-size:10px">${fmt(t.fechaAdmision)}</td>
+      <td style="font-size:10px;font-weight:700;color:var(--n2)">${fmt(tc.vce)}</td>
+      <td>${aBadge(k,tc.vce)}</td>
+      <td>${eBadge(t.estado)}</td>
+      <td><div class="ract">
+        <button class="btn btn-ic btn-sm" onclick="aDT('${t.id}')">✏</button>
+        ${t.enlace?`<a href="${t.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
+        ${isAdmin?`<button class="btn btn-ic btn-sm btn-d" onclick="confElimT('${t.id}')">🗑</button>`:''}
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+  actualizarBanner();
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER DESACATOS
+// ═══════════════════════════════════════════════════════
+function rD(){
+  const rows=dA();
+  const q=(document.getElementById('bqd').value||'').toLowerCase();
+  const fa=document.getElementById('fad').value;
+  const fe=document.getElementById('fed').value;
+  let data=[...rows];
+  if(q)data=data.filter(d=>(d.radicacion+d.tutelaBase+d.incidentado).toLowerCase().includes(q));
+  if(fa==='NULIDAD')data=data.filter(d=>hasNulActiva(d));
+  else if(fa)data=data.filter(d=>aKeyD(d)===fa);
+  if(fe)data=data.filter(d=>d.estado===fe);
+
+  document.getElementById('sd-to').textContent=rows.length;
+  document.getElementById('sd-ve').textContent=rows.filter(d=>aKeyD(d)==='VENCIDO').length;
+  document.getElementById('sd-pr').textContent=rows.filter(d=>aKeyD(d)==='PROXIMO').length;
+  document.getElementById('sd-ar').textContent=rows.filter(d=>d.estado==='Archivado').length;
+  document.getElementById('cnt-d').textContent=rows.length;
+
+  const tbody=document.getElementById('tbd');tbody.innerHTML='';
+  document.getElementById('empd').style.display=data.length?'none':'block';
+
+  data.forEach(d=>{
+    const k=aKeyD(d),tc=termD(d),hn=hasNulActiva(d);
+    const tr=document.createElement('tr');
+    if(hn)tr.className='has-nul';
+    tr.innerHTML=`
+      <td><button class="btn btn-ic btn-sm" onclick="aDD('${d.id}')">👁</button></td>
+      <td class="ra">${d.radicacion||'—'}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}</td>
+      <td class="ra" style="font-size:9px">${d.tutelaBase||'—'}</td>
+      <td class="trunc">${d.incidentado||'—'}</td>
+      <td><span class="badge bgy" style="font-size:8px">${d.derechoSierju||'—'}</span></td>
+      <td style="font-size:10px">${fmt(d.fechaSolicitud)}</td>
+      <td style="font-size:10px">${fmt(tc.req)}</td>
+      <td style="font-size:10px">${fmt(tc.aper)}</td>
+      <td style="font-size:10px;font-weight:700;color:var(--rd)">${fmt(tc.vce)}</td>
+      <td>${aBadge(k,tc.vce)}</td>
+      <td>${eBadge(d.estado)}</td>
+      <td><div class="ract">
+        <button class="btn btn-ic btn-sm" onclick="aDD('${d.id}')">✏</button>
+        ${d.enlace?`<a href="${d.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
+        ${isAdmin?`<button class="btn btn-ic btn-sm btn-d" onclick="confElimD('${d.id}')">🗑</button>`:''}
+      </div></td>`;
+    tbody.appendChild(tr);
+  });
+  actualizarBanner();
+}
+
+// ═══════════════════════════════════════════════════════
+// FORMULARIO NUEVA TUTELA
+// ═══════════════════════════════════════════════════════
+function aFT(){
+  const derOpts=DERECHOS_SIERJU.map(d=>`<option>${d}</option>`).join('');
+  document.getElementById('mfi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico n">📄</div>
+      <div class="mhdr-t"><h3>Nueva radicación — ${anio}</h3>
+      <p>Términos calculados con festivos Colombia verificados 2024–2031.</p></div>
+      <button class="mcls" onclick="cerrar()">✕</button>
+    </div>
+    <div class="mbody"><div class="fg">
+      <div class="fi full"><label>Radicación</label><input id="f-r" placeholder="73001400901420260001000" maxlength="35"></div>
+      <div class="chk-row">
+        <input type="checkbox" id="f-hc">
+        <label for="f-hc"><span class="hc-tag">HC</span> Esta acción es un Hábeas Corpus</label>
+      </div>
+      <div class="fsec">Partes</div>
+      <div class="fi"><label>Accionante / Agenciado</label><input id="f-a" placeholder="Nombre completo"></div>
+      <div class="fi"><label>Cédula</label><input id="f-c" placeholder="Número de cédula"></div>
+      <div class="fi full"><label>Accionado / Demandado</label><input id="f-d" placeholder="Entidad o persona demandada"></div>
+      <div class="fi full"><label>Vinculados</label><input id="f-v" placeholder="Entidades o personas vinculadas"></div>
+      <div class="fsec">Clasificación SIERJU</div>
+      <div class="fi"><label>Derecho principal SIERJU ★</label>
+        <select id="f-ds"><option value="">— Seleccione —</option>${derOpts}</select>
+      </div>
+      <div class="fi"><label>Otros derechos invocados</label><input id="f-de" placeholder="Ej: vida, mínimo vital..."></div>
+      <div class="fi"><label>Medida provisional</label>
+        <select id="f-m">
+          <option>Sin medida previa</option><option>Con medida — concede</option><option>Con medida — niega</option>
+          <option>Medida previa — salud</option><option>Medida previa — suministro medicamento</option>
+          <option>Medida previa — habeas corpus</option><option>Medida previa — otra</option>
+        </select>
+      </div>
+      <div class="fi full"><label>Pretensiones</label><textarea id="f-p" placeholder="Resumen de lo que solicita el accionante"></textarea></div>
+      <div class="fsec">Fechas</div>
+      <div class="fi"><label>Fecha de reparto</label><input type="date" id="f-rp"></div>
+      <div class="fi"><label>Fecha de admisión</label><input type="date" id="f-adm" oninput="pvT()"></div>
+      <div class="fsec">Asignación</div>
+      <div class="fi"><label>Responsable</label>
+        <select id="f-res"><option value="">Seleccionar...</option>
+          ${optsResponsables('')}
+        </select>
+      </div>
+      <div class="fi"><label>Estado</label>
+        <select id="f-est"><option>En término</option><option>Pendiente admisión</option></select>
+      </div>
+      <div class="fi full"><label>Enlace carpeta OneDrive / SharePoint</label><input id="f-l" placeholder="https://..."></div>
+      <div class="fi full"><label>Observaciones</label><textarea id="f-o" placeholder="Notas relevantes del expediente"></textarea></div>
+      <div id="pv" style="display:none;grid-column:1/-1"></div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn" onclick="cerrar()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarT()">✓ Guardar radicación</button>
+    </div>`;
+  document.getElementById('mf').classList.add('o');
+}
+
+function pvT(){
+  const adm=document.getElementById('f-adm').value;
+  const box=document.getElementById('pv');
+  if(!adm){box.style.display='none';return;}
+  const tc=termT({fechaAdmision:adm,ultimaNulidad:null,fechaReparto2i:''});
+  box.style.display='block';
+  box.innerHTML=`<div class="tbox bl">
+    <h4>⏰ Términos — festivos Colombia verificados</h4>
+    ${trows([
+      ['Día 9 — alerta para decisión',tc.dia9,'wa'],
+      ['Día 10 — vencimiento del fallo',tc.vce,'al'],
+      ['+ 2 días — fin notificación en correo',tc.cor2,''],
+      ['+ 3 días — ejecutoria',tc.eje3,''],
+      ['Siguiente hábil — remisión C.C. (sin impugnación)',tc.remCC,'']
+    ])}
+  </div>`;
+}
+
+async function guardarT(){
+  const rad=document.getElementById('f-r').value.trim();
+  if(!rad){alert('La radicación es obligatoria.');return;}
+  const ds=document.getElementById('f-ds').value;
+  if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
+  const t={id:Date.now(),radicacion:rad,
+    esHC:document.getElementById('f-hc').checked,
+    accionante:document.getElementById('f-a').value.trim(),
+    cedula:document.getElementById('f-c').value.trim(),
+    accionado:document.getElementById('f-d').value.trim(),
+    vinculados:document.getElementById('f-v').value.trim(),
+    derechoSierju:ds,
+    derechos:document.getElementById('f-de').value.trim(),
+    medida:document.getElementById('f-m').value,
+    pretensiones:document.getElementById('f-p').value.trim(),
+    fechaReparto:document.getElementById('f-rp').value,
+    fechaAdmision:document.getElementById('f-adm').value,
+    responsable:document.getElementById('f-res').value,
+    estado:document.getElementById('f-est').value,
+    enlace:document.getElementById('f-l').value.trim(),
+    observaciones:document.getElementById('f-o').value.trim(),
+    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',
+    nulidades:[],ultimaNulidad:null};
+  await fbSave(`tutelas_${anio}`,t.id,t);
+  cerrar();rT();
+  // Agregar eventos al calendario
+  agregarEventosCalendario(t,'T');
+}
+
+// ═══════════════════════════════════════════════════════
+// DETALLE TUTELA
+// ═══════════════════════════════════════════════════════
+function aDT(id){
+  const t=tA().find(x=>String(x.id)===String(id));
+  if(!t)return;
+  const tc=termT(t);
+  const hn=hasNulActiva(t);
+  const pasos=['Admitida','Fallada','Notificada','Ejecutoriada','Impug./C.C.','2ª Inst.'];
+  const etapa=hn?-1:(t.fechaRegresoCC?5:t.fallo2i?4:t.fechaImpugnacion?3:t.fechaFallo?2:t.fechaAdmision?1:0);
+  const derOpts=DERECHOS_SIERJU.map(d=>`<option${t.derechoSierju===d?' selected':''}>${d}</option>`).join('');
+  const nulHTML=t.nulidades&&t.nulidades.length?`
+    <div class="nul-hist"><h4>🚨 Historial de nulidades (${t.nulidades.length})</h4>
+    ${t.nulidades.map((n,i)=>`<div class="nul-item">
+      <b>#${i+1} — Nulidad decretada: ${fmt(n.fecha)}</b><br>
+      Auto: ${n.auto||'—'} | Proferida por: ${n.quien||'—'}<br>
+      ${n.nota?`<span style="color:var(--t2)">${n.nota}</span><br>`:''}
+      <span style="color:var(--or)">→ Nueva alerta D9: ${fmt(n.dia9)} | Nuevo vencimiento: ${fmt(n.vce)}</span>
+    </div>`).join('')}</div>`:'';
+
+  document.getElementById('mdi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico ${hn?'nu':'n'}"><i class="ti ti-${hn?'alert-octagon':'file-text'}"></i></div>
+      <div class="mhdr-t">
+        <h3 style="font-size:12px">${t.radicacion||'Sin radicación'}${t.esHC?'<span class="hc-tag" style="margin-left:6px">HC</span>':''} <span class="badge bb" style="font-size:8px">${anio}</span>${hn?' <span class="badge bnu" style="font-size:8px">⚠ NULIDAD</span>':''}</h3>
+        <p>${t.accionante||'—'} vs. ${t.accionado||'—'}</p>
+      </div>
+      <button class="mcls" onclick="cerrar2()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="pbar">${hn?'<div class="ps nul" style="flex:none;width:100%">⚠ NULIDAD ACTIVA — TÉRMINOS REINICIADOS</div>':pasos.map((p,i)=>`<div class="ps ${i<etapa?'done':i===etapa?'act':'pending'}">${p}</div>`).join('')}</div>
+      ${hn?`<div class="tbox nl"><h4>↻ Términos desde la fecha de nulidad</h4>
+        ${trows([['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al']])}
+      </div>`:''}
+      ${nulHTML}
+      <div class="fg" style="margin-top:10px">
+        <div class="chk-row">
+          <input type="checkbox" id="dt-hc" ${t.esHC?'checked':''} onchange="updT('${id}','esHC',this.checked)">
+          <label for="dt-hc"><span class="hc-tag">HC</span> Hábeas Corpus</label>
+        </div>
+        <div class="fsec">Partes</div>
+        <div class="fi"><label>Accionante</label><input value="${esc(t.accionante)}" onchange="updT('${id}','accionante',this.value)"></div>
+        <div class="fi"><label>Cédula</label><input value="${esc(t.cedula)}" onchange="updT('${id}','cedula',this.value)"></div>
+        <div class="fi full"><label>Accionado</label><input value="${esc(t.accionado)}" onchange="updT('${id}','accionado',this.value)"></div>
+        <div class="fi full"><label>Vinculados</label><input value="${esc(t.vinculados)}" onchange="updT('${id}','vinculados',this.value)"></div>
+        <div class="fsec">Clasificación SIERJU</div>
+        <div class="fi"><label>Derecho principal SIERJU ★</label>
+          <select onchange="updT('${id}','derechoSierju',this.value)"><option value="">— Seleccione —</option>${derOpts}</select>
+        </div>
+        <div class="fi"><label>Otros derechos</label><input value="${esc(t.derechos)}" onchange="updT('${id}','derechos',this.value)"></div>
+        <div class="fi"><label>Medida provisional</label>
+          <select onchange="updT('${id}','medida',this.value)">
+            ${['Sin medida previa','Con medida — concede','Con medida — niega','Medida previa — salud','Medida previa — suministro medicamento','Medida previa — habeas corpus','Medida previa — otra'].map(o=>`<option${t.medida===o?' selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fi full"><label>Pretensiones</label><textarea onchange="updT('${id}','pretensiones',this.value)">${esc(t.pretensiones)}</textarea></div>
+        <div class="fsec">Fechas y fallo</div>
+        <div class="fi"><label>Fecha reparto</label><input type="date" value="${t.fechaReparto||''}" onchange="updT('${id}','fechaReparto',this.value)"></div>
+        <div class="fi"><label>Fecha admisión</label><input type="date" value="${t.fechaAdmision||''}" onchange="updT('${id}','fechaAdmision',this.value)"></div>
+        <div class="fi"><label>Fecha del fallo</label><input type="date" value="${t.fechaFallo||''}" onchange="updT('${id}','fechaFallo',this.value);rT()"></div>
+        <div class="fi"><label>Sentido del fallo</label>
+          <select onchange="updT('${id}','sentidoFallo',this.value)">
+            <option value="">Seleccionar...</option>
+            ${['Concede tutela','Concede parcialmente','Niega — hecho superado','Niega — improcedente','Declara carencia actual de objeto','Desistimiento','Devuelta por competencia'].map(o=>`<option${t.sentidoFallo===o?' selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fsec">Impugnación y 2ª instancia</div>
+        <div class="fi"><label>Fecha impugnación</label><input type="date" value="${t.fechaImpugnacion||''}" onchange="updT('${id}','fechaImpugnacion',this.value)"></div>
+        <div class="fi"><label>Juzgado 2ª instancia</label><input value="${esc(t.juzgado2i)}" onchange="updT('${id}','juzgado2i',this.value)"></div>
+        <div class="fi"><label>Fecha reparto 2ª instancia</label><input type="date" value="${t.fechaReparto2i||''}" onchange="updT('${id}','fechaReparto2i',this.value)"></div>
+        <div class="fi"><label>Vencimiento 2ª inst. (20 días hábiles)</label><input value="${fmt(tc.vce2i)}" readonly></div>
+        <div class="fi"><label>Fallo 2ª instancia</label>
+          <select onchange="updT('${id}','fallo2i',this.value)">
+            <option value="">Seleccionar...</option>
+            ${['Confirma','Revoca','Modifica','Adiciona','Decreta nulidad'].map(o=>`<option${t.fallo2i===o?' selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fsec">Corte Constitucional</div>
+        <div class="fi"><label>Fecha remisión C.C.</label><input type="date" value="${t.fechaRemCC||''}" onchange="updT('${id}','fechaRemCC',this.value)"></div>
+        <div class="fi"><label>Fecha regreso C.C.</label><input type="date" value="${t.fechaRegresoCC||''}" onchange="updT('${id}','fechaRegresoCC',this.value)"></div>
+        <div class="fsec">Control</div>
+        <div class="fi"><label>Estado procesal</label>
+          <select onchange="updT('${id}','estado',this.value)">
+            ${['En término','Fallada','Impugnada','En Corte Constitucional','Archivada','Devuelta por competencia','Desistimiento'].map(o=>`<option${t.estado===o?' selected':''}>${o}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fi"><label>Responsable</label>
+          <select onchange="updT('${id}','responsable',this.value)">
+            <option value="">—</option>
+            ${${optsResponsables(t.responsable)}}
+          </select>
+        </div>
+        <div class="fi full"><label>Enlace OneDrive</label>
+          <input value="${esc(t.enlace)}" placeholder="https://..." onchange="updT('${id}','enlace',this.value)">
+          ${t.enlace?`<a href="${t.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+        </div>
+        <div class="fi full"><label>Observaciones</label><textarea onchange="updT('${id}','observaciones',this.value)">${esc(t.observaciones)}</textarea></div>
+        <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
+        <div class="fi full" style="grid-column:1/-1">
+          <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','t')">🚨 Registrar nulidad decretada por el superior</button>
+          <div style="font-size:10px;color:var(--t2);margin-top:4px">Al registrar una nulidad, los términos reinician desde esa fecha. Pueden registrarse múltiples nulidades.</div>
+        </div>
+        <div class="tbox bl">
+          <h4>⏰ Términos procesales actuales</h4>
+          ${trows([
+            ['Día 9 — alerta',tc.dia9,'wa'],['Día 10 — vencimiento fallo',tc.vce,'al'],
+            ['+ 2 días — correo',tc.cor2,''],['+ 3 días — ejecutoria',tc.eje3,''],
+            ['Sig. hábil — remisión C.C.',tc.remCC,''],
+            tc.vce2i?['Vencimiento 2ª instancia',tc.vce2i,'']:null
+          ])}
+        </div>
+      </div>
+    </div>
+    <div class="mfoot">
+      ${isAdmin?`<button class="btn btn-d btn-sm" onclick="confElimT('${id}');cerrar2()">🗑 Eliminar</button>`:''}
+      <button class="btn btn-p" onclick="cerrar2();rT()">✓ Listo</button>
+    </div>`;
+  document.getElementById('md2').classList.add('o');
+}
+
+async function updT(id,campo,val){
+  const t=tA().find(x=>String(x.id)===String(id));
+  if(!t)return;t[campo]=val;await fbSave(`tutelas_${anio}`,t.id,t);
+}
+
+// ═══════════════════════════════════════════════════════
+// FORMULARIO NULIDAD
+// ═══════════════════════════════════════════════════════
+function abrirFormNulidad(id,tipo){
+  const lista=tipo==='t'?tA():dA();
+  const r=lista.find(x=>String(x.id)===String(id));
+  if(!r)return;
+  const numNul=(r.nulidades||[]).length+1;
+  document.getElementById('mfi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico nu">🚨</div>
+      <div class="mhdr-t"><h3>Registrar nulidad #${numNul} — ${r.radicacion||id}</h3>
+      <p>Los términos reiniciarán desde la fecha de la nulidad. Esta acción no se puede deshacer.</p></div>
+      <button class="mcls" onclick="cerrar()">✕</button>
+    </div>
+    <div class="mbody"><div class="fg">
+      <div class="fi"><label>Fecha de la nulidad ★</label><input type="date" id="nf-fecha" value="${hoy()}" oninput="pvNul('${tipo}')"></div>
+      <div class="fi"><label>Auto que decreta la nulidad</label><input id="nf-auto" placeholder="Ej: Auto del 21/05/2026"></div>
+      <div class="fi"><label>Proferida por</label>
+        <select id="nf-quien">
+          <option>Superior jerárquico</option><option>Corte Constitucional</option>
+          <option>Tribunal Superior</option><option>Este despacho</option>
+        </select>
+      </div>
+      <div class="fi"><label>Número de nulidad en este expediente</label><input value="Nulidad #${numNul}" readonly></div>
+      <div class="fi full"><label>Descripción / Causal de nulidad</label><textarea id="nf-nota" placeholder="Describa la causal de nulidad decretada..."></textarea></div>
+      <div id="pv-nul" style="grid-column:1/-1"></div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn" onclick="cerrar()">Cancelar</button>
+      <button class="btn btn-nu" onclick="guardarNulidad('${id}','${tipo}')">🚨 Confirmar nulidad y reiniciar términos</button>
+    </div>`;
+  document.getElementById('mf').classList.add('o');
+  pvNul(tipo);
+}
+
+function pvNul(tipo){
+  const fecha=document.getElementById('nf-fecha').value;
+  const box=document.getElementById('pv-nul');
+  if(!fecha){box.innerHTML='';return;}
+  const tc=tipo==='t'?termT({fechaAdmision:fecha,ultimaNulidad:fecha,fechaReparto2i:'',nulidades:[]}):termD({fechaSolicitud:fecha,ultimaNulidad:fecha,nulidades:[]});
+  box.innerHTML=`<div class="tbox nl">
+    <h4>↻ Nuevos términos desde la fecha de nulidad</h4>
+    ${tipo==='t'?trows([
+      ['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al'],
+      ['Ejecutoria',tc.eje3,''],['Remisión C.C.',tc.remCC,'']
+    ]):trows([
+      ['Nuevo req. previo D1',tc.req,''],['Nueva apertura D2',tc.aper,''],
+      ['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al']
+    ])}
+  </div>`;
+}
+
+async function guardarNulidad(id,tipo){
+  const fecha=document.getElementById('nf-fecha').value;
+  if(!fecha){alert('La fecha es obligatoria.');return;}
+  const lista=tipo==='t'?tA():dA();
+  const r=lista.find(x=>String(x.id)===String(id));
+  if(!r)return;
+  const tc=tipo==='t'?termT({fechaAdmision:fecha,ultimaNulidad:fecha,fechaReparto2i:'',nulidades:[]}):termD({fechaSolicitud:fecha,ultimaNulidad:fecha,nulidades:[]});
+  if(!r.nulidades)r.nulidades=[];
+  r.nulidades.push({
+    fecha,auto:document.getElementById('nf-auto').value.trim(),
+    quien:document.getElementById('nf-quien').value,
+    nota:document.getElementById('nf-nota').value.trim(),
+    dia9:tc.dia9,vce:tc.vce,registrada:hoy()
+  });
+  r.ultimaNulidad=fecha;
+  r.estado='En término';
+  if(tipo==='t'){r.fechaFallo='';r.sentidoFallo='';}
+  const col=tipo==='t'?`tutelas_${anio}`:`desacatos_${anio}`;
+  await fbSave(col,r.id,r);
+  cerrar();
+  if(tipo==='t')rT();else rD();
+  actualizarBanner();
+  // Notificación del navegador
+  if(Notification&&Notification.permission==='granted'){
+    new Notification(`Nulidad registrada — ${r.radicacion}`,{
+      body:`Nuevo vencimiento: ${fmt(tc.vce)} | Nueva alerta: ${fmt(tc.dia9)}`,
+      icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">⚖️</text></svg>'
+    });
+  }
+  alert(`Nulidad #${r.nulidades.length} registrada.\nNuevo vencimiento: ${fmt(tc.vce)}\nNueva alerta día 9: ${fmt(tc.dia9)}`);
+}
+
+// ═══════════════════════════════════════════════════════
+// FORMULARIO NUEVO DESACATO
+// ═══════════════════════════════════════════════════════
+function aFD(){
+  const derOpts=DERECHOS_SIERJU.map(d=>`<option>${d}</option>`).join('');
+  document.getElementById('mfi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico r">⚠</div>
+      <div class="mhdr-t"><h3>Nuevo incidente de desacato — ${anio}</h3>
+      <p>Los 10 días se calculan con los festivos Colombia verificados.</p></div>
+      <button class="mcls" onclick="cerrar()">✕</button>
+    </div>
+    <div class="mbody"><div class="fg">
+      <div class="fi"><label>Radicación del incidente</label><input id="d-r" placeholder="2026-001"></div>
+      <div class="fi"><label>Radicación tutela base</label><input id="d-tb" placeholder="73001400901420260001000"></div>
+      <div class="fsec">Partes</div>
+      <div class="fi"><label>Incidentante</label><input id="d-inc" placeholder="Nombre del incidentante"></div>
+      <div class="fi"><label>Incidentado / Entidad requerida</label><input id="d-inci" placeholder="Entidad o persona incidentada"></div>
+      <div class="fsec">Clasificación SIERJU</div>
+      <div class="fi"><label>Derecho principal SIERJU ★</label>
+        <select id="d-ds"><option value="">— Seleccione —</option>${derOpts}</select>
+      </div>
+      <div class="fi"><label>Fecha del fallo base</label><input type="date" id="d-fb"></div>
+      <div class="fsec">Fallo base e incumplimiento</div>
+      <div class="fi full"><label>Orden presuntamente incumplida (extracte literal del resuelve)</label>
+        <textarea id="d-ord" placeholder="Copie literalmente la orden del punto resolutivo que se alega incumplida"></textarea>
+      </div>
+      <div class="fi"><label>Fecha solicitud del incidente</label><input type="date" id="d-fs" oninput="pvD()"></div>
+      <div class="fi"><label>Estado</label>
+        <select id="d-est">
+          <option>Requerimiento previo</option><option>Apertura formal</option>
+          <option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option><option>Archivado</option>
+        </select>
+      </div>
+      <div class="fi"><label>Enlace expediente OneDrive</label><input id="d-l" placeholder="https://..."></div>
+      <div class="fi full"><label>Observaciones</label><textarea id="d-o" placeholder="Novedades del trámite"></textarea></div>
+      <div id="pvd" style="display:none;grid-column:1/-1"></div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn" onclick="cerrar()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarD()">✓ Guardar incidente</button>
+    </div>`;
+  document.getElementById('mf').classList.add('o');
+}
+
+function pvD(){
+  const sol=document.getElementById('d-fs').value;
+  const box=document.getElementById('pvd');
+  if(!sol){box.style.display='none';return;}
+  const tc=termD({fechaSolicitud:sol,ultimaNulidad:null,nulidades:[]});
+  box.style.display='block';
+  box.innerHTML=`<div class="tbox rd">
+    <h4>⏰ Términos — 10 días calendario colombiano</h4>
+    ${trows([
+      ['Día 1 — requerimiento previo',tc.req,''],['Día 2 — auto apertura formal',tc.aper,''],
+      ['Día 9 — alerta para decisión',tc.dia9,'wa'],['Día 10 — decisión (vencimiento)',tc.vce,'al'],
+      ['Día 11 — remisión consulta',tc.remCons,''],['Día 14 — resultado consulta',tc.resCons,''],
+      ['Día 15 — remisión oficios',tc.ofic,'']
+    ])}
+  </div>`;
+}
+
+async function guardarD(){
+  const rad=document.getElementById('d-r').value.trim();
+  if(!rad){alert('La radicación del incidente es obligatoria.');return;}
+  const ds=document.getElementById('d-ds').value;
+  if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
+  const d={id:Date.now(),radicacion:rad,
+    tutelaBase:document.getElementById('d-tb').value.trim(),
+    incidentante:document.getElementById('d-inc').value.trim(),
+    incidentado:document.getElementById('d-inci').value.trim(),
+    derechoSierju:ds,
+    ordenIncumplida:document.getElementById('d-ord').value.trim(),
+    fechaFalloBase:document.getElementById('d-fb').value,
+    fechaSolicitud:document.getElementById('d-fs').value,
+    estado:document.getElementById('d-est').value,
+    enlace:document.getElementById('d-l').value.trim(),
+    observaciones:document.getElementById('d-o').value.trim(),
+    fechaDecision:'',resultado:'',nulidades:[],ultimaNulidad:null};
+  await fbSave(`desacatos_${anio}`,d.id,d);
+  cerrar();rD();
+  agregarEventosCalendario(d,'D');
+}
+
+// ═══════════════════════════════════════════════════════
+// DETALLE DESACATO
+// ═══════════════════════════════════════════════════════
+function aDD(id){
+  const d=dA().find(x=>String(x.id)===String(id));
+  if(!d)return;
+  const tc=termD(d);const hn=hasNulActiva(d);
+  const derOpts=DERECHOS_SIERJU.map(dr=>`<option${d.derechoSierju===dr?' selected':''}>${dr}</option>`).join('');
+  const nulHTML=d.nulidades&&d.nulidades.length?`
+    <div class="nul-hist"><h4>🚨 Historial de nulidades (${d.nulidades.length})</h4>
+    ${d.nulidades.map((n,i)=>`<div class="nul-item">
+      <b>#${i+1} — Nulidad decretada: ${fmt(n.fecha)}</b><br>
+      Auto: ${n.auto||'—'} | Proferida por: ${n.quien||'—'}
+    </div>`).join('')}</div>`:'';
+
+  document.getElementById('mdi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico ${hn?'nu':'r'}">⚠</div>
+      <div class="mhdr-t">
+        <h3>Incidente ${d.radicacion||''} <span class="badge bb" style="font-size:8px">${anio}</span>${hn?' <span class="badge bnu" style="font-size:8px">⚠ NULIDAD</span>':''}</h3>
+        <p>Tutela base: ${d.tutelaBase||'—'} · Incidentado: ${d.incidentado||'—'}</p>
+      </div>
+      <button class="mcls" onclick="cerrar2()">✕</button>
+    </div>
+    <div class="mbody"><div class="fg">
+      ${nulHTML}
+      <div class="fsec">Clasificación SIERJU</div>
+      <div class="fi"><label>Derecho principal SIERJU ★</label>
+        <select onchange="updD('${id}','derechoSierju',this.value)"><option value="">— Seleccione —</option>${derOpts}</select>
+      </div>
+      <div class="fsec">Partes</div>
+      <div class="fi"><label>Incidentante</label><input value="${esc(d.incidentante)}" onchange="updD('${id}','incidentante',this.value)"></div>
+      <div class="fi"><label>Incidentado</label><input value="${esc(d.incidentado)}" onchange="updD('${id}','incidentado',this.value)"></div>
+      <div class="fi full"><label>Orden incumplida</label><textarea onchange="updD('${id}','ordenIncumplida',this.value)">${esc(d.ordenIncumplida)}</textarea></div>
+      <div class="fsec">Fechas</div>
+      <div class="fi"><label>Fecha fallo base</label><input type="date" value="${d.fechaFalloBase||''}" onchange="updD('${id}','fechaFalloBase',this.value)"></div>
+      <div class="fi"><label>Fecha solicitud</label><input type="date" value="${d.fechaSolicitud||''}" onchange="updD('${id}','fechaSolicitud',this.value)"></div>
+      <div class="fi"><label>Fecha decisión</label><input type="date" value="${d.fechaDecision||''}" onchange="updD('${id}','fechaDecision',this.value)"></div>
+      <div class="fsec">Resultado</div>
+      <div class="fi"><label>Estado</label>
+        <select onchange="updD('${id}','estado',this.value)">
+          ${['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Archivado'].map(o=>`<option${d.estado===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fi"><label>Resultado consulta</label>
+        <select onchange="updD('${id}','resultado',this.value)">
+          <option value="">Seleccionar...</option>
+          ${['Confirma sanción','Modifica sanción','Revoca sanción','Decreta nulidad'].map(o=>`<option${d.resultado===o?' selected':''}>${o}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fi full"><label>Enlace OneDrive</label>
+        <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
+        ${d.enlace?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+      </div>
+      <div class="fi full"><label>Observaciones</label><textarea onchange="updD('${id}','observaciones',this.value)">${esc(d.observaciones)}</textarea></div>
+      <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
+      <div class="fi full">
+        <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','d')">🚨 Registrar nulidad decretada</button>
+      </div>
+      <div class="tbox rd">
+        <h4>⏰ Términos actuales — 10 días</h4>
+        ${trows([['D1 — req. previo',tc.req,''],['D2 — apertura',tc.aper,''],
+          ['D9 — alerta',tc.dia9,'wa'],['D10 — vencimiento',tc.vce,'al'],
+          ['D11 — consulta',tc.remCons,''],['D14 — resultado',tc.resCons,''],['D15 — oficios',tc.ofic,'']])}
+      </div>
+    </div></div>
+    <div class="mfoot">
+      ${isAdmin?`<button class="btn btn-d btn-sm" onclick="confElimD('${id}');cerrar2()">🗑 Eliminar</button>`:''}
+      <button class="btn btn-p" onclick="cerrar2();rD()">✓ Listo</button>
+    </div>`;
+  document.getElementById('md2').classList.add('o');
+}
+
+async function updD(id,campo,val){
+  const d=dA().find(x=>String(x.id)===String(id));
+  if(!d)return;d[campo]=val;await fbSave(`desacatos_${anio}`,d.id,d);
+}
+
+// ═══════════════════════════════════════════════════════
+// ELIMINAR (solo admin)
+// ═══════════════════════════════════════════════════════
+let secCb=null;
+function pedirAdmin(cb){
+  secCb=cb;
+  document.getElementById('sec-pwd').value='';
+  document.getElementById('sec-err').textContent='';
+  document.getElementById('msec').classList.add('o');
+}
+function verifySec(){
+  const pwd=document.getElementById('sec-pwd').value;
+  if(pwd===getPwd('admin')){cerrarSec();if(secCb)secCb();secCb=null;}
+  else{document.getElementById('sec-err').textContent='Contraseña incorrecta';document.getElementById('sec-pwd').value='';}
+}
+function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb=null;}
+function confElimT(id){
+  pedirAdmin(async()=>{
+    if(!confirm('¿ELIMINAR definitivamente esta radicación? No se puede deshacer.'))return;
+    await fbDel(`tutelas_${anio}`,id);rT();
+  });
+}
+function confElimD(id){
+  pedirAdmin(async()=>{
+    if(!confirm('¿ELIMINAR definitivamente este incidente? No se puede deshacer.'))return;
+    await fbDel(`desacatos_${anio}`,id);rD();
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// CONFIGURACIÓN
+// ═══════════════════════════════════════════════════════
+function abrirConfig(){
+  pedirAdmin(()=>{
+    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
+    document.getElementById('cfg-body').innerHTML=panel;
+    // Load responsables
+    _renderResponsables();
+    // Show version
+    const v=getVersion();
+    const vl=document.getElementById('ver-lbl');
+    const vl2=document.getElementById('ver-lbl2');
+    if(vl)vl.textContent='v'+v;
+    if(vl2)vl2.textContent='v'+v;
+    document.getElementById('mcfg').classList.add('o');
+  });
+}
+function _renderResponsables(){
+  const lista=document.getElementById('resp-lista');
+  if(!lista)return;
+  const resp=getResponsables();
+  lista.innerHTML=resp.map((r,i)=>
+    '<div style="display:flex;align-items:center;gap:6px;padding:4px 0;border-bottom:1px solid var(--bd)">'+
+    '<span style="flex:1;font-size:12px">'+r+'</span>'+
+    '<button class="btn btn-ic btn-sm btn-d" onclick="eliminarResponsable('+i+')">🗑</button>'+
+    '</div>'
+  ).join('');
+}
+function agregarResponsable(){
+  const inp=document.getElementById('resp-nuevo');
+  if(!inp||!inp.value.trim())return;
+  const resp=getResponsables();
+  const nuevo=inp.value.trim().toUpperCase();
+  if(!resp.includes(nuevo)){resp.push(nuevo);setResponsables(resp);}
+  inp.value='';_renderResponsables();
+}
+function eliminarResponsable(idx){
+  const resp=getResponsables();
+  resp.splice(idx,1);setResponsables(resp);_renderResponsables();
+}
+window.agregarResponsable=agregarResponsable;
+window.eliminarResponsable=eliminarResponsable;
+function cerrarCfg(){document.getElementById('mcfg').classList.remove('o');}
+function guardarCfg(){
+  const u=document.getElementById('cfg-u').value,a=document.getElementById('cfg-a').value,a2=document.getElementById('cfg-a2').value;
+  if(a&&a!==a2){document.getElementById('cfg-err').textContent='Las contraseñas no coinciden';return;}
+  if(u)setPwd('user',u);if(a)setPwd('admin',a);
+  alert('Contraseñas actualizadas correctamente.');cerrarCfg();
+}
+function exportarDatos(){
+  const blob=new Blob([JSON.stringify({...localDB,exp:new Date().toISOString()},null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download='CJ14_'+new Date().toISOString().split('T')[0]+'.json';a.click();
+}
+function importarDatos(){document.getElementById('fi-imp').click();}
+function cargarJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{
+    try{
+      const d=JSON.parse(ev.target.result);
+      Object.keys(d.tutelas||{}).forEach(yr=>{
+        if(!localDB.tutelas[yr])localDB.tutelas[yr]=[];
+        const ids=new Set(localDB.tutelas[yr].map(x=>String(x.id)));
+        (d.tutelas[yr]||[]).forEach(t=>{if(!ids.has(String(t.id)))localDB.tutelas[yr].push(t);});
+      });
+      Object.keys(d.desacatos||{}).forEach(yr=>{
+        if(!localDB.desacatos[yr])localDB.desacatos[yr]=[];
+        const ids=new Set(localDB.desacatos[yr].map(x=>String(x.id)));
+        (d.desacatos[yr]||[]).forEach(t=>{if(!ids.has(String(t.id)))localDB.desacatos[yr].push(t);});
+      });
+      if(d.eventos)localDB.eventos=[...new Set([...(localDB.eventos||[]),...d.eventos].map(JSON.stringify))].map(JSON.parse);
+      (d.anios||[]).forEach(a=>{if(!localDB.anios.includes(a))localDB.anios.push(a);});
+      guardarLocal(localDB);anios=localDB.anios.sort((x,y)=>x-y);
+      renderAnios();rActivo();alert('Datos importados y fusionados correctamente.');
+    }catch(ex){alert('Archivo inválido: '+ex.message);}
+  };
+  r.readAsText(file);e.target.value='';
+}
+
+// ═══════════════════════════════════════════════════════
+// CALENDARIO EDITABLE
+// ═══════════════════════════════════════════════════════
+function agregarEventosCalendario(r,tipo){
+  const base=r.ultimaNulidad||(tipo==='T'?r.fechaAdmision:r.fechaSolicitud);
+  if(!base)return;
+  const tc=tipo==='T'?termT(r):termD(r);
+  const eventos=localDB.eventos||[];
+  const addEv=(fecha,lbl,color)=>{
+    if(!fecha)return;
+    if(!eventos.find(e=>e.fecha===fecha&&e.radicacion===r.radicacion&&e.lbl===lbl))
+      eventos.push({id:Date.now()+Math.random(),fecha,lbl,radicacion:r.radicacion,color,auto:true});
+  };
+  addEv(tc.dia9,`⚠ Alerta D9 (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#d4770a');
+  addEv(tc.vce,`🔴 Vence (${tipo==='T'?'Tutela':'Desacato'}): ${r.radicacion}`,'#c0392b');
+  if(tipo==='T'){
+    addEv(tc.remCC,`📬 Remisión C.C.: ${r.radicacion}`,'#1a5fa8');
+  }else{
+    addEv(tc.remCons,`📋 Remisión consulta: ${r.radicacion}`,'#1a5fa8');
+  }
+  localDB.eventos=eventos;
+  try{localStorage.setItem('cj_eventos_v3',JSON.stringify(eventos));}catch(e){}
+}
+
+function abrirEvento(){
+  document.getElementById('mfi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico cal">📅</div>
+      <div class="mhdr-t"><h3>Agregar evento manual al calendario</h3>
+      <p>El evento aparecerá marcado en el calendario y puede incluir recordatorio.</p></div>
+      <button class="mcls" onclick="cerrar()">✕</button>
+    </div>
+    <div class="mbody"><div class="fg">
+      <div class="fi"><label>Fecha del evento ★</label><input type="date" id="ev-fecha" value="${hoy()}"></div>
+      <div class="fi"><label>Color</label>
+        <select id="ev-color">
+          <option value="#1a7f4b">🟢 Verde</option><option value="#1a5fa8">🔵 Azul</option>
+          <option value="#d4770a">🟠 Naranja</option><option value="#c0392b">🔴 Rojo</option>
+          <option value="#6c3fc5">🟣 Morado</option>
+        </select>
+      </div>
+      <div class="fi full"><label>Descripción del evento ★</label><input id="ev-lbl" placeholder="Ej: Audiencia, reunión, diligencia..."></div>
+      <div class="fi"><label>Radicación asociada (opcional)</label><input id="ev-rad" placeholder="Número de radicación"></div>
+      <div class="chk-row">
+        <input type="checkbox" id="ev-notif">
+        <label for="ev-notif">🔔 Solicitar recordatorio del navegador</label>
+      </div>
+    </div></div>
+    <div class="mfoot">
+      <button class="btn" onclick="cerrar()">Cancelar</button>
+      <button class="btn btn-p" onclick="guardarEvento()">✓ Agregar evento</button>
+    </div>`;
+  document.getElementById('mf').classList.add('o');
+}
+
+async function guardarEvento(){
+  const fecha=document.getElementById('ev-fecha').value;
+  const lbl=document.getElementById('ev-lbl').value.trim();
+  if(!fecha||!lbl){alert('La fecha y descripción son obligatorias.');return;}
+  if(!localDB.eventos)localDB.eventos=[];
+  const nuevoEv={
+    id:Date.now(),fecha,lbl,color:document.getElementById('ev-color').value,
+    radicacion:document.getElementById('ev-rad').value.trim(),auto:false
+  };
+  if(!localDB.eventos)localDB.eventos=[];
+  localDB.eventos.push(nuevoEv);
+  // Guardar eventos directamente
+  try{localStorage.setItem('cj_eventos_v3',JSON.stringify(localDB.eventos));}catch(e){}
+  guardarLocal(localDB);
+  // Solicitar permisos de notificación
+  try{
+    if(document.getElementById('ev-notif')&&document.getElementById('ev-notif').checked&&Notification){
+      if(Notification.permission==='default')await Notification.requestPermission();
+      programarRecordatorio(fecha,lbl);
+    }
+  }catch(e){}
+  cerrar();
+  rCal();
+  alert('Evento agregado al calendario.\nBusque el punto verde en la fecha ' + fmt(fecha));
+}
+
+function programarRecordatorio(fecha,lbl){
+  const ms=new Date(fecha+'T08:00:00').getTime()-Date.now();
+  if(ms>0&&ms<7*24*60*60*1000){// solo si es dentro de 7 días
+    setTimeout(()=>{
+      if(Notification.permission==='granted'){
+        new Notification('📅 Recordatorio judicial',{body:lbl,icon:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><text y="20" font-size="20">⚖️</text></svg>'});
+      }
+    },ms);
+  }
+}
+
+function verEventos(){
+  const evs=(localDB.eventos||[]).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  if(!evs.length){alert('No hay eventos en el calendario.');return;}
+  const html=evs.map((e,i)=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--bd)">
+      <div style="width:10px;height:10px;border-radius:50%;background:${e.color||'#1a5fa8'};flex-shrink:0"></div>
+      <div style="flex:1">
+        <div style="font-size:11px;font-weight:600">${fmt(e.fecha)} — ${e.lbl}</div>
+        ${e.radicacion?`<div style="font-size:10px;color:var(--t2)">Radicación: ${e.radicacion}</div>`:''}
+        ${e.auto?'<div style="font-size:9px;color:var(--bl)">Evento automático</div>':''}
+      </div>
+      <button class="btn btn-ic btn-sm btn-d" onclick="elimEvento(${i})" title="Eliminar">🗑</button>
+    </div>`).join('');
+  document.getElementById('mfi').innerHTML=`
+    <div class="mhdr">
+      <div class="mico cal">☰</div>
+      <div class="mhdr-t"><h3>Todos los eventos del calendario</h3><p>${evs.length} eventos registrados</p></div>
+      <button class="mcls" onclick="cerrar()">✕</button>
+    </div>
+    <div class="mbody" style="max-height:70vh;overflow-y:auto">${html||'<p style="color:var(--t2);text-align:center;padding:20px">No hay eventos</p>'}</div>
+    <div class="mfoot"><button class="btn btn-p" onclick="cerrar()">Cerrar</button></div>`;
+  document.getElementById('mf').classList.add('o');
+}
+
+function elimEvento(idx){
+  if(!confirm('¿Eliminar este evento?'))return;
+  if(!localDB.eventos)localDB.eventos=[];
+  localDB.eventos.splice(idx,1);
+  try{localStorage.setItem('cj_eventos_v3',JSON.stringify(localDB.eventos));}catch(e){}
+  cerrar();
+  rCal();
+}
+
+function rCal(){
+  // Reload eventos from localStorage to ensure we have latest
+  try{
+    const evGuardados=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
+    if(evGuardados.length>0)localDB.eventos=evGuardados;
+  }catch(e){}
+  const sel=document.getElementById('cal-sel');
+  const opts=[...new Set([...anios,2024,2025,2026,2027,2028,2029,2030])].sort();
+  const curVal=parseInt(sel.value)||anio;
+  sel.innerHTML=opts.map(a=>`<option value="${a}"${a===curVal?' selected':''}>${a}</option>`).join('');
+  const y=parseInt(sel.value)||anio;
+  const todayISO=hoy();
+  const meses=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+
+  // Build event map
+  const evMap={};
+  const addEv=(iso,tipo,lbl,color)=>{
+    if(!iso||iso.split('-')[0]!==String(y))return;
+    if(!evMap[iso])evMap[iso]=[];
+    evMap[iso].push({tipo,lbl,color});
+  };
+
+  // Automatic events from tutelas/desacatos
+  [...tA(),...dA()].forEach(r=>{
+    const tipo=r.fechaSolicitud?'D':'T';
+    try{
+      const tc=r.fechaSolicitud?termD(r):termT(r);
+      addEv(tc.dia9,'alert',`⚠ Alerta D9 ${tipo}:${r.radicacion}`,'#d4770a');
+      addEv(tc.vce,'venc',`🔴 Vence ${tipo}:${r.radicacion}`,'#c0392b');
+      if(tipo==='T'&&tc.remCC)addEv(tc.remCC,'event',`📬 Remisión CC:${r.radicacion}`,'#1a5fa8');
+      if(tipo==='D'&&tc.remCons)addEv(tc.remCons,'event',`📋 Consulta:${r.radicacion}`,'#1a5fa8');
+      if(tc.vce2i)addEv(tc.vce2i,'venc',`⏰ Vence 2ªInst:${r.radicacion}`,'#c0392b');
+    }catch(e){}
+  });
+
+  // Manual events
+  (localDB.eventos||[]).forEach(e=>{
+    if(e.fecha&&e.fecha.split('-')[0]===String(y))
+      addEv(e.fecha,'user',e.lbl,e.color||'#1a7f4b');
+  });
+
+  const grid=document.getElementById('cal-grid');grid.innerHTML='';
+  for(let m=0;m<12;m++){
+    const div=document.createElement('div');div.className='cal-month';
+    const hdr=document.createElement('div');hdr.className='cal-mhdr';hdr.textContent=`${meses[m]} ${y}`;div.appendChild(hdr);
+    const dhdr=document.createElement('div');dhdr.className='cal-dhdr';
+    ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d=>{
+      const s=document.createElement('div');s.className='cal-dh';s.textContent=d;dhdr.appendChild(s);
+    });
+    div.appendChild(dhdr);
+    const days=document.createElement('div');days.className='cal-days';
+    const first=new Date(y,m,1).getDay();
+    const firstDow=(first+6)%7;// Lunes primero
+    const dim=new Date(y,m+1,0).getDate();
+    for(let i=0;i<firstDow;i++){const e=document.createElement('div');e.className='cal-day empty';days.appendChild(e);}
+    for(let d=1;d<=dim;d++){
+      const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+      const dow=new Date(iso+'T12:00:00').getDay();
+      const cell=document.createElement('div');cell.className='cal-day';
+      const fest=esFest(iso),ss=esSS(iso);
+      const isSab=dow===6,isDom=dow===0;
+      if(fest)cell.classList.add('fest');
+      else if(ss)cell.classList.add('ss');
+      else if(isSab)cell.classList.add('sab');
+      else if(isDom)cell.classList.add('dom');
+      if(iso===todayISO)cell.classList.add('hoy');
+      const evs=evMap[iso]||[];
+      if(evs.length){
+        const hasVenc=evs.some(e=>e.tipo==='venc');
+        const hasAlert=evs.some(e=>e.tipo==='alert');
+        const hasUser=evs.some(e=>e.tipo==='user');
+        if(hasVenc)cell.classList.add('ev-venc');
+        else if(hasAlert)cell.classList.add('ev-alert');
+        else if(hasUser)cell.classList.add('ev-user');
+        else cell.classList.add('ev-event');
+      }
+      let tip=CAL_LBL[iso]||'';
+      if(evs.length)tip=(tip?tip+' | ':'')+evs.map(e=>e.lbl).join(' | ');
+      const dot=evs.length?`<div class="ev-dot" style="background:${evs[0].color||'#1a5fa8'}"></div>`:'';
+      cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip.substring(0,120)}</span>`:''}`;
+      // Click para agregar evento en ese día
+      if(!fest&&!ss){
+        cell.addEventListener('click',()=>{
+          document.getElementById('mfi').innerHTML='';
+          abrirEvento();
+          setTimeout(()=>{const el=document.getElementById('ev-fecha');if(el)el.value=iso;},50);
+        });
+      }
+      days.appendChild(cell);
+    }
+    div.appendChild(days);grid.appendChild(div);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// ESTADÍSTICA SIERJU
+// ═══════════════════════════════════════════════════════
+const PERIODOS={1:{m:[1,2,3],lbl:'Período 1 (Ene–Mar)'},2:{m:[4,5,6],lbl:'Período 2 (Abr–Jun)'},
+  3:{m:[7,8,9],lbl:'Período 3 (Jul–Sep)'},4:{m:[10,11,12],lbl:'Período 4 (Oct–Dic)'}};
+
+function enPer(fecha,p){
+  if(!fecha)return false;
+  const parts=fecha.split('-');
+  return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
+}
+
+function setPer(p,btn){
+  periodoStat=p;
+  document.querySelectorAll('.per-tab').forEach(el=>el.classList.remove('a'));
+  btn.classList.add('a');rStat();
+}
+
+function numCell(n){
+  if(n===0)return `<span class="sierju-num zero">0</span>`;
+  return `<span class="sierju-num pos">${n}</span>`;
+}
+
+function rStat(){
+  const p=periodoStat;
+  const lbl=PERIODOS[p].lbl;
+  document.getElementById('slbl-t').textContent=lbl;
+  document.getElementById('slbl-d').textContent=lbl;
+  document.getElementById('sresumen-anio').textContent=anio;
+
+  const tuts=tA();
+  const desc=dA();
+
+  // ── TABLA TUTELAS ──
+  // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Otras salidas
+  // Filas: por derecho SIERJU (solo las que tienen datos)
+  const stTable=document.getElementById('st-table');
+  let tHead=`<thead><tr>
+    <th>Derecho / Tipo</th>
+    <th style="text-align:center">Ingresadas</th>
+    <th style="text-align:center">Concede</th>
+    <th style="text-align:center">Niega<br><small>Hecho Superado</small></th>
+    <th style="text-align:center">Niega<br><small>Improcedente</small></th>
+    <th style="text-align:center">Otras<br><small>salidas</small></th>
+  </tr></thead>`;
+  let tBody='<tbody>';
+  let totIng=0,totConc=0,totNHS=0,totNimp=0,totOtras=0;
+
+  DERECHOS_SIERJU.forEach(der=>{
+    const tt=tuts.filter(t=>enPer(t.fechaAdmision,p)&&t.derechoSierju===der);
+    if(tt.length===0)return;
+    const ing=tt.length;
+    const conc=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('concede')).length;
+    const nhs=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('hecho superado')).length;
+    const nimp=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('improcedente')||(t.sentidoFallo||'').toLowerCase().includes('carencia')).length;
+    const otras=tt.filter(t=>t.fechaFallo&&!conc&&!nhs&&!nimp).length;
+    totIng+=ing;totConc+=conc;totNHS+=nhs;totNimp+=nimp;totOtras+=otras;
+    tBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(conc)}</td><td style="text-align:center">${numCell(nhs)}</td><td style="text-align:center">${numCell(nimp)}</td><td style="text-align:center">${numCell(otras)}</td></tr>`;
+  });
+  tBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${totIng}</td><td style="text-align:center">${totConc}</td><td style="text-align:center">${totNHS}</td><td style="text-align:center">${totNimp}</td><td style="text-align:center">${totOtras}</td></tr>`;
+  tBody+='</tbody>';
+  stTable.innerHTML=tHead+tBody;
+
+  // ── TABLA DESACATOS ──
+  // Columnas: Ingresados | Sanciona | No sanciona | Archivado
+  const sdTable=document.getElementById('sd-table');
+  let dHead=`<thead><tr>
+    <th>Derecho / Tipo</th>
+    <th style="text-align:center">Ingresados</th>
+    <th style="text-align:center">Sanciona</th>
+    <th style="text-align:center">No sanciona</th>
+    <th style="text-align:center">Archivado</th>
+  </tr></thead>`;
+  let dBody='<tbody>';
+  let dTotIng=0,dTotSanc=0,dTotNoSanc=0,dTotArch=0;
+
+  DERECHOS_SIERJU.forEach(der=>{
+    const dd=desc.filter(d=>enPer(d.fechaSolicitud,p)&&d.derechoSierju===der);
+    if(dd.length===0)return;
+    const ing=dd.length;
+    const sanc=dd.filter(d=>d.estado==='Sanciona').length;
+    const noSanc=dd.filter(d=>d.estado==='No sanciona').length;
+    const arch=dd.filter(d=>d.estado==='Archivado').length;
+    dTotIng+=ing;dTotSanc+=sanc;dTotNoSanc+=noSanc;dTotArch+=arch;
+    dBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(sanc)}</td><td style="text-align:center">${numCell(noSanc)}</td><td style="text-align:center">${numCell(arch)}</td></tr>`;
+  });
+  dBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${dTotIng}</td><td style="text-align:center">${dTotSanc}</td><td style="text-align:center">${dTotNoSanc}</td><td style="text-align:center">${dTotArch}</td></tr>`;
+  dBody+='</tbody>';
+  sdTable.innerHTML=dHead+dBody;
+
+  // ── RESUMEN CONSOLIDADO ──
+  const rTable=document.getElementById('sresumen-table');
+  let rHead=`<thead><tr>
+    <th>Período</th>
+    <th style="text-align:center">Tutelas<br>Ingresadas</th>
+    <th style="text-align:center">Tutelas<br>Falladas</th>
+    <th style="text-align:center">Desacatos<br>Ingresados</th>
+    <th style="text-align:center">Desacatos<br>Decididos</th>
+  </tr></thead>`;
+  let rBody='<tbody>';
+  let gtTI=0,gtTF=0,gtDI=0,gtDD=0;
+  [1,2,3,4].forEach(pp=>{
+    const ti=tuts.filter(t=>enPer(t.fechaAdmision,pp)).length;
+    const tf=tuts.filter(t=>enPer(t.fechaFallo,pp)).length;
+    const di=desc.filter(d=>enPer(d.fechaSolicitud,pp)).length;
+    const dd=desc.filter(d=>enPer(d.fechaDecision,pp)).length;
+    gtTI+=ti;gtTF+=tf;gtDI+=di;gtDD+=dd;
+    const isActive=pp===periodoStat;
+    rBody+=`<tr style="${isActive?'background:#e8f0f8;font-weight:600':''}">`+
+      `<td>${isActive?'▶ ':''}<strong>${PERIODOS[pp].lbl}</strong></td>`+
+      `<td style="text-align:center">${numCell(ti)}</td><td style="text-align:center">${numCell(tf)}</td>`+
+      `<td style="text-align:center">${numCell(di)}</td><td style="text-align:center">${numCell(dd)}</td></tr>`;
+  });
+  rBody+=`<tr class="total-row"><td>TOTAL AÑO ${anio}</td><td style="text-align:center">${gtTI}</td><td style="text-align:center">${gtTF}</td><td style="text-align:center">${gtDI}</td><td style="text-align:center">${gtDD}</td></tr>`;
+  rBody+='</tbody>';
+  rTable.innerHTML=rHead+rBody;
+}
+
+// ═══════════════════════════════════════════════════════
+// UTILES / MODALES
+// ═══════════════════════════════════════════════════════
+function cerrar(){document.getElementById('mf').classList.remove('o');}
+function cerrar2(){document.getElementById('md2').classList.remove('o');}
+document.getElementById('mf').addEventListener('click',e=>{if(e.target===e.currentTarget)cerrar();});
+document.getElementById('md2').addEventListener('click',e=>{if(e.target===e.currentTarget)cerrar2();});
+document.getElementById('msec').addEventListener('click',e=>{if(e.target===e.currentTarget)cerrarSec();});
+document.getElementById('mcfg').addEventListener('click',e=>{if(e.target===e.currentTarget)cerrarCfg();});
+
+// ═══════════════════════════════════════════════════════
+// NOTIFICACIONES DEL NAVEGADOR
+// ═══════════════════════════════════════════════════════
+function solicitarNotificaciones(){
+  if(Notification&&Notification.permission==='default'){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted')verificarVencimientosHoy();
+    });
+  }else if(Notification&&Notification.permission==='granted'){
+    verificarVencimientosHoy();
+  }
+}
+function verificarVencimientosHoy(){
+  const hoyISO=hoy();
+  [...tA(),...dA()].forEach(r=>{
+    const tipo=r.fechaSolicitud?'Desacato':'Tutela';
+    const tc=r.fechaSolicitud?termD(r):termT(r);
+    if(tc.dia9===hoyISO){
+      new Notification(`⚠ Alerta día 9 — ${tipo}`,{body:`${r.radicacion}: mañana vence el fallo`,});
+    }
+    if(tc.vce===hoyISO){
+      new Notification(`🔴 VENCE HOY — ${tipo}`,{body:`${r.radicacion}: plazo para proferir fallo`,});
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════
+// OFFLINE
+// ═══════════════════════════════════════════════════════
+window.addEventListener('online',()=>document.getElementById('offline-bar').classList.remove('show'));
+window.addEventListener('offline',()=>document.getElementById('offline-bar').classList.add('show'));
+
+// ═══════════════════════════════════════════════════════
+// INICIO
+// ═══════════════════════════════════════════════════════
+function init(){
+  mergeHistorico();
+  anios=[...new Set(localDB.anios||[2024,2025,2026])].sort((x,y)=>x-y);
+  anio=anios[anios.length-1];
+  renderAnios();
+  escuchar(anio);
+  setSS('ok');
+  // Solicitar permisos de notificación después de 2 segundos
+  setTimeout(solicitarNotificaciones,2000);
+}
+
+// MANEJO DE ERRORES GLOBAL PARA IOS
+window.onerror=function(msg,src,line,col,err){
+  console.error('Error JS:',msg,src,line);
+  // No mostrar alert para errores menores de íconos
+  if(msg&&msg.includes('Script error'))return true;
+  return false;
+};
+
+// EXPONER FUNCIONES GLOBALES
+window.doLogin=doLogin;window.rT=rT;window.rD=rD;window.doLogout=doLogout;
+window.addAnio=addAnio;window.switchTab=switchTab;
+window.filtrarNul=filtrarNul;window.filtrarNulD=filtrarNulD;
+window.aFT=aFT;window.aFD=aFD;window.pvT=pvT;window.pvD=pvD;
+window.guardarT=guardarT;window.guardarD=guardarD;
+window.aDT=aDT;window.aDD=aDD;window.updT=updT;window.updD=updD;
+window.abrirFormNulidad=abrirFormNulidad;window.pvNul=pvNul;window.guardarNulidad=guardarNulidad;
+window.confElimT=confElimT;window.confElimD=confElimD;
+window.verifySec=verifySec;window.cerrarSec=cerrarSec;
+window.abrirConfig=abrirConfig;window.cerrarCfg=cerrarCfg;window.guardarCfg=guardarCfg;
+window.exportarDatos=exportarDatos;window.importarDatos=importarDatos;window.cargarJSON=cargarJSON;
+window.abrirEvento=abrirEvento;
+function abrirCalColombia(){
+  // Detect iOS vs Android vs desktop
+  const isIOS=/iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid=/Android/.test(navigator.userAgent);
+  if(isIOS){
+    // Try App Store first, fallback to web
+    window.open('https://apps.apple.com/co/app/colombia-calendar/id1458023810','_blank');
+  } else if(isAndroid){
+    window.open('market://details?id=com.dnamobile.colombiacalendar','_blank');
+    setTimeout(()=>window.open('https://play.google.com/store/apps/details?id=com.dnamobile.colombiacalendar','_blank'),500);
+  } else {
+    // Desktop: show info modal
+    alert('Calendario Colombia es una app para celular.\n\nEn Android: busque "Calendario Colombia" en Play Store.\nEn iPhone: busque "Colombia Calendar" en App Store.\n\nDesde el computador use CalendarioColombia.com');
+  }
+}
+window.abrirCalColombia=abrirCalColombia;window.guardarEvento=guardarEvento;window.verEventos=verEventos;window.elimEvento=elimEvento;
+window.rCal=rCal;window.setPer=setPer;
+window.cerrar=cerrar;window.cerrar2=cerrar2;
+
+
+
+</script>
+
+<!-- EVENT LISTENERS -->
+<script>
+document.getElementById('lbtn').addEventListener('click',function(){doLogin();});
+document.getElementById('lpwd').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>
