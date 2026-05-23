@@ -899,16 +899,12 @@ function importarParche(){
 }
 
 async function init(){
-  // Limpiar eventos con radicación completa del localStorage
+  // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    var _evs2=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
-    var _manuales2=_evs2.filter(function(e){
-      if(e.auto)return false;
-      var l=e.lbl||'';
-      if((l.match(/-/g)||[]).length>=5)return false;
-      return true;
-    });
-    localStorage.setItem('cj_eventos_v3',JSON.stringify(_manuales2));
+    if(!localStorage.getItem('cj_cal_limpio_v31')){
+      localStorage.removeItem('cj_eventos_v3');
+      localStorage.setItem('cj_cal_limpio_v31','1');
+    }
   }catch(ex){}
 
   localDB=cargarLocalDB();

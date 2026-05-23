@@ -881,19 +881,12 @@ function importarParche(){
 }
 
 async function init(){
-  // Limpiar TODOS los eventos con radicación sin abreviar del localStorage
+  // Limpiar localStorage de eventos auto con radicación completa (una sola vez)
   try{
-    var _evs=JSON.parse(localStorage.getItem('cj_eventos_v3')||'[]');
-    // Conservar solo eventos manuales (sin radicación de sistema = sin campo radicacion largo)
-    var _manuales=_evs.filter(function(e){
-      if(e.auto)return false;
-      var l=e.lbl||'';
-      // Eliminar si tiene radicación completa: 5 grupos con guiones totalizando >20 chars
-      if((l.match(/-/g)||[]).length>=5)return false;
-      return true;
-    });
-    localStorage.setItem('cj_eventos_v3',JSON.stringify(_manuales));
-    if(localDB)localDB.eventos=_manuales;
+    if(!localStorage.getItem('cj_cal_limpio_v31')){
+      localStorage.removeItem('cj_eventos_v3');
+      localStorage.setItem('cj_cal_limpio_v31','1');
+    }
   }catch(ex){}
   // Show historical data immediately
   anios=[...new Set([...(PRELOADED_DB.anios||[2024,2025,2026])])].sort((a,b)=>a-b);
