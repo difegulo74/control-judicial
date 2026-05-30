@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1a3a5c">
+<title>Control Judicial v31</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Georgia',serif;background:#f0f2f5;min-height:100vh}
+:root{--nav:#1a3a5c;--accent:#2563eb}
+button{cursor:pointer;font-family:inherit}
+input,select,textarea{font-family:inherit}
+
+/* LOGIN */
+#login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;background:var(--nav)}
+.login-box{background:white;border-radius:12px;padding:1.5rem;width:260px}
+.login-logo{color:white;text-align:center;margin-bottom:1.5rem}
+.login-logo .icon{font-size:44px;display:block;margin-bottom:8px}
+.login-logo h1{font-size:20px;font-weight:700}
+.login-logo p{font-size:9px;opacity:.55;letter-spacing:.12em;margin-top:2px}
+.login-label{font-size:12px;color:#6b7280;text-align:center;margin-bottom:10px}
+.login-input{width:100%;font-size:13px;padding:8px 10px;border:.5px solid #d1d5db;border-radius:7px;margin-bottom:10px;outline:none}
+.login-btn{width:100%;background:var(--nav);color:white;border:none;border-radius:7px;padding:9px;font-size:13px;font-weight:600}
+.login-footer{color:rgba(255,255,255,.3);font-size:10px;margin-top:1.5rem;text-align:center}
+.offline-badge{background:rgba(0,0,0,.3);color:rgba(255,255,255,.7);font-size:10px;padding:4px 10px;border-radius:20px;margin-bottom:1rem}
+
+/* MAIN HEADER */
+#app{display:none}
+.header{background:var(--nav);color:white;padding:0 1rem}
+.header-top{display:flex;align-items:center;justify-content:space-between;padding:.5rem 0;border-bottom:.5px solid rgba(255,255,255,.1)}
+.header-logo{display:flex;align-items:center;gap:8px}
+.header-logo .icon{font-size:20px}
+.header-logo h2{font-size:13px;font-weight:700}
+.header-logo p{font-size:8px;opacity:.55;letter-spacing:.1em}
+.header-actions{display:flex;align-items:center;gap:10px}
+.online-dot{font-size:10px;color:#4ade80}
+.header-btn{background:none;border:none;color:rgba(255,255,255,.65);font-size:16px;padding:2px}
+.year-row{display:flex;align-items:center;gap:6px;padding:.4rem 0}
+.year-label{font-size:9px;opacity:.45;letter-spacing:.1em}
+.year-btn{border:none;border-radius:5px;padding:2px 10px;font-size:11px;font-weight:400;background:rgba(255,255,255,.12);color:white;transition:all .15s}
+.year-btn.active{background:white;color:var(--nav);font-weight:700}
+.add-year-btn{background:rgba(255,255,255,.12);color:white;border:none;border-radius:5px;padding:2px 8px;font-size:11px}
+.nulidad-alert{background:#b91c1c;border-radius:6px;padding:4px 10px;margin-bottom:4px;font-size:10px;font-weight:700;display:none}
+.nav-tabs{display:flex}
+.nav-tab{background:none;border:none;color:white;padding:.4rem .55rem;font-size:10px;border-bottom:2px solid transparent;opacity:.55;white-space:nowrap;font-weight:400;transition:all .15s}
+.nav-tab.active{border-bottom-color:white;opacity:1;font-weight:600}
+
+/* STATS BAR */
+.stats-bar{display:flex;background:white;border-bottom:.5px solid #e5e7eb;overflow-x:auto}
+.stat-item{flex:0 0 auto;min-width:52px;text-align:center;padding:.5rem .2rem;border-right:.5px solid #e5e7eb}
+.stat-num{font-size:18px;font-weight:700;line-height:1}
+.stat-lbl{font-size:8px;color:#9ca3af;letter-spacing:.06em;margin-top:2px}
+.stat-actions{flex:1;display:flex;align-items:center;justify-content:flex-end;padding:.4rem .75rem;gap:6px}
+
+/* BUTTONS */
+.btn-add{background:var(--nav);color:white;border:none;border-radius:7px;padding:6px 12px;font-size:11px;font-weight:700;white-space:nowrap}
+.btn-add:disabled{background:#94a3b8}
+.btn-danger{background:#fef2f2;color:#dc2626;border:.5px solid #fecaca;border-radius:4px;padding:2px 5px;font-size:10px}
+.btn-neutral{background:#f1f5f9;color:#475569;border:none;border-radius:3px;padding:2px 5px;font-size:10px}
+.btn-primary{background:var(--nav);color:white;border:none;border-radius:7px;padding:7px 14px;font-size:12px;font-weight:600}
+.btn-secondary{background:#f1f5f9;color:#374151;border:.5px solid #e5e7eb;border-radius:7px;padding:7px 14px;font-size:12px}
+
+/* PROCESSING */
+.processing-bar{background:#eff6ff;border-bottom:.5px solid #bfdbfe;padding:.4rem 1rem;display:none;align-items:center;gap:8px}
+.processing-bar.show{display:flex}
+.processing-msg{font-size:12px;color:#1d4ed8;font-weight:600}
+
+/* FILTERS */
+.filter-row{display:flex;gap:4px;padding:.45rem .75rem;background:white;border-bottom:.5px solid #e5e7eb;flex-wrap:wrap}
+.filter-input{flex:1 1 160px;font-size:11px;padding:5px 8px;border:.5px solid #d1d5db;border-radius:5px;outline:none}
+.filter-select{font-size:10px;padding:5px 6px;border:.5px solid #d1d5db;border-radius:5px;background:white;outline:none}
+
+/* TABLE */
+.table-header{display:grid;grid-template-columns:20px minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr) 58px 58px 62px 78px 52px;gap:3px;padding:.3rem .75rem;background:#f9fafb;border-bottom:.5px solid #e5e7eb}
+.table-header span{font-size:8px;font-weight:700;color:#9ca3af;letter-spacing:.07em;white-space:nowrap}
+.table-body{}
+.table-row{display:grid;grid-template-columns:20px minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr) 58px 58px 62px 78px 52px;gap:3px;padding:.5rem .75rem;border-bottom:.5px solid #f3f4f6;background:white;align-items:center}
+.table-row.vencida{background:#fff8f8}
+.table-row.nulidad{background:#fff5f5}
+.row-rad{font-family:monospace;font-size:9px;color:var(--nav);font-weight:600}
+.row-folder{font-size:8px;color:#93c5fd;margin-top:1px}
+.row-text{font-size:10px;color:#374151;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row-text.muted{color:#6b7280}
+.row-date{font-size:9px;color:#374151}
+.row-date.vencida{color:#dc2626;font-weight:700}
+.row-actions{display:flex;gap:3px}
+.eye-btn{background:none;border:none;font-size:13px;padding:0;cursor:pointer}
+
+/* BADGE */
+.badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;white-space:nowrap}
+.badge.sm{padding:1px 5px;font-size:9px}
+
+/* EMPTY STATE */
+.empty-state{padding:3rem 1rem;text-align:center;background:white}
+.empty-icon{font-size:36px;margin-bottom:8px}
+.empty-title{color:#374151;font-size:13px;font-weight:600;margin-bottom:6px}
+.empty-sub{color:#9ca3af;font-size:11px;line-height:1.6}
+
+/* MODAL OVERLAY (faux fixed - full height wrapper) */
+.modal-wrapper{min-height:600px;position:relative}
+.modal-overlay{position:absolute;inset:0;background:rgba(26,58,92,.55);display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;z-index:100;display:none}
+.modal-overlay.show{display:flex}
+.modal-box{background:white;border-radius:12px;padding:1.5rem;width:100%;max-width:480px;max-height:80vh;overflow-y:auto}
+.modal-header{display:flex;align-items:center;gap:10px;margin-bottom:1.25rem}
+.modal-icon{background:#e0e7ff;border-radius:8px;padding:8px;font-size:18px}
+.modal-title{font-size:15px;font-weight:600;color:var(--nav)}
+.modal-sub{font-size:11px;color:#6b7280;margin-top:1px}
+.modal-close{margin-left:auto;background:none;border:none;font-size:18px;color:#6b7280;cursor:pointer}
+.section-title{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.08em;margin:1rem 0 .5rem}
+.field-group{display:grid;gap:8px;margin-bottom:.5rem}
+.field-group.two{grid-template-columns:1fr 1fr}
+.field-label{font-size:10px;color:#6b7280;display:block;margin-bottom:3px}
+.field-input{width:100%;font-size:12px;padding:6px 8px;border:.5px solid #d1d5db;border-radius:6px;outline:none}
+.field-input:focus{border-color:#6366f1}
+.field-select{width:100%;font-size:12px;padding:6px 8px;border:.5px solid #d1d5db;border-radius:6px;background:white;outline:none}
+.check-row{display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin:.5rem 0}
+.modal-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:1.25rem;padding-top:1rem;border-top:.5px solid #e5e7eb}
+
+/* FOLDER PICKER INFO */
+.folder-info{background:#eff6ff;border-radius:8px;padding:.75rem 1rem;margin-bottom:1rem;border:.5px solid #bfdbfe}
+.folder-info h4{font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:4px}
+.folder-info p{font-size:11px;color:#3b82f6;line-height:1.5}
+
+/* DETAIL VIEW */
+#detail-view{display:none}
+.detail-header{background:var(--nav);color:white;padding:.65rem 1rem;display:flex;align-items:center;gap:10px}
+.back-btn{background:rgba(255,255,255,.18);border:none;color:white;border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer}
+.detail-content{padding:.85rem}
+.detail-card{background:white;border-radius:10px;padding:.85rem 1rem;margin-bottom:8px;border:.5px solid #e5e7eb}
+.detail-radicado{font-family:monospace;font-size:11px;color:var(--nav);font-weight:700;margin-bottom:6px}
+.detail-badges{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.detail-row{display:flex;gap:8px;padding:5px 0;border-bottom:.5px solid #f3f4f6}
+.detail-row:last-child{border-bottom:none}
+.detail-label{color:#6b7280;font-size:10px;min-width:140px;flex-shrink:0;padding-top:1px}
+.detail-value{color:var(--nav);font-size:11px;font-weight:500}
+.folder-card{background:#eff6ff;border-radius:10px;padding:.75rem 1rem;border:.5px solid #bfdbfe;margin-bottom:8px}
+.folder-card h4{font-size:11px;color:#1d4ed8;font-weight:700;margin-bottom:4px}
+.folder-card .path{font-size:10px;color:#1e40af;word-break:break-all;margin-bottom:6px;font-family:monospace}
+.folder-card .meta{font-size:9px;color:#60a5fa;margin-bottom:6px}
+.copy-btn{font-size:10px;padding:3px 10px;background:#dbeafe;color:#1d4ed8;border:none;border-radius:4px;cursor:pointer;font-weight:600}
+
+/* TABS CONTENT */
+.tab-content{display:none}
+.tab-content.active{display:block}
+
+/* DESACATOS TABLE */
+.desacatos-table-header{display:grid;grid-template-columns:20px minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,.8fr) 58px 58px 58px 58px 62px 78px 52px;gap:3px;padding:.3rem .75rem;background:#f9fafb;border-bottom:.5px solid #e5e7eb}
+
+/* ESTADISTICA */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:1rem}
+.stat-card{background:#f8fafc;border-radius:8px;padding:.75rem;border:.5px solid #e5e7eb;text-align:center}
+.stat-card-num{font-size:22px;font-weight:700}
+.stat-card-lbl{font-size:10px;color:#6b7280}
+
+/* SYNC INDICATOR */
+.sync-dot{width:6px;height:6px;border-radius:50%;background:#4ade80;display:inline-block;margin-right:3px}
+.sync-dot.syncing{background:#f59e0b;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* RESPONSIVE */
+@media(max-width:600px){
+  .table-header,.table-row{grid-template-columns:20px minmax(0,1.4fr) minmax(0,1fr) 58px 62px 52px}
+  .table-header span:nth-child(4),.table-header span:nth-child(5),.table-header span:nth-child(6),.table-header span:nth-child(10),
+  .table-row>*:nth-child(4),.table-row>*:nth-child(5),.table-row>*:nth-child(6),.table-row>*:nth-child(10){display:none}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+  <div class="offline-badge" id="conn-badge">📵 Sin conexión — modo local</div>
+  <div class="login-logo">
+    <span class="icon">⚖️</span>
+    <h1>Control Judicial</h1>
+    <p>ÁREA CONSTITUCIONAL</p>
+  </div>
+  <div class="login-box">
+    <p class="login-label">Acceso al sistema</p>
+    <input class="login-input" type="password" id="pass-input" placeholder="Contraseña" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">🔓 Ingresar</button>
+  </div>
+  <p class="login-footer">© Uso exclusivo interno — Área Constitucional</p>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <!-- HEADER -->
+  <div class="header">
+    <div class="header-top">
+      <div class="header-logo">
+        <span class="icon">⚖️</span>
+        <div>
+          <h2>Control Judicial</h2>
+          <p>ÁREA CONSTITUCIONAL</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <span class="online-dot" id="online-dot">● En línea</span>
+        <button class="header-btn" onclick="doLogout()" title="Salir">↩</button>
+        <button class="header-btn" onclick="openConfig()" title="Configuración">⚙️</button>
+      </div>
+    </div>
+    <div class="year-row">
+      <span class="year-label">AÑO</span>
+      <div id="year-tabs"></div>
+      <button class="add-year-btn" onclick="addYear()">+ Año</button>
+    </div>
+    <div class="nulidad-alert" id="nulidad-alert">🚨⚠ NULIDAD ACTIVA — REQUIERE NUEVO FALLO</div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('tutelas',this)">📄 Tutelas <span id="tab-count-t">0</span></button>
+      <button class="nav-tab" onclick="switchTab('desacatos',this)">⚠ Desacatos 0</button>
+      <button class="nav-tab" onclick="switchTab('calendario',this)">📅 Calendario</button>
+      <button class="nav-tab" onclick="switchTab('estadistica',this)">📊 Estadística</button>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div class="modal-wrapper" id="main-wrapper">
+
+    <!-- TUTELAS TAB -->
+    <div class="tab-content active" id="tab-tutelas">
+      <div class="stats-bar">
+        <div class="stat-item"><div class="stat-num" id="s-total" style="color:var(--nav)">0</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-item"><div class="stat-num" id="s-venc" style="color:#dc2626">0</div><div class="stat-lbl">Vencidas</div></div>
+        <div class="stat-item"><div class="stat-num" id="s-prox" style="color:#d97706">0</div><div class="stat-lbl">Próximas</div></div>
+        <div class="stat-item"><div class="stat-num" id="s-vig" style="color:#16a34a">0</div><div class="stat-lbl">Vigentes</div></div>
+        <div class="stat-item"><div class="stat-num" id="s-fall" style="color:#6366f1">0</div><div class="stat-lbl">Falladas</div></div>
+        <div class="stat-item"><div class="stat-num" id="s-nul" style="color:#b91c1c">0</div><div class="stat-lbl">Nulidades</div></div>
+        <div class="stat-actions">
+          <input type="file" id="folder-input" multiple style="display:none" onchange="onFolderSelected(this)">
+          <button class="btn-add" id="btn-agregar" onclick="openAgregar()">+ Agregar</button>
+        </div>
+      </div>
+
+      <div class="processing-bar" id="proc-bar">
+        <span style="font-size:16px">⏳</span>
+        <span class="processing-msg" id="proc-msg">Procesando...</span>
+      </div>
+
+      <div class="filter-row">
+        <input class="filter-input" type="text" id="search-input" placeholder="Buscar radicación, accionante, accionado..." oninput="renderTable()">
+        <select class="filter-select" id="filter-alerta" onchange="renderTable()">
+          <option>Todas las alertas</option>
+          <option>Vencidas</option><option>Próximas</option><option>Vigentes</option>
+          <option>Falladas</option><option>Con nulidad</option><option>Hábeas Corpus</option>
+        </select>
+        <select class="filter-select" id="filter-estado" onchange="renderTable()">
+          <option>Todos los estados</option>
+          <option>En término</option><option>Fallada</option><option>Impugnada</option>
+          <option>En Corte Constitucional</option><option>Archivada</option><option>Desistimiento</option>
+          <option>Vencida</option><option>Con nulidad</option>
+        </select>
+      </div>
+
+      <div class="table-header">
+        <span></span><span>RADICACIÓN</span><span>ACCIONANTE</span><span>ACCIONADO</span>
+        <span>DERECHO SIERJU</span><span>F.ADMISIÓN</span><span>VENCE FALLO</span>
+        <span>ALERTA</span><span>ESTADO</span><span></span>
+      </div>
+      <div class="table-body" id="table-body">
+        <div class="empty-state">
+          <div class="empty-icon">📥</div>
+          <p class="empty-title">No hay radicaciones para este año</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESACATOS TAB -->
+    <div class="tab-content" id="tab-desacatos">
+      <div class="stats-bar">
+        <div class="stat-item"><div class="stat-num" style="color:var(--nav)">0</div><div class="stat-lbl">Total</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#dc2626">0</div><div class="stat-lbl">Vencidos</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#d97706">0</div><div class="stat-lbl">Próximos</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#6b7280">0</div><div class="stat-lbl">Archivados</div></div>
+        <div class="stat-item"><div class="stat-num" style="color:#b91c1c">0</div><div class="stat-lbl">Nulidades</div></div>
+        <div class="stat-actions"><button class="btn-add">+ Agregar</button></div>
+      </div>
+      <div class="filter-row">
+        <select class="filter-select"><option>Todas las alertas</option><option>Vencidos</option><option>Próximos</option><option>Vigentes</option><option>Con nulidad</option></select>
+        <select class="filter-select"><option>Todos los estados</option><option>Requerimiento previo</option><option>Apertura formal</option><option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option><option>Archivado</option></select>
+      </div>
+      <div class="empty-state"><div class="empty-icon">📥</div><p class="empty-title">No hay incidentes para <strong id="des-year">este año</strong></p></div>
+    </div>
+
+    <!-- CALENDARIO TAB -->
+    <div class="tab-content" id="tab-calendario">
+      <div style="padding:1rem;background:white;border-bottom:.5px solid #e5e7eb;display:flex;align-items:center;justify-content:space-between">
+        <p style="font-size:13px;font-weight:600;color:var(--nav)">📅 Calendario Judicial</p>
+        <button class="btn-add">+ Agregar evento</button>
+      </div>
+      <div style="padding:1rem;background:white">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:1rem">
+          <a href="https://calendariocolombia.com" target="_blank" style="font-size:12px;color:#2563eb;text-decoration:none">🌐 CalendarioColombia.com</a>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#dc2626;display:inline-block"></span>Festivo oficial</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#d97706;display:inline-block"></span>Semana Santa L-M-X (no hábil conocimiento)</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#6366f1;display:inline-block"></span>Vencimiento</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#d97706;display:inline-block"></span>Alerta día 9</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#2563eb;display:inline-block"></span>Evento procesal</span>
+          <span style="font-size:10px;display:flex;align-items:center;gap:4px"><span style="width:8px;height:8px;border-radius:50%;background:#6b7280;display:inline-block"></span>Evento manual</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESTADISTICA TAB -->
+    <div class="tab-content" id="tab-estadistica">
+      <div style="padding:1rem;background:white;border-bottom:.5px solid #e5e7eb">
+        <p style="font-size:14px;font-weight:700;color:var(--nav)">📊 Control Judicial</p>
+        <p style="font-size:11px;color:#6b7280;margin-top:2px">Estadística SIERJU — Área Constitucional</p>
+      </div>
+      <div style="display:flex;gap:6px;padding:.75rem 1rem;background:white;border-bottom:.5px solid #e5e7eb;flex-wrap:wrap">
+        <button class="btn-primary" style="padding:4px 10px;font-size:11px">Período 1 · Ene–Mar</button>
+        <button class="btn-secondary" style="padding:4px 10px;font-size:11px">Período 2 · Abr–Jun</button>
+        <button class="btn-secondary" style="padding:4px 10px;font-size:11px">Período 3 · Jul–Sep</button>
+        <button class="btn-secondary" style="padding:4px 10px;font-size:11px">Período 4 · Oct–Dic</button>
+      </div>
+      <div class="stat-grid" id="stat-grid"></div>
+    </div>
+
+    <!-- MODAL AGREGAR -->
+    <div class="modal-overlay" id="modal-agregar">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-icon">📄</div>
+          <div>
+            <div class="modal-title">Nueva radicación — <span id="modal-year-title">2026</span></div>
+            <div class="modal-sub">Términos calculados con festivos Colombia verificados 2024–2031.</div>
+          </div>
+          <button class="modal-close" onclick="closeModal('modal-agregar')">✕</button>
+        </div>
+
+        <!-- OPCIÓN CARPETA -->
+        <div class="folder-info">
+          <h4>📁 Cargar desde carpeta OneDrive</h4>
+          <p>Selecciona la carpeta de la tutela y Claude leerá los PDFs automáticamente.</p>
+          <button onclick="triggerFolderPicker()" style="margin-top:8px;padding:6px 14px;background:var(--nav);color:white;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer">
+            📂 Seleccionar carpeta
+          </button>
+        </div>
+
+        <p style="font-size:10px;color:#9ca3af;text-align:center;margin:.5rem 0">— o ingresa los datos manualmente —</p>
+
+        <!-- FORMULARIO MANUAL -->
+        <div>
+          <label style="font-size:10px;color:#6b7280;display:block;margin-bottom:3px">RADICACIÓN</label>
+          <input class="field-input" id="f-radicado" placeholder="730014009014202600001000" style="margin-bottom:.75rem">
+
+          <div class="check-row">
+            <input type="checkbox" id="f-habeas"><label for="f-habeas"><span style="background:#e0e7ff;color:#4338ca;padding:1px 6px;border-radius:3px;font-size:9px;font-weight:600">HC</span> Esta acción es un Hábeas Corpus</label>
+          </div>
+
+          <div class="section-title">PARTES</div>
+          <div class="field-group two">
+            <div><label class="field-label">ACCIONANTE / AGENCIADO</label><input class="field-input" id="f-accionante" placeholder="Nombre completo"></div>
+            <div><label class="field-label">CÉDULA</label><input class="field-input" id="f-cedula" placeholder="Número de cédula"></div>
+          </div>
+          <div class="field-group" style="margin-bottom:.5rem">
+            <div><label class="field-label">ACCIONADO / DEMANDADO</label><input class="field-input" id="f-accionado" placeholder="Entidad o persona demandada"></div>
+          </div>
+          <div class="field-group" style="margin-bottom:.5rem">
+            <div><label class="field-label">VINCULADOS</label><input class="field-input" id="f-vinculados" placeholder="Entidades o personas vinculadas"></div>
+          </div>
+
+          <div class="section-title">CLASIFICACIÓN SIERJU</div>
+          <div class="field-group two">
+            <div>
+              <label class="field-label">DERECHO PRINCIPAL SIERJU ★</label>
+              <select class="field-select" id="f-derecho">
+                <option value="">— Seleccione —</option>
+                <option>Salud</option><option>Vida</option><option>Trabajo</option><option>Vivienda</option>
+                <option>Educación</option><option>Debido proceso</option><option>Petición</option>
+                <option>Mínimo vital</option><option>Seguridad social</option><option>Libertad</option>
+                <option>Información</option><option>Igualdad</option><option>Familia</option>
+              </select>
+            </div>
+            <div><label class="field-label">OTROS DERECHOS INVOCADOS</label><input class="field-input" id="f-otros" placeholder="Ej: vida, mínimo vital..."></div>
+          </div>
+          <div class="field-group" style="margin-bottom:.5rem">
+            <div>
+              <label class="field-label">MEDIDA PROVISIONAL</label>
+              <select class="field-select" id="f-medida">
+                <option>Sin medida previa</option><option>Suspensión del acto</option>
+                <option>Orden de prestación inmediata</option><option>Otra medida</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="section-title">FECHAS</div>
+          <div class="field-group two">
+            <div><label class="field-label">FECHA DE ADMISIÓN</label><input class="field-input" id="f-admision" type="date"></div>
+            <div><label class="field-label">ESTADO</label>
+              <select class="field-select" id="f-estado">
+                <option>En término</option><option>Fallada</option><option>Impugnada</option>
+                <option>En Corte Constitucional</option><option>Archivada</option><option>Desistimiento</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="check-row" style="margin-top:.5rem">
+            <input type="checkbox" id="f-nulidad"><label for="f-nulidad">⚠ Nulidad activa en este proceso</label>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('modal-agregar')">Cancelar</button>
+          <button class="btn-primary" onclick="guardarTutela()">✓ Guardar radicación</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL VERIFICACION -->
+    <div class="modal-overlay" id="modal-verify">
+      <div class="modal-box" style="max-width:340px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+          <span style="font-size:16px">🔒</span>
+          <h3 style="font-size:14px;font-weight:600;color:var(--nav)">Verificación requerida</h3>
+          <button class="modal-close" onclick="closeModal('modal-verify')">✕</button>
+        </div>
+        <p style="font-size:12px;color:#6b7280;margin-bottom:1rem">Solo el administrador puede realizar esta acción</p>
+        <input class="field-input" type="password" id="verify-pass" placeholder="Contraseña de administrador" style="margin-bottom:1rem">
+        <div class="modal-footer">
+          <button class="btn-secondary" onclick="closeModal('modal-verify')">Cancelar</button>
+          <button class="btn-primary" onclick="doVerify()">✓ Verificar</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- modal-wrapper -->
+
+  <!-- DETAIL VIEW -->
+  <div id="detail-view">
+    <div class="detail-header">
+      <button class="back-btn" onclick="closeDetail()">← Volver</button>
+      <span style="font-size:13px;font-weight:600">Detalle del proceso</span>
+      <button onclick="openEditModal()" style="margin-left:auto;background:rgba(255,255,255,.18);border:none;color:white;border-radius:6px;padding:4px 10px;font-size:11px;cursor:pointer">✏ Editar</button>
+    </div>
+    <div class="detail-content">
+      <div class="detail-card">
+        <div class="detail-radicado" id="d-radicado"></div>
+        <div class="detail-badges" id="d-badges"></div>
+      </div>
+      <div class="detail-card" id="d-fields"></div>
+      <div class="folder-card" id="d-folder" style="display:none">
+        <h4>📁 Carpeta OneDrive</h4>
+        <div class="path" id="d-folder-name"></div>
+        <div class="meta" id="d-folder-meta"></div>
+        <button class="copy-btn" id="d-copy-btn">📋 Copiar nombre de carpeta</button>
+      </div>
+      <button onclick="confirmarEliminar()" style="width:100%;padding:9px;background:#fef2f2;color:#dc2626;border:.5px solid #fecaca;border-radius:8px;cursor:pointer;font-size:12px;font-weight:600">🗑 Eliminar proceso</button>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-app.js";
+import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, updateDoc, onSnapshot, query, where, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.8.1/firebase-firestore.js";
+
+// ── FIREBASE CONFIG ─────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCU4anb0rP-Vd_0scgjREy9LkP7LTjevoE",
+  authDomain: "control-judicial-j14.firebaseapp.com",
+  projectId: "control-judicial-j14",
+  storageBucket: "control-judicial-j14.firebasestorage.app",
+  messagingSenderId: "495314645928",
+  appId: "1:495314645928:web:2c761d01b19de19ca7e39d"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db    = getFirestore(fbApp);
+
+// ── ESTADO GLOBAL ───────────────────────────────────────────
+window.state = {
+  year: "2026",
+  years: ["2024","2025","2026"],
+  tutelas: [],
+  currentDetail: null,
+  unsubscribe: null,
+  busy: false,
+};
+
+const PASS = "j14"; // contraseña simple — cambiar si se desea
+const ESTADO_COLORS = {
+  "En término":"#16a34a","Fallada":"#6366f1","Impugnada":"#d97706",
+  "En Corte Constitucional":"#0891b2","Archivada":"#6b7280",
+  "Desistimiento":"#8b5cf6","Vencida":"#dc2626","Con nulidad":"#b91c1c"
+};
+
+// ── LOGIN ───────────────────────────────────────────────────
+window.doLogin = () => {
+  const p = document.getElementById("pass-input").value;
+  if(!p){ alert("Ingresa la contraseña"); return; }
+  document.getElementById("login-screen").style.display = "none";
+  document.getElementById("app").style.display = "block";
+  initApp();
+};
+window.doLogout = () => {
+  if(state.unsubscribe) state.unsubscribe();
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login-screen").style.display = "flex";
+  document.getElementById("pass-input").value = "";
+};
+
+// ── INIT ────────────────────────────────────────────────────
+function initApp(){
+  renderYearTabs();
+  subscribeYear(state.year);
+  renderStatGrid();
+  // Connectivity
+  window.addEventListener("online",  () => updateConnStatus(true));
+  window.addEventListener("offline", () => updateConnStatus(false));
+  updateConnStatus(navigator.onLine);
+}
+
+function updateConnStatus(online){
+  const dot  = document.getElementById("online-dot");
+  const badge= document.getElementById("conn-badge");
+  dot.textContent  = online ? "● En línea" : "● Sin conexión";
+  dot.style.color  = online ? "#4ade80" : "#f87171";
+  if(badge) badge.style.display = online ? "none" : "block";
+}
+
+// ── YEARS ───────────────────────────────────────────────────
+function renderYearTabs(){
+  const c = document.getElementById("year-tabs");
+  c.innerHTML = state.years.map(y =>
+    `<button class="year-btn ${y===state.year?'active':''}" onclick="changeYear('${y}')">${y}</button>`
+  ).join("");
+}
+window.changeYear = (y) => {
+  state.year = y;
+  if(state.unsubscribe) state.unsubscribe();
+  subscribeYear(y);
+  renderYearTabs();
+  document.getElementById("modal-year-title").textContent = y;
+  document.getElementById("des-year").textContent = y;
+};
+window.addYear = () => {
+  const y = prompt("Ingresa el año a agregar:");
+  if(y && !state.years.includes(y)){ state.years.push(y); state.years.sort(); renderYearTabs(); }
+};
+
+// ── FIRESTORE REALTIME ──────────────────────────────────────
+function subscribeYear(year){
+  const q = query(collection(db,"tutelas"), where("year","==",year));
+  state.unsubscribe = onSnapshot(q, snap => {
+    state.tutelas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderTable();
+    renderStats();
+    checkNulidad();
+  }, err => {
+    console.error("Firestore error:", err);
+    // Fallback: cargar desde localStorage
+    const cached = localStorage.getItem(`cj_tutelas_${year}`);
+    if(cached){ state.tutelas = JSON.parse(cached); renderTable(); renderStats(); }
+  });
+}
+
+// ── STATS ────────────────────────────────────────────────────
+function getDiff(fv){
+  if(!fv) return null;
+  let d,m,y;
+  if(fv.includes("-")){ [y,m,d]=fv.split("-"); }
+  else { [d,m,y]=fv.split("/"); }
+  if(!d||!m||!y) return null;
+  const now=new Date(); now.setHours(0,0,0,0);
+  return Math.ceil((new Date(+y,+m-1,+d)-now)/86400000);
+}
+function renderStats(){
+  const t=state.tutelas;
+  const total=t.length;
+  const venc =t.filter(p=>{const d=getDiff(p.fechaVencimiento||p.fechaAdmision);return (d!==null&&d<0)||p.estado==="Vencida";}).length;
+  const prox =t.filter(p=>{const d=getDiff(p.fechaVencimiento||p.fechaAdmision);return d!==null&&d>=0&&d<=3;}).length;
+  const vig  =t.filter(p=>p.estado==="En término").length;
+  const fall =t.filter(p=>p.estado==="Fallada").length;
+  const nul  =t.filter(p=>p.tieneNulidad||p.nulidad).length;
+  document.getElementById("s-total").textContent=total;
+  document.getElementById("s-venc").textContent=venc;
+  document.getElementById("s-prox").textContent=prox;
+  document.getElementById("s-vig").textContent=vig;
+  document.getElementById("s-fall").textContent=fall;
+  document.getElementById("s-nul").textContent=nul;
+  document.getElementById("tab-count-t").textContent=total;
+  // Estadistica
+  document.getElementById("stat-grid").innerHTML=[
+    ["Total tutelas",total,"var(--nav)"],["Falladas",fall,"#6366f1"],
+    ["Vencidas",venc,"#dc2626"],["Con nulidad",nul,"#b91c1c"],
+    ["Vigentes",vig,"#16a34a"],["HC",t.filter(p=>p.esHabeasCorpus||p.habeasCorpus).length,"#7c3aed"]
+  ].map(([l,v,c])=>`<div class="stat-card"><div class="stat-card-num" style="color:${c}">${v}</div><div class="stat-card-lbl">${l}</div></div>`).join("");
+}
+function checkNulidad(){
+  const has=state.tutelas.some(p=>p.tieneNulidad||p.nulidad);
+  document.getElementById("nulidad-alert").style.display=has?"block":"none";
+}
+
+// ── TABLE ────────────────────────────────────────────────────
+window.renderTable = () => {
+  const q=(document.getElementById("search-input").value||"").toLowerCase();
+  const fa=document.getElementById("filter-alerta").value;
+  const fe=document.getElementById("filter-estado").value;
+  let list=state.tutelas.filter(p=>{
+    const ms=!q||[p.radicado,p.accionante,p.accionado,p.derechoPrincipal].some(f=>f?.toLowerCase().includes(q));
+    let ma=true;
+    if(fa!=="Todas las alertas"){
+      const d=getDiff(p.fechaVencimiento||p.fechaAdmision);
+      if(fa==="Vencidas") ma=d!==null&&d<0;
+      else if(fa==="Próximas") ma=d!==null&&d>=0&&d<=3;
+      else if(fa==="Vigentes") ma=p.estado==="En término";
+      else if(fa==="Falladas") ma=p.estado==="Fallada";
+      else if(fa==="Con nulidad") ma=!!(p.tieneNulidad||p.nulidad);
+      else if(fa==="Hábeas Corpus") ma=!!(p.esHabeasCorpus||p.habeasCorpus);
+    }
+    const me=fe==="Todos los estados"||p.estado===fe;
+    return ms&&ma&&me;
+  });
+  const body=document.getElementById("table-body");
+  if(!list.length){
+    body.innerHTML=`<div class="empty-state"><div class="empty-icon">📥</div><p class="empty-title">${q?"Sin resultados":"No hay radicaciones para "+state.year}</p><p class="empty-sub">Toca <strong>+ Agregar</strong> → selecciona la carpeta de la tutela<br>Claude lee los PDFs y llena los datos automáticamente</p></div>`;
+    return;
+  }
+  body.innerHTML=list.map(p=>{
+    const d=getDiff(p.fechaVencimiento||p.fechaAdmision);
+    const isV=d!==null&&d<0;
+    const isN=!!(p.tieneNulidad||p.nulidad);
+    const est=p.estado||"—";
+    const ec=ESTADO_COLORS[est]||"#6b7280";
+    let alerta="<span style='color:#9ca3af;font-size:9px'>—</span>";
+    if(d!==null){
+      if(d<0) alerta=`<span style='background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700'>Vencida</span>`;
+      else if(d<=1) alerta=`<span style='background:#fef2f2;color:#dc2626;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700'>🚨 Hoy</span>`;
+      else if(d<=3) alerta=`<span style='background:#fffbeb;color:#d97706;padding:1px 5px;border-radius:4px;font-size:9px;font-weight:700'>⚠ ${d}d</span>`;
+      else alerta=`<span style='background:#f0fdf4;color:#16a34a;padding:1px 5px;border-radius:4px;font-size:9px'>✓ ${d}d</span>`;
+    }
+    return `<div class="table-row ${isV?'vencida':''} ${isN?'nulidad':''}" data-id="${p.id}">
+      <button class="eye-btn" onclick="openDetail('${p.id}')">👁</button>
+      <div><div class="row-rad">${p.radicado||"—"}</div>${p.folderName?`<div class="row-folder">📁 ${p.filesCount||0}f</div>`:""}</div>
+      <div class="row-text">${p.accionante||"—"}</div>
+      <div class="row-text muted">${p.accionado||"—"}</div>
+      <div class="row-text" style="font-size:9px">${p.derechoPrincipal||"—"}</div>
+      <div class="row-date">${formatDate(p.fechaAdmision||"")}</div>
+      <div class="row-date ${isV?'vencida':''}">${formatDate(p.fechaVencimiento||"")}</div>
+      ${alerta}
+      <span class="badge sm" style="background:${ec}18;color:${ec};border:.5px solid ${ec}60">${est}</span>
+      <div class="row-actions">
+        <button class="btn-neutral" onclick="openDetail('${p.id}')">—</button>
+        <button class="btn-danger" onclick="deleteTutela('${p.id}',event)">🗑</button>
+      </div>
+    </div>`;
+  }).join("");
+};
+
+function formatDate(d){
+  if(!d) return "—";
+  if(d.includes("-")){ const[y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; }
+  return d;
+}
+function toInputDate(d){
+  if(!d) return "";
+  if(d.includes("/")){ const[dd,m,y]=d.split("/"); return `${y}-${m.padStart(2,"0")}-${dd.padStart(2,"0")}`; }
+  return d;
+}
+function fromInputDate(d){
+  if(!d) return "";
+  if(d.includes("-")){ const[y,m,dd]=d.split("-"); return `${dd}/${m}/${y}`; }
+  return d;
+}
+
+// ── DETAIL ───────────────────────────────────────────────────
+window.openDetail = (id) => {
+  const p=state.tutelas.find(t=>t.id===id);
+  if(!p) return;
+  state.currentDetail=p;
+  document.getElementById("main-wrapper").style.display="none";
+  document.getElementById("detail-view").style.display="block";
+  // Radicado
+  document.getElementById("d-radicado").textContent=p.radicado||"—";
+  // Badges
+  const ec=ESTADO_COLORS[p.estado]||"#6b7280";
+  let badges=`<span class="badge" style="background:${ec}18;color:${ec};border:.5px solid ${ec}60">${p.estado||"—"}</span>`;
+  if(p.esHabeasCorpus||p.habeasCorpus) badges+=`<span class="badge" style="background:#e0e7ff;color:#4338ca">HC</span>`;
+  if(p.tieneNulidad||p.nulidad) badges+=`<span class="badge" style="background:#fef2f2;color:#b91c1c">NULIDAD</span>`;
+  document.getElementById("d-badges").innerHTML=badges;
+  // Fields
+  const rows=[
+    ["Accionante / Agenciado",p.accionante],["Cédula",p.cedula],
+    ["Accionado / Demandado",p.accionado],["Vinculados",p.vinculados],
+    ["Derecho principal SIERJU",p.derechoPrincipal],["Otros derechos",p.otrosDerechos],
+    ["Medida provisional",p.medidaProvisional],["Fecha de admisión",formatDate(p.fechaAdmision||"")],
+    ["Vence fallo",formatDate(p.fechaVencimiento||"")],["Fecha de fallo",formatDate(p.fechaFallo||"")],
+    ["Decisión",p.decision],["Estado",p.estado],
+  ].filter(([,v])=>v);
+  document.getElementById("d-fields").innerHTML=rows.map(([l,v],i)=>
+    `<div class="detail-row"><span class="detail-label">${l}</span><span class="detail-value">${v}</span></div>`
+  ).join("");
+  // Folder
+  if(p.folderName){
+    document.getElementById("d-folder").style.display="block";
+    document.getElementById("d-folder-name").textContent=p.folderName;
+    document.getElementById("d-folder-meta").textContent=`${p.filesCount||0} archivos · Agregado ${p.addedAt||"—"}`;
+    document.getElementById("d-copy-btn").onclick=()=>navigator.clipboard?.writeText(p.folderName);
+  } else {
+    document.getElementById("d-folder").style.display="none";
+  }
+};
+window.closeDetail = () => {
+  document.getElementById("detail-view").style.display="none";
+  document.getElementById("main-wrapper").style.display="block";
+  state.currentDetail=null;
+};
+
+// ── GUARDAR (MANUAL) ─────────────────────────────────────────
+window.openAgregar = () => {
+  clearForm();
+  document.getElementById("modal-agregar").classList.add("show");
+};
+window.closeModal = (id) => { document.getElementById(id).classList.remove("show"); };
+
+function clearForm(){
+  ["f-radicado","f-accionante","f-cedula","f-accionado","f-vinculados","f-otros"].forEach(id=>{ const el=document.getElementById(id); if(el) el.value=""; });
+  ["f-habeas","f-nulidad"].forEach(id=>{ const el=document.getElementById(id); if(el) el.checked=false; });
+  ["f-derecho","f-medida","f-estado"].forEach(id=>{ const el=document.getElementById(id); if(el) el.selectedIndex=0; });
+  const fa=document.getElementById("f-admision"); if(fa) fa.value="";
+}
+
+window.guardarTutela = async () => {
+  const radicado=(document.getElementById("f-radicado").value||"").trim();
+  if(!radicado){ alert("El número de radicación es obligatorio"); return; }
+  const admisionRaw=document.getElementById("f-admision").value;
+  let fechaVenc="";
+  if(admisionRaw){
+    // Calcular 10 días hábiles
+    const d=new Date(admisionRaw+"T12:00:00");
+    let hábiles=0;
+    while(hábiles<10){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) hábiles++; }
+    const dd=String(d.getDate()).padStart(2,"0");
+    const mm=String(d.getMonth()+1).padStart(2,"0");
+    fechaVenc=`${dd}/${mm}/${d.getFullYear()}`;
+  }
+  const tutela={
+    radicado, year:state.year,
+    accionante:document.getElementById("f-accionante").value,
+    cedula:document.getElementById("f-cedula").value,
+    accionado:document.getElementById("f-accionado").value,
+    vinculados:document.getElementById("f-vinculados").value,
+    derechoPrincipal:document.getElementById("f-derecho").value,
+    otrosDerechos:document.getElementById("f-otros").value,
+    medidaProvisional:document.getElementById("f-medida").value,
+    fechaAdmision:fromInputDate(admisionRaw),
+    fechaVencimiento:fechaVenc,
+    fechaFallo:"",
+    estado:document.getElementById("f-estado").value,
+    decision:"En trámite",
+    esHabeasCorpus:document.getElementById("f-habeas").checked,
+    tieneNulidad:document.getElementById("f-nulidad").checked,
+    folderName:"", filesCount:0,
+    addedAt:new Date().toISOString().slice(0,10),
+    creadoEn:serverTimestamp(),
+  };
+  try{
+    await addDoc(collection(db,"tutelas"),tutela);
+    closeModal("modal-agregar");
+  }catch(e){
+    // Fallback local
+    const local=JSON.parse(localStorage.getItem(`cj_tutelas_${state.year}`)||"[]");
+    local.unshift({id:Date.now().toString(),...tutela});
+    localStorage.setItem(`cj_tutelas_${state.year}`,JSON.stringify(local));
+    state.tutelas=local; renderTable(); renderStats();
+    closeModal("modal-agregar");
+  }
+};
+
+// ── DELETE ───────────────────────────────────────────────────
+window.deleteTutela = async (id, e) => {
+  if(e) e.stopPropagation();
+  if(!confirm("¿Eliminar este proceso?")) return;
+  try{ await deleteDoc(doc(db,"tutelas",id)); }
+  catch{ state.tutelas=state.tutelas.filter(t=>t.id!==id); renderTable(); renderStats(); }
+};
+window.confirmarEliminar = async () => {
+  if(!state.currentDetail) return;
+  if(!confirm("¿Eliminar este proceso?")) return;
+  await deleteTutela(state.currentDetail.id);
+  closeDetail();
+};
+
+// ── EDIT ─────────────────────────────────────────────────────
+window.openEditModal = () => {
+  const p=state.currentDetail;
+  if(!p) return;
+  document.getElementById("f-radicado").value=p.radicado||"";
+  document.getElementById("f-accionante").value=p.accionante||"";
+  document.getElementById("f-cedula").value=p.cedula||"";
+  document.getElementById("f-accionado").value=p.accionado||"";
+  document.getElementById("f-vinculados").value=p.vinculados||"";
+  document.getElementById("f-derecho").value=p.derechoPrincipal||"";
+  document.getElementById("f-otros").value=p.otrosDerechos||"";
+  document.getElementById("f-medida").value=p.medidaProvisional||"Sin medida previa";
+  document.getElementById("f-admision").value=toInputDate(p.fechaAdmision||"");
+  document.getElementById("f-estado").value=p.estado||"En término";
+  document.getElementById("f-habeas").checked=!!(p.esHabeasCorpus||p.habeasCorpus);
+  document.getElementById("f-nulidad").checked=!!(p.tieneNulidad||p.nulidad);
+  // Override guardar to update instead of add
+  window._editingId=p.id;
+  document.querySelector("#modal-agregar .modal-title").textContent="Editar radicación";
+  document.querySelector("#modal-agregar .btn-primary").onclick=actualizarTutela;
+  document.getElementById("modal-agregar").classList.add("show");
+};
+window.actualizarTutela = async () => {
+  if(!window._editingId) return;
+  const admisionRaw=document.getElementById("f-admision").value;
+  let fechaVenc="";
+  if(admisionRaw){
+    const d=new Date(admisionRaw+"T12:00:00"); let h=0;
+    while(h<10){ d.setDate(d.getDate()+1); if(d.getDay()!==0&&d.getDay()!==6) h++; }
+    fechaVenc=`${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}/${d.getFullYear()}`;
+  }
+  const upd={
+    radicado:document.getElementById("f-radicado").value,
+    accionante:document.getElementById("f-accionante").value,
+    cedula:document.getElementById("f-cedula").value,
+    accionado:document.getElementById("f-accionado").value,
+    vinculados:document.getElementById("f-vinculados").value,
+    derechoPrincipal:document.getElementById("f-derecho").value,
+    otrosDerechos:document.getElementById("f-otros").value,
+    medidaProvisional:document.getElementById("f-medida").value,
+    fechaAdmision:fromInputDate(admisionRaw),
+    fechaVencimiento:fechaVenc,
+    estado:document.getElementById("f-estado").value,
+    esHabeasCorpus:document.getElementById("f-habeas").checked,
+    tieneNulidad:document.getElementById("f-nulidad").checked,
+  };
+  try{ await updateDoc(doc(db,"tutelas",window._editingId),upd); }
+  catch(e){ console.error(e); }
+  window._editingId=null;
+  document.querySelector("#modal-agregar .modal-title").textContent=`Nueva radicación — ${state.year}`;
+  document.querySelector("#modal-agregar .btn-primary").onclick=guardarTutela;
+  closeModal("modal-agregar");
+  closeDetail();
+};
+
+// ── FOLDER PICKER + CLAUDE ───────────────────────────────────
+window.triggerFolderPicker = () => {
+  const inp=document.getElementById("folder-input");
+  inp.setAttribute("webkitdirectory","");
+  inp.setAttribute("directory","");
+  inp.click();
+};
+
+function b64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>res(r.result.split(",")[1]);
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+
+window.onFolderSelected = async (inp) => {
+  const files=inp.files;
+  if(!files?.length) return;
+  const folderName=files[0].webkitRelativePath.split("/")[0];
+  closeModal("modal-agregar");
+  showProc(`Leyendo carpeta: "${folderName}"…`);
+
+  try{
+    // Get PDFs sorted
+    const pdfs=[...files].filter(f=>f.name.toLowerCase().endsWith(".pdf")).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,5);
+    showProc("Analizando documentos con IA…");
+
+    const m=folderName.match(/^(\d+)\s+(.+)$/);
+    const rH=m?.[1]??"", aH=m?.[2]??folderName;
+
+    let extracted={radicado:rH,accionante:aH,cedula:"",accionado:"",vinculados:"",
+      derechoPrincipal:"",otrosDerechos:"",medidaProvisional:"Sin medida previa",
+      fechaAdmision:"",fechaVencimiento:"",fechaFallo:"",
+      estado:"En término",decision:"En trámite",esHabeasCorpus:false,tieneNulidad:false};
+
+    if(pdfs.length>0){
+      const blocks=[];
+      for(const pdf of pdfs){ try{ blocks.push({type:"document",source:{type:"base64",media_type:"application/pdf",data:await b64(pdf)}}); }catch{} }
+      if(blocks.length>0){
+        const prompt=`Carpeta tutela Colombia año ${state.year}: "${folderName}". Radicado: "${rH}". Accionante: "${aH}". Analiza los PDFs y devuelve SOLO JSON sin markdown:\n{"radicado":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoPrincipal":"","otrosDerechos":"","medidaProvisional":"Sin medida previa","fechaAdmision":"DD/MM/AAAA","fechaVencimiento":"DD/MM/AAAA","fechaFallo":"","estado":"En término","decision":"En trámite","esHabeasCorpus":false,"tieneNulidad":false}`;
+        try{
+          const r=await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:900,messages:[{role:"user",content:[...blocks,{type:"text",text:prompt}]}]})});
+          if(r.ok){
+            const data=await r.json();
+            const raw=(data.content||[]).filter(b=>b.type==="text").map(b=>b.text).join("");
+            try{ extracted={...extracted,...JSON.parse(raw.replace(/```json|```/g,"").trim())}; }catch{}
+          }
+        }catch{}
+      }
+    }
+
+    const tutela={
+      ...extracted,
+      year:state.year,
+      folderName,
+      filesCount:files.length,
+      addedAt:new Date().toISOString().slice(0,10),
+      creadoEn:serverTimestamp(),
+    };
+
+    try{ await addDoc(collection(db,"tutelas"),tutela); }
+    catch{
+      const local=JSON.parse(localStorage.getItem(`cj_tutelas_${state.year}`)||"[]");
+      local.unshift({id:Date.now().toString(),...tutela});
+      localStorage.setItem(`cj_tutelas_${state.year}`,JSON.stringify(local));
+      state.tutelas=local; renderTable(); renderStats();
+    }
+    showProc("✓ Proceso agregado exitosamente");
+    setTimeout(hideProc,2000);
+  }catch(err){
+    showProc("⚠ Error: "+err.message);
+    setTimeout(hideProc,3500);
+  }
+  inp.value="";
+};
+
+function showProc(msg){ const b=document.getElementById("proc-bar"); b.classList.add("show"); document.getElementById("proc-msg").textContent=msg; document.getElementById("btn-agregar").disabled=true; }
+function hideProc(){ document.getElementById("proc-bar").classList.remove("show"); document.getElementById("btn-agregar").disabled=false; }
+
+// ── TABS ─────────────────────────────────────────────────────
+window.switchTab = (name,btn) => {
+  document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
+  document.querySelectorAll(".nav-tab").forEach(t=>t.classList.remove("active"));
+  document.getElementById("tab-"+name).classList.add("active");
+  btn.classList.add("active");
+};
+
+// ── CONFIG (placeholder) ─────────────────────────────────────
+window.openConfig = () => { document.getElementById("modal-verify").classList.add("show"); };
+window.doVerify   = () => { closeModal("modal-verify"); alert("⚙️ Configuración — próxima versión"); };
+
+// ── STAT GRID INIT ───────────────────────────────────────────
+window.renderStatGrid = () => { renderStats(); };
+
+</script>
+</body>
+</html>
