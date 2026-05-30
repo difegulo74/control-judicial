@@ -2389,24 +2389,88 @@ function toB64(file){
   });
 }
 
+// Mapeo exacto de derechos SIERJU — coincide con las opciones del select
+const SIERJU_MAP={
+  'salud':'Salud','health':'Salud',
+  'seguridad social':'Seguridad Social','pension':'Seguridad Social','pensión':'Seguridad Social',
+  'vida':'Vida',
+  'minimo vital':'Mínimo Vital','mínimo vital':'Mínimo Vital','minimo':'Mínimo Vital',
+  'igualdad':'Igualdad',
+  'educacion':'Educación','educación':'Educación',
+  'debido proceso':'Debido Proceso',
+  'peticion':'Derecho de Petición','petición':'Derecho de Petición','derecho de peticion':'Derecho de Petición','derecho de petición':'Derecho de Petición',
+  'habeas data':'Habeas Data',
+  'informacion publica':'Derecho a la Información Pública','información pública':'Derecho a la Información Pública',
+  'trabajo':'Derecho al Trabajo','derecho al trabajo':'Derecho al Trabajo',
+  'providencias judiciales':'Contra Providencias Judiciales',
+  'vivienda':'Vivienda',
+  'otros':'Otros'
+};
+const SENTIDO_MAP={
+  'concede tutela':'Concede tutela','concede':'Concede tutela','concedió':'Concede tutela',
+  'concede parcialmente':'Concede parcialmente','parcialmente':'Concede parcialmente',
+  'hecho superado':'Niega — hecho superado','superado':'Niega — hecho superado',
+  'improcedente':'Niega — improcedente','niega improcedente':'Niega — improcedente','carencia':'Declara carencia actual de objeto',
+  'desistimiento':'Desistimiento',
+  'devuelta por competencia':'Devuelta por competencia','competencia':'Devuelta por competencia',
+  'niega':'Niega — improcedente'
+};
+const MEDIDA_MAP={
+  'sin medida':'Sin medida previa','sin medida previa':'Sin medida previa',
+  'concede medida':'Con medida — concede','niega medida':'Con medida — niega',
+  'salud medida':'Medida previa — salud','suministro':'Medida previa — suministro medicamento',
+  'habeas corpus medida':'Medida previa — habeas corpus','otra medida':'Medida previa — otra'
+};
+const FALLO2I_MAP={
+  'confirma':'Confirma','revoca':'Revoca','modifica':'Modifica',
+  'adiciona':'Adiciona','nulidad':'Decreta nulidad'
+};
+
+function mapVal(val, map){
+  if(!val) return '';
+  const k=val.toLowerCase().trim();
+  if(map[k]) return map[k];
+  for(const[key,mapped] of Object.entries(map)){
+    if(k.includes(key)||key.includes(k)) return mapped;
+  }
+  return val;
+}
+
+function setSelect(selId, val){
+  if(!val) return;
+  const sel=document.getElementById(selId);
+  if(!sel) return;
+  const mapped=mapVal(val,
+    selId==='f-ds'?SIERJU_MAP:
+    selId==='f-m'?MEDIDA_MAP:
+    SENTIDO_MAP
+  );
+  const opts=[...sel.options];
+  // Búsqueda exacta primero
+  let opt=opts.find(o=>o.text===mapped||o.value===mapped);
+  // Búsqueda parcial
+  if(!opt) opt=opts.find(o=>o.text.toLowerCase().includes(mapped.toLowerCase())||mapped.toLowerCase().includes(o.text.toLowerCase().replace('— ','').trim()));
+  if(opt) sel.value=opt.value||opt.text;
+}
+
 async function extraerDatosPDFs(files, folderName){
   const pdfs=[...files]
     .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
     .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,6);
+    .slice(0,7);
 
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
-  const acHint=m?.[2]??folderName;
+  const acHint=(m?.[2]??folderName).trim();
 
   const fb={
-    radicacion:radHint, accionante:acHint, cedula:'', accionado:'',
-    vinculados:'', derechoSierju:'', derechos:'', medida:'Sin medida previa',
-    pretensiones:'', fechaReparto:'', fechaAdmision:'',
-    fechaFallo:'', sentidoFallo:'', fechaImpugnacion:'',
-    juzgado2i:'', fallo2i:'', fechaReparto2i:'',
-    fechaRemCC:'', fechaRegresoCC:'', estado:'En término',
-    observaciones:'', esHC:false, folderName:folderName
+    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
+    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
+    pretensiones:'',fechaReparto:'',fechaAdmision:'',
+    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
+    observaciones:'',esHC:false,folderName:folderName
   };
 
   if(!pdfs.length) return fb;
@@ -2420,36 +2484,24 @@ async function extraerDatosPDFs(files, folderName){
   }
   if(!blocks.length) return fb;
 
-  const prompt=`Carpeta de proceso judicial colombiano (tutela) año ${anio}: "${folderName}"
-Radicado del nombre: "${radHint}" | Accionante del nombre: "${acHint}"
+  const prompt=`Eres un experto en derecho colombiano. Analiza estos documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
 
-Analiza los PDFs adjuntos (son documentos judiciales colombianos: soporte reparto, acta reparto, traslado demanda, auto admisorio, sentencia, notificación, impugnación, etc.) y extrae TODOS los datos disponibles.
+Carpeta: "${folderName}"
+Radicado probable: "${radHint}" | Accionante probable: "${acHint}"
 
-Devuelve ÚNICAMENTE JSON válido sin markdown ni texto adicional:
-{
-  "radicacion":"${radHint}",
-  "accionante":"${acHint}",
-  "cedula":"número cédula del accionante o vacío",
-  "accionado":"entidad o persona accionada principal",
-  "vinculados":"otras entidades vinculadas separadas por coma o vacío",
-  "derechoSierju":"derecho fundamental SIERJU: Salud/Seguridad Social/Vida/Mínimo Vital/Igualdad/Educación/Debido Proceso/Derecho de Petición/Habeas Data/Derecho al Trabajo/Vivienda/Otros",
-  "derechos":"otros derechos invocados o vacío",
-  "medida":"Sin medida previa (u otra si hay medida provisional decretada)",
-  "pretensiones":"resumen breve de lo que solicita el accionante",
-  "fechaReparto":"AAAA-MM-DD fecha de reparto o vacío",
-  "fechaAdmision":"AAAA-MM-DD fecha del auto admisorio o vacío",
-  "fechaFallo":"AAAA-MM-DD fecha de la sentencia de primera instancia o vacío",
-  "sentidoFallo":"Concede tutela/Concede parcialmente/Niega — hecho superado/Niega — improcedente/Declara carencia actual de objeto/Desistimiento/Devuelta por competencia o vacío",
-  "fechaImpugnacion":"AAAA-MM-DD si hay impugnación o vacío",
-  "juzgado2i":"juzgado de segunda instancia si aparece o vacío",
-  "fallo2i":"Confirma/Revoca/Modifica/Adiciona/Decreta nulidad o vacío",
-  "fechaReparto2i":"AAAA-MM-DD reparto segunda instancia o vacío",
-  "fechaRemCC":"AAAA-MM-DD remisión Corte Constitucional o vacío",
-  "fechaRegresoCC":"AAAA-MM-DD regreso Corte Constitucional o vacío",
-  "estado":"En término/Fallada/Impugnada/En Corte Constitucional/Archivada/Devuelta por competencia/Desistimiento",
-  "observaciones":"observaciones relevantes o vacío",
-  "esHC":false
-}`;
+INSTRUCCIONES CRÍTICAS:
+1. Lee TODOS los PDFs adjuntos con máxima atención
+2. Extrae TODOS los campos disponibles — no dejes vacío si la información existe en los documentos
+3. Para derechoSierju usa EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho a la Información Pública, Derecho al Trabajo, Contra Providencias Judiciales, Vivienda, Otros
+4. Para sentidoFallo usa EXACTAMENTE: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
+5. Para fallo2i usa EXACTAMENTE: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
+6. Para estado usa: En término / Fallada / Impugnada / En Corte Constitucional / Archivada / Devuelta por competencia / Desistimiento
+7. Las fechas SIEMPRE en formato AAAA-MM-DD
+8. La cédula del accionante aparece generalmente en el soporte de reparto o en la demanda
+9. Las pretensiones son lo que pide el accionante — extrae un resumen claro
+
+Devuelve ÚNICAMENTE este JSON sin markdown:
+{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
 
   try{
     const resp=await fetch('https://api.anthropic.com/v1/messages',{
@@ -2457,7 +2509,7 @@ Devuelve ÚNICAMENTE JSON válido sin markdown ni texto adicional:
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
         model:'claude-sonnet-4-20250514',
-        max_tokens:1200,
+        max_tokens:1500,
         messages:[{role:'user',content:[...blocks,{type:'text',text:prompt}]}]
       })
     });
@@ -2490,58 +2542,52 @@ async function procesarCarpeta(inp){
   if(st){st.textContent='⏳ Leyendo "'+folderName+'"…';}
 
   try{
-    if(st) st.textContent='🔄 Analizando con IA…';
+    if(st) st.textContent='🔄 Analizando '+([...files].filter(f=>f.name.endsWith('.pdf')).length)+' PDFs con IA…';
     const datos=await extraerDatosPDFs(files,folderName);
 
-    // Llenar formulario
+    // Campos de texto — llenar directamente
     const set=(id,val)=>{const el=document.getElementById(id);if(el&&val)el.value=val;};
-    set('f-r',datos.radicacion);
-    set('f-a',datos.accionante);
-    set('f-c',datos.cedula);
-    set('f-d',datos.accionado);
-    set('f-v',datos.vinculados);
+    set('f-r', datos.radicacion);
+    set('f-a', datos.accionante);
+    set('f-c', datos.cedula);
+    set('f-d', datos.accionado);
+    set('f-v', datos.vinculados);
     set('f-de',datos.derechos);
-    set('f-p',datos.pretensiones);
+    set('f-p', datos.pretensiones);
     set('f-rp',datos.fechaReparto);
     set('f-adm',datos.fechaAdmision);
-    set('f-l','📁 '+folderName);
-    set('f-o',datos.observaciones);
+    set('f-o', datos.observaciones);
+    set('f-l', datos.folderName);
 
-    // Derecho SIERJU
-    const ds=document.getElementById('f-ds');
-    if(ds&&datos.derechoSierju){
-      const opt=[...ds.options].find(o=>o.value===datos.derechoSierju||o.text===datos.derechoSierju);
-      if(opt) ds.value=opt.value;
-    }
+    // Campos select — con mapeo inteligente
+    setSelect('f-ds', datos.derechoSierju);   // Derecho SIERJU
+    setSelect('f-m',  datos.medida);           // Medida provisional
 
-    // Medida
-    const fm=document.getElementById('f-m');
-    if(fm&&datos.medida){
-      const om=[...fm.options].find(o=>o.text.toLowerCase().includes((datos.medida||'').toLowerCase().split(' ')[0]));
-      if(om) fm.value=om.value;
-    }
-
-    // Estado
+    // Estado inicial
     const fe=document.getElementById('f-est');
     if(fe&&datos.estado){
       const oe=[...fe.options].find(o=>o.text===datos.estado);
-      if(oe) fe.value=oe.value;
+      if(oe) fe.value=oe.value||oe.text;
     }
 
-    // HC
+    // Hábeas Corpus
     const fh=document.getElementById('f-hc');
     if(fh) fh.checked=!!datos.esHC;
 
-    // Calcular términos
+    // Calcular términos procesales automáticamente
     if(datos.fechaAdmision) pvT();
 
     if(st) st.textContent='✓ Datos cargados — revisa y guarda';
 
-    // Guardar folderName y filesCount para el registro
-    window._pendingFolder={folderName,filesCount:files.length};
+    // Guardar referencia carpeta
+    window._pendingFolder={
+      folderName,
+      filesCount:files.length
+    };
 
   }catch(e){
     if(st) st.textContent='⚠ Error: '+e.message;
+    console.error(e);
   }
   inp.value='';
 }
@@ -2564,50 +2610,62 @@ async function procesarRecarga(inp,id){
   if(st) st.textContent='⏳ Leyendo "'+folderName+'"…';
 
   try{
-    if(st) st.textContent='🔄 Analizando con IA…';
+    const nPdfs=[...files].filter(f=>f.name.endsWith('.pdf')).length;
+    if(st) st.textContent='🔄 Analizando '+nPdfs+' PDFs con IA…';
     const datos=await extraerDatosPDFs(files,folderName);
     const t=tA().find(x=>String(x.id)===String(id));
     if(!t){if(st)st.textContent='⚠ Proceso no encontrado';return;}
 
-    // Solo actualizar campos vacíos o completar información nueva
-    const upd={};
-    const soloSiVacio=(campo,val)=>{if(val&&!t[campo])upd[campo]=val;};
-    const siempre=(campo,val)=>{if(val)upd[campo]=val;};
+    // Mapear valores de selects antes de guardar
+    const sierju=mapVal(datos.derechoSierju,SIERJU_MAP)||datos.derechoSierju;
+    const sentido=mapVal(datos.sentidoFallo,SENTIDO_MAP)||datos.sentidoFallo;
+    const medida=mapVal(datos.medida,MEDIDA_MAP)||datos.medida;
+    const fallo2i=mapVal(datos.fallo2i,FALLO2I_MAP)||datos.fallo2i;
 
-    // Campos básicos — solo si están vacíos
-    soloSiVacio('accionante',datos.accionante);
-    soloSiVacio('cedula',datos.cedula);
-    soloSiVacio('accionado',datos.accionado);
-    soloSiVacio('vinculados',datos.vinculados);
-    soloSiVacio('derechoSierju',datos.derechoSierju);
-    soloSiVacio('derechos',datos.derechos);
-    soloSiVacio('medida',datos.medida);
-    soloSiVacio('pretensiones',datos.pretensiones);
+    // Construir objeto de actualización
+    // Regla: siempre actualizar si Claude encontró el dato
+    // Solo conservar el existente si Claude no encontró nada
+    const upd={};
+    const actualizar=(campo,val)=>{if(val&&val.trim&&val.trim()) upd[campo]=val;};
+    const soloSiVacio=(campo,val)=>{if(val&&!t[campo]) upd[campo]=val;};
+
+    // Datos básicos — siempre actualizar si Claude los encontró
+    soloSiVacio('accionante', datos.accionante);
+    actualizar('cedula',       datos.cedula);
+    actualizar('accionado',    datos.accionado);
+    actualizar('vinculados',   datos.vinculados);
+    actualizar('derechoSierju',sierju);
+    actualizar('derechos',     datos.derechos);
+    actualizar('medida',       medida);
+    actualizar('pretensiones', datos.pretensiones);
     soloSiVacio('fechaReparto',datos.fechaReparto);
     soloSiVacio('fechaAdmision',datos.fechaAdmision);
-    soloSiVacio('observaciones',datos.observaciones);
 
-    // Campos de avance — siempre actualizar si Claude los encontró
-    soloSiVacio('fechaFallo',datos.fechaFallo);
-    soloSiVacio('sentidoFallo',datos.sentidoFallo);
-    soloSiVacio('fechaImpugnacion',datos.fechaImpugnacion);
-    soloSiVacio('juzgado2i',datos.juzgado2i);
-    soloSiVacio('fallo2i',datos.fallo2i);
-    soloSiVacio('fechaReparto2i',datos.fechaReparto2i);
-    soloSiVacio('fechaRemCC',datos.fechaRemCC);
-    soloSiVacio('fechaRegresoCC',datos.fechaRegresoCC);
+    // Campos de avance procesal — siempre actualizar
+    actualizar('fechaFallo',       datos.fechaFallo);
+    actualizar('sentidoFallo',     sentido);
+    actualizar('fechaImpugnacion', datos.fechaImpugnacion);
+    actualizar('juzgado2i',        datos.juzgado2i);
+    actualizar('fallo2i',          fallo2i);
+    actualizar('fechaReparto2i',   datos.fechaReparto2i);
+    actualizar('fechaRemCC',       datos.fechaRemCC);
+    actualizar('fechaRegresoCC',   datos.fechaRegresoCC);
 
-    // Estado: actualizar si el nuevo es más avanzado
-    const jerarquia=['En término','Fallada','Impugnada','En Corte Constitucional','Archivada','Devuelta por competencia','Desistimiento'];
+    // Estado — usar el más avanzado
+    const jerarquia=['En término','Fallada','Impugnada','En Corte Constitucional',
+                     'Archivada','Devuelta por competencia','Desistimiento'];
     const iAct=jerarquia.indexOf(t.estado||'');
     const iNuevo=jerarquia.indexOf(datos.estado||'');
-    if(iNuevo>iAct) upd.estado=datos.estado;
+    if(iNuevo>iAct&&datos.estado) upd.estado=datos.estado;
 
-    // Guardar referencia a carpeta
-    siempre('folderName',folderName);
+    // Observaciones — agregar si hay nuevas
+    if(datos.observaciones&&!t.observaciones) upd.observaciones=datos.observaciones;
+
+    // Referencia a carpeta
+    upd.folderName=folderName;
     upd.filesCount=files.length;
 
-    if(Object.keys(upd).length===0){
+    if(Object.keys(upd).length<=2){
       if(st) st.textContent='✓ Sin datos nuevos para agregar';
       inp.value='';return;
     }
@@ -2616,11 +2674,12 @@ async function procesarRecarga(inp,id){
     await fbSave(`tutelas_${anio}`,id,{...t,...upd});
     rT();
 
-    // Refrescar el detalle
+    // Refrescar el detalle con datos nuevos
     cerrar2();
-    setTimeout(()=>aDT(id),300);
+    setTimeout(()=>aDT(id),350);
 
-    if(st) st.textContent='✓ '+Object.keys(upd).length+' campos actualizados';
+    const camposActualizados=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
+    if(st) st.textContent=`✓ ${camposActualizados} campo(s) actualizado(s)`;
 
   }catch(e){
     if(st) st.textContent='⚠ Error: '+e.message;
