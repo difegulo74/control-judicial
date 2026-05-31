@@ -2607,38 +2607,6 @@ Fechas en formato AAAA-MM-DD`;
   }
 }
 
-  const m=folderName.match(/^(\d+)\s+(.+)$/);
-  const radHint=m?.[1]??'';
-  const acHint=(m?.[2]??folderName).trim();
-
-  const fb={
-    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
-    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
-    pretensiones:'',fechaReparto:'',fechaAdmision:'',
-    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
-    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
-    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
-    observaciones:'',esHC:false,folderName:folderName
-  };
-
-
-  const m=folderName.match(/^(\d+)\s+(.+)$/);
-  const radHint=m?.[1]??'';
-  const acHint=(m?.[2]??folderName).trim();
-
-  const fb={
-    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
-    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
-    pretensiones:'',fechaReparto:'',fechaAdmision:'',
-    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
-    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
-    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
-    observaciones:'',esHC:false,folderName:folderName
-  };
-
-  if(!pdfs.length) return fb;
-
-}
 
 // Abre el selector de carpeta para formulario NUEVO
 function cargarDesdeCarpeta(){
