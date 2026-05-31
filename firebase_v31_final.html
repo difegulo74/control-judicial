@@ -2478,11 +2478,6 @@ function setSelect(selId, val){
 }
 
 async function extraerDatosPDFs(files, folderName){
-  const pdfs=[...files]
-    .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,4);
-
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
   const acHint=(m?.[2]??folderName).trim();
@@ -2497,68 +2492,94 @@ async function extraerDatosPDFs(files, folderName){
     observaciones:'',esHC:false,folderName:folderName
   };
 
-  if(!pdfs.length) return fb;
-
   const apiKey=getApiKey();
   if(!apiKey) return fb;
 
-  // Extraer texto de PDFs usando PDF.js
+  // Priorizar archivos Word (.docx) — tienen texto real
+  const docxFiles=[...files]
+    .filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .slice(0,4);
+
+  // Si no hay Word, intentar PDFs con PDF.js
+  const pdfFiles=[...files]
+    .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
+    .sort((a,b)=>a.name.localeCompare(b.name))
+    .slice(0,4);
+
   let textoTotal='';
-  try{
-    // Cargar PDF.js si no está disponible
-    if(!window.pdfjsLib){
-      await new Promise((res,rej)=>{
-        const s=document.createElement('script');
-        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-        s.onload=res; s.onerror=rej;
-        document.head.appendChild(s);
-      });
-      window.pdfjsLib.GlobalWorkerOptions.workerSrc=
-        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-    }
-    for(const pdf of pdfs){
-      try{
-        const ab=await pdf.arrayBuffer();
-        const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
-        let txtPdf='\n=== '+pdf.name+' ===\n';
-        const maxPags=Math.min(doc.numPages,4);
-        for(let p=1;p<=maxPags;p++){
-          const page=await doc.getPage(p);
-          const tc=await page.getTextContent();
-          txtPdf+=tc.items.map(i=>i.str).join(' ')+'\n';
-        }
-        textoTotal+=txtPdf;
-      }catch(e){console.warn('Error leyendo PDF:',pdf.name,e);}
-    }
-  }catch(e){
-    console.error('PDF.js error:',e);
-    return fb;
+
+  // 1. Leer archivos Word con mammoth.js
+  if(docxFiles.length>0){
+    try{
+      if(!window.mammoth){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+          s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
+        });
+      }
+      for(const f of docxFiles){
+        try{
+          const ab=await f.arrayBuffer();
+          const result=await window.mammoth.extractRawText({arrayBuffer:ab});
+          if(result.value&&result.value.trim()){
+            textoTotal+='\n=== '+f.name+' ===\n'+result.value+'\n';
+          }
+        }catch(e){console.warn('Error Word:',f.name,e);}
+      }
+    }catch(e){console.warn('mammoth.js no disponible:',e);}
+  }
+
+  // 2. Si no hay texto de Word, intentar PDFs
+  if(!textoTotal.trim()&&pdfFiles.length>0){
+    try{
+      if(!window.pdfjsLib){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+          s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
+        });
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc=
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+      }
+      for(const pdf of pdfFiles){
+        try{
+          const ab=await pdf.arrayBuffer();
+          const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
+          let txt='\n=== '+pdf.name+' ===\n';
+          for(let p=1;p<=Math.min(doc.numPages,3);p++){
+            const page=await doc.getPage(p);
+            const tc=await page.getTextContent();
+            txt+=tc.items.map(i=>i.str).join(' ')+'\n';
+          }
+          if(txt.trim().length>50) textoTotal+=txt;
+        }catch(e){console.warn('Error PDF:',pdf.name,e);}
+      }
+    }catch(e){console.warn('PDF.js error:',e);}
   }
 
   if(!textoTotal.trim()){
-    throw new Error('Los PDFs no tienen texto extraíble (pueden ser imágenes escaneadas)');
+    throw new Error('No se encontró texto en los documentos. Los archivos pueden ser imágenes escaneadas sin texto digital.');
   }
 
-  // Limitar texto para no exceder límites de Gemini
-  const texto=textoTotal.slice(0,12000);
+  const texto=textoTotal.slice(0,15000);
 
-  const prompt=`Eres un experto en derecho colombiano. Analiza el siguiente texto extraído de documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
+  const prompt=`Eres un experto en derecho colombiano. Analiza este texto extraído de documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
 
-Carpeta: "${folderName}" | Radicado probable: "${radHint}" | Accionante probable: "${acHint}"
+Carpeta: "${folderName}" | Radicado: "${radHint}" | Accionante probable: "${acHint}"
 
-TEXTO DE LOS DOCUMENTOS:
+TEXTO EXTRAÍDO:
 ${texto}
 
-INSTRUCCIONES:
-1. Extrae TODOS los campos disponibles del texto
-2. Para derechoSierju usa EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho a la Información Pública, Derecho al Trabajo, Contra Providencias Judiciales, Vivienda, Otros
-3. Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
-4. Para fallo2i: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
-5. Fechas en formato AAAA-MM-DD
-6. La cédula aparece en el soporte de reparto o demanda
+Extrae los datos del proceso y devuelve ÚNICAMENTE este JSON sin markdown:
+{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}
 
-Devuelve ÚNICAMENTE este JSON sin markdown:
-{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
+Para derechoSierju usa: Salud / Seguridad Social / Vida / Mínimo Vital / Igualdad / Educación / Debido Proceso / Derecho de Petición / Habeas Data / Derecho al Trabajo / Contra Providencias Judiciales / Vivienda / Otros
+Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
+Fechas en formato AAAA-MM-DD`;
 
   try{
     const resp=await fetch(
@@ -2581,10 +2602,25 @@ Devuelve ÚNICAMENTE este JSON sin markdown:
     const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
     return{...fb,...parsed};
   }catch(e){
-    console.error('Gemini API error:',e);
+    console.error('Gemini error:',e);
     throw e;
   }
 }
+
+  const m=folderName.match(/^(\d+)\s+(.+)$/);
+  const radHint=m?.[1]??'';
+  const acHint=(m?.[2]??folderName).trim();
+
+  const fb={
+    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
+    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
+    pretensiones:'',fechaReparto:'',fechaAdmision:'',
+    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
+    observaciones:'',esHC:false,folderName:folderName
+  };
+
 
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
