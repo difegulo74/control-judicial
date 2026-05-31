@@ -925,6 +925,7 @@ function guardarApiKey(){
   alert('✓ API key guardada. La extracción automática de PDFs ya está activa.');
 }
 window.guardarApiKey=guardarApiKey;
+function getResponsables(){
   try{
     const r=JSON.parse(localStorage.getItem('cj_responsables')||'null');
     if(r&&r.length)return r;
