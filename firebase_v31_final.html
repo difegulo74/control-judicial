@@ -2481,7 +2481,7 @@ async function extraerDatosPDFs(files, folderName){
   const pdfs=[...files]
     .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
     .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,7);
+    .slice(0,3);
 
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
@@ -2552,7 +2552,9 @@ Devuelve ÚNICAMENTE este JSON sin markdown:
     if(!resp.ok){
       const err=await resp.text();
       console.error('Gemini error:',err);
-      return fb;
+      let msg='Error Gemini: '+resp.status;
+      try{const j=JSON.parse(err);msg=j?.error?.message||msg;}catch{}
+      throw new Error(msg);
     }
     const data=await resp.json();
     const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
@@ -2582,8 +2584,15 @@ async function procesarCarpeta(inp){
   if(st){st.textContent='⏳ Leyendo "'+folderName+'"…';}
 
   try{
-    if(st) st.textContent='🔄 Analizando '+([...files].filter(f=>f.name.endsWith('.pdf')).length)+' PDFs con IA…';
+    if(st) st.textContent='🔄 Analizando '+([...files].filter(f=>f.name.endsWith('.pdf')).length)+' PDFs con Gemini…';
     const datos=await extraerDatosPDFs(files,folderName);
+    
+    // Verificar si Gemini realmente extrajo datos
+    const hayDatos=datos.accionado||datos.cedula||datos.derechoSierju||datos.fechaReparto||datos.pretensiones;
+    if(!hayDatos){
+      if(st) st.textContent='⚠ Gemini no extrajo datos — verifica tu API key en ⚙️ Configuración';
+      return;
+    }
 
     // Campos de texto — llenar directamente
     const set=(id,val)=>{const el=document.getElementById(id);if(el&&val)el.value=val;};
