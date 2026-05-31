@@ -1,4 +1,17 @@
-<!DOCTYPE html>
+<script>
+// Desregistrar Service Workers que interfieran con esta página
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    regs.forEach(reg=>reg.unregister());
+  }).then(()=>{
+    // Recargar solo si había SW registrados
+    if(performance.navigation&&performance.navigation.type!==1){
+      // No recargar en refresh manual
+    }
+  });
+}
+</script>
+
 <html lang="es">
 <head>
 <meta charset="UTF-8">
