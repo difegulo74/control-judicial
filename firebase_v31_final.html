@@ -2481,7 +2481,7 @@ async function extraerDatosPDFs(files, folderName){
   const pdfs=[...files]
     .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
     .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,3);
+    .slice(0,4);
 
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
@@ -2499,71 +2499,109 @@ async function extraerDatosPDFs(files, folderName){
 
   if(!pdfs.length) return fb;
 
-  const blocks=[];
-  for(const pdf of pdfs){
-    try{
-      const b64=await toB64(pdf);
-      blocks.push({type:'document',source:{type:'base64',media_type:'application/pdf',data:b64}});
-    }catch(e){console.warn('PDF no legible:',pdf.name);}
+  const apiKey=getApiKey();
+  if(!apiKey) return fb;
+
+  // Extraer texto de PDFs usando PDF.js
+  let textoTotal='';
+  try{
+    // Cargar PDF.js si no está disponible
+    if(!window.pdfjsLib){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc=
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
+    for(const pdf of pdfs){
+      try{
+        const ab=await pdf.arrayBuffer();
+        const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
+        let txtPdf='\n=== '+pdf.name+' ===\n';
+        const maxPags=Math.min(doc.numPages,4);
+        for(let p=1;p<=maxPags;p++){
+          const page=await doc.getPage(p);
+          const tc=await page.getTextContent();
+          txtPdf+=tc.items.map(i=>i.str).join(' ')+'\n';
+        }
+        textoTotal+=txtPdf;
+      }catch(e){console.warn('Error leyendo PDF:',pdf.name,e);}
+    }
+  }catch(e){
+    console.error('PDF.js error:',e);
+    return fb;
   }
-  if(!blocks.length) return fb;
 
-  const prompt=`Eres un experto en derecho colombiano. Analiza estos documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
+  if(!textoTotal.trim()){
+    throw new Error('Los PDFs no tienen texto extraíble (pueden ser imágenes escaneadas)');
+  }
 
-Carpeta: "${folderName}"
-Radicado probable: "${radHint}" | Accionante probable: "${acHint}"
+  // Limitar texto para no exceder límites de Gemini
+  const texto=textoTotal.slice(0,12000);
 
-INSTRUCCIONES CRÍTICAS:
-1. Lee TODOS los PDFs adjuntos con máxima atención
-2. Extrae TODOS los campos disponibles — no dejes vacío si la información existe en los documentos
-3. Para derechoSierju usa EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho a la Información Pública, Derecho al Trabajo, Contra Providencias Judiciales, Vivienda, Otros
-4. Para sentidoFallo usa EXACTAMENTE: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
-5. Para fallo2i usa EXACTAMENTE: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
-6. Para estado usa: En término / Fallada / Impugnada / En Corte Constitucional / Archivada / Devuelta por competencia / Desistimiento
-7. Las fechas SIEMPRE en formato AAAA-MM-DD
-8. La cédula del accionante aparece generalmente en el soporte de reparto o en la demanda
-9. Las pretensiones son lo que pide el accionante — extrae un resumen claro
+  const prompt=`Eres un experto en derecho colombiano. Analiza el siguiente texto extraído de documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
+
+Carpeta: "${folderName}" | Radicado probable: "${radHint}" | Accionante probable: "${acHint}"
+
+TEXTO DE LOS DOCUMENTOS:
+${texto}
+
+INSTRUCCIONES:
+1. Extrae TODOS los campos disponibles del texto
+2. Para derechoSierju usa EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho a la Información Pública, Derecho al Trabajo, Contra Providencias Judiciales, Vivienda, Otros
+3. Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
+4. Para fallo2i: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
+5. Fechas en formato AAAA-MM-DD
+6. La cédula aparece en el soporte de reparto o demanda
 
 Devuelve ÚNICAMENTE este JSON sin markdown:
 {"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
 
   try{
-    const apiKey=getApiKey();
-    if(!apiKey){
-      alert('⚠ Para extraer datos de PDFs necesitas configurar tu API key de Google Gemini.\n\nVe a ⚙️ Configuración → sección "IA — Extracción automática".');
-      return fb;
-    }
-
-    // Construir partes para Gemini
-    const parts=[];
-    for(const block of blocks){
-      parts.push({inline_data:{mime_type:'application/pdf',data:block.source.data}});
-    }
-    parts.push({text:prompt});
-
     const resp=await fetch(
       'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+apiKey,
       {
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts}]})
+        body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
       }
     );
     if(!resp.ok){
       const err=await resp.text();
-      console.error('Gemini error:',err);
-      let msg='Error Gemini: '+resp.status;
+      let msg='Error Gemini '+resp.status;
       try{const j=JSON.parse(err);msg=j?.error?.message||msg;}catch{}
       throw new Error(msg);
     }
     const data=await resp.json();
     const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    if(!raw) throw new Error('Gemini devolvió respuesta vacía');
     const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
     return{...fb,...parsed};
   }catch(e){
-    console.error('Claude API error:',e);
-    return fb;
+    console.error('Gemini API error:',e);
+    throw e;
   }
+}
+
+  const m=folderName.match(/^(\d+)\s+(.+)$/);
+  const radHint=m?.[1]??'';
+  const acHint=(m?.[2]??folderName).trim();
+
+  const fb={
+    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
+    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
+    pretensiones:'',fechaReparto:'',fechaAdmision:'',
+    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
+    observaciones:'',esHC:false,folderName:folderName
+  };
+
+  if(!pdfs.length) return fb;
+
 }
 
 // Abre el selector de carpeta para formulario NUEVO
