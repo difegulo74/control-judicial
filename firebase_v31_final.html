@@ -916,7 +916,15 @@ async function init(){
 // ═══════════════════════════════════════════════════════
 // RESPONSABLES — editable por el usuario
 // ═══════════════════════════════════════════════════════
-function getResponsables(){
+function getApiKey(){return localStorage.getItem('cj_anthropic_key')||'';}
+function setApiKey(k){if(k)localStorage.setItem('cj_anthropic_key',k);}
+function guardarApiKey(){
+  const k=(document.getElementById('cfg-apikey')||{}).value||'';
+  if(!k){alert('Ingresa tu API key de Anthropic.');return;}
+  setApiKey(k.trim());
+  alert('✓ API key guardada. La extracción automática de PDFs ya está activa.');
+}
+window.guardarApiKey=guardarApiKey;
   try{
     const r=JSON.parse(localStorage.getItem('cj_responsables')||'null');
     if(r&&r.length)return r;
@@ -1726,6 +1734,21 @@ function _mostrarConfig(){
   (()=>{
     const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
+    // Inyectar sección IA al final del panel
+    const iaSection=document.createElement('div');
+    iaSection.style.cssText='padding:12px 16px;border-bottom:1px solid var(--bd)';
+    iaSection.innerHTML=
+      '<div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🤖 IA — Extracción automática de PDFs</div>'+
+      '<div style="font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.5">Ingresa tu API key de Google Gemini (gratis) para que la IA lea los PDFs de cada carpeta y llene todos los campos automáticamente. Se guarda solo en este navegador.</div>'+
+      '<label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:4px">API Key de Google Gemini</label>'+
+      '<input type="password" id="cfg-apikey" maxlength="200" placeholder="AIzaSy..." style="width:100%;padding:8px;border:1px solid var(--bd2);border-radius:var(--r);font-size:12px;font-family:monospace;margin-bottom:8px">'+
+      '<button class="btn btn-p btn-sm" onclick="guardarApiKey()" style="width:100%;justify-content:center;margin-bottom:6px">✓ Guardar API key</button>'+
+      '<div style="font-size:10px;color:var(--t2);line-height:1.4">Obtén tu key gratis en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--bl)">aistudio.google.com</a> → Crear clave de API.</div>';
+    document.getElementById('cfg-body').appendChild(iaSection);
+    // Mostrar si ya hay key guardada
+    const saved=getApiKey();
+    const ki=document.getElementById('cfg-apikey');
+    if(ki&&saved) ki.placeholder='••••••••• (ya configurada — pega nueva para cambiar)';
     // Load responsables
     _renderResponsables();
     // Show version
@@ -2504,18 +2527,34 @@ Devuelve ÚNICAMENTE este JSON sin markdown:
 {"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
 
   try{
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        model:'claude-sonnet-4-20250514',
-        max_tokens:1500,
-        messages:[{role:'user',content:[...blocks,{type:'text',text:prompt}]}]
-      })
-    });
-    if(!resp.ok) return fb;
+    const apiKey=getApiKey();
+    if(!apiKey){
+      alert('⚠ Para extraer datos de PDFs necesitas configurar tu API key de Google Gemini.\n\nVe a ⚙️ Configuración → sección "IA — Extracción automática".');
+      return fb;
+    }
+
+    // Construir partes para Gemini
+    const parts=[];
+    for(const block of blocks){
+      parts.push({inline_data:{mime_type:'application/pdf',data:block.source.data}});
+    }
+    parts.push({text:prompt});
+
+    const resp=await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+apiKey,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({contents:[{parts}]})
+      }
+    );
+    if(!resp.ok){
+      const err=await resp.text();
+      console.error('Gemini error:',err);
+      return fb;
+    }
     const data=await resp.json();
-    const raw=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('');
+    const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
     const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
     return{...fb,...parsed};
   }catch(e){
