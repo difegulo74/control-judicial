@@ -920,7 +920,7 @@ function getApiKey(){return localStorage.getItem('cj_anthropic_key')||'';}
 function setApiKey(k){if(k)localStorage.setItem('cj_anthropic_key',k);}
 function guardarApiKey(){
   const k=(document.getElementById('cfg-apikey')||{}).value||'';
-  if(!k){alert('Ingresa tu API key de Anthropic.');return;}
+  if(!k){alert('Ingresa tu API key de Google Gemini (AIzaSy...).');return;}
   setApiKey(k.trim());
   alert('✓ API key guardada. La extracción automática de PDFs ya está activa.');
 }
@@ -1199,10 +1199,10 @@ function aFT(){
         <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">📁 Cargar desde carpeta OneDrive</div>
         <div style="font-size:10px;color:#3b82f6;margin-bottom:8px;line-height:1.4">Selecciona la carpeta de la tutela y Claude leerá los PDFs automáticamente llenando todos los campos.</div>
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <button type="button" class="btn btn-p" onclick="cargarDesdeCarpeta()" style="font-size:11px;padding:6px 12px">📂 Seleccionar carpeta</button>
+          <label for="folder-input-aft" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">📂 Seleccionar carpeta</label>
           <span id="folder-status" style="font-size:10px;color:#1d4ed8;font-weight:600"></span>
         </div>
-        <input type="file" id="folder-input-aft" multiple style="display:none" onchange="procesarCarpeta(this)">
+        <input type="file" id="folder-input-aft" multiple webkitdirectory directory style="display:none" onchange="procesarCarpeta(this)" accept=".pdf,.docx,.doc">
       </div>
       <p style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--t3);margin:-4px 0">— o ingresa los datos manualmente —</p>
       <div class="fi full"><label>Radicación</label><input id="f-r" placeholder="73001400901420260001000" maxlength="35"></div>
@@ -1405,10 +1405,10 @@ function aDT(id){
           <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
           <div style="font-size:10px;color:#3b82f6;margin-bottom:8px;line-height:1.4">Selecciona la carpeta actualizada y Claude leerá los nuevos PDFs completando los campos vacíos sin borrar lo que ya existe.</div>
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <button type="button" class="btn btn-p" onclick="recargarCarpeta('${id}')" style="font-size:11px;padding:6px 12px">🔄 Actualizar desde carpeta</button>
+            <label for="reload-input-${id}" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">🔄 Actualizar desde carpeta</label>
             <span id="reload-status-${id}" style="font-size:10px;color:#1d4ed8;font-weight:600"></span>
           </div>
-          <input type="file" id="reload-input-${id}" multiple style="display:none" onchange="procesarRecarga(this,'${id}')">
+          <input type="file" id="reload-input-${id}" multiple webkitdirectory directory style="display:none" onchange="procesarRecarga(this,'${id}')" accept=".pdf,.docx,.doc">
           ${t.folderName?`<div style="font-size:9px;color:#60a5fa;margin-top:6px">📁 ${esc(t.folderName)} · ${t.filesCount||0} archivos</div>`:''}
         </div>
         <div class="fi full"><label>Observaciones</label><textarea onchange="updT('${id}','observaciones',this.value)">${esc(t.observaciones)}</textarea></div>
