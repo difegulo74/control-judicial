@@ -2481,6 +2481,116 @@ async function extraerDatosPDFs(files, folderName){
   const m=folderName.match(/^(\d+)\s+(.+)$/);
   const radHint=m?.[1]??'';
   const acHint=(m?.[2]??folderName).trim();
+  const fb={
+    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
+    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
+    pretensiones:'',fechaReparto:'',fechaAdmision:'',
+    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
+    observaciones:'',esHC:false,folderName:folderName
+  };
+
+  const apiKey=getApiKey();
+  if(!apiKey) return fb;
+
+  const allFiles=[...files];
+  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf'))
+    .sort((a,b)=>a.name.localeCompare(b.name)).slice(0,5);
+  const docxFiles=allFiles.filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'))
+    .sort((a,b)=>a.name.localeCompare(b.name)).slice(0,4);
+
+  const parts=[];
+
+  // 1. Enviar PDFs directamente a Gemini (vision multimodal — lee escaneados)
+  for(const pdf of pdfs){
+    try{
+      const ab=await pdf.arrayBuffer();
+      const sizeMB=ab.byteLength/1024/1024;
+      if(sizeMB>15) continue; // saltar PDFs muy grandes
+      const b64=await toB64(pdf);
+      parts.push({inline_data:{mime_type:'application/pdf',data:b64}});
+    }catch(e){console.warn('PDF omitido:',pdf.name);}
+  }
+
+  // 2. Leer archivos Word con mammoth.js y agregar como texto
+  let wordText='';
+  if(docxFiles.length>0){
+    try{
+      if(!window.mammoth){
+        await new Promise((res,rej)=>{
+          const s=document.createElement('script');
+          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
+          s.onload=res; s.onerror=rej;
+          document.head.appendChild(s);
+        });
+      }
+      for(const f of docxFiles){
+        try{
+          const ab=await f.arrayBuffer();
+          const result=await window.mammoth.extractRawText({arrayBuffer:ab});
+          if(result.value&&result.value.trim())
+            wordText+='\n=== DOCUMENTO WORD: '+f.name+' ===\n'+result.value.slice(0,3000)+'\n';
+        }catch(e){console.warn('Word omitido:',f.name);}
+      }
+    }catch(e){console.warn('mammoth no disponible');}
+  }
+
+  if(parts.length===0&&!wordText.trim()){
+    throw new Error('No se encontraron documentos legibles en la carpeta.');
+  }
+
+  // 3. Construir prompt
+  const prompt=`Eres un experto en derecho colombiano. Analiza estos documentos de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
+
+Carpeta: "${folderName}"
+Radicado: "${radHint}" | Accionante probable: "${acHint}"
+${wordText?`\nCONTENIDO DE DOCUMENTOS WORD:\n${wordText}`:''}
+
+INSTRUCCIONES:
+- Extrae TODOS los campos posibles de los PDFs adjuntos y del texto Word
+- Los PDFs pueden ser escaneados — usa tu visión para leerlos
+- Para derechoSierju usa EXACTAMENTE: Salud / Seguridad Social / Vida / Mínimo Vital / Igualdad / Educación / Debido Proceso / Derecho de Petición / Habeas Data / Derecho al Trabajo / Contra Providencias Judiciales / Vivienda / Otros
+- Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
+- Para fallo2i: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
+- Fechas en formato AAAA-MM-DD
+- La cédula aparece en soporte de reparto o demanda
+- Las pretensiones son lo que solicita el accionante
+
+Devuelve ÚNICAMENTE este JSON sin markdown:
+{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
+
+  parts.push({text:prompt});
+
+  // 4. Llamar a Gemini con PDFs + texto
+  try{
+    const resp=await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,
+      {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          contents:[{parts}],
+          generationConfig:{temperature:0.1,maxOutputTokens:1500}
+        })
+      }
+    );
+    if(!resp.ok){
+      const err=await resp.text();
+      let msg='Error Gemini '+resp.status;
+      try{const j=JSON.parse(err);msg=j?.error?.message?.slice(0,120)||msg;}catch{}
+      throw new Error(msg);
+    }
+    const data=await resp.json();
+    const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+    if(!raw) throw new Error('Gemini devolvió respuesta vacía');
+    const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
+    return{...fb,...parsed};
+  }catch(e){
+    console.error('Gemini error:',e);
+    throw e;
+  }
+}
 
   const fb={
     radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
@@ -2509,103 +2619,6 @@ async function extraerDatosPDFs(files, folderName){
 
   let textoTotal='';
 
-  // 1. Leer archivos Word con mammoth.js
-  if(docxFiles.length>0){
-    try{
-      if(!window.mammoth){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
-          s.onload=res; s.onerror=rej;
-          document.head.appendChild(s);
-        });
-      }
-      for(const f of docxFiles){
-        try{
-          const ab=await f.arrayBuffer();
-          const result=await window.mammoth.extractRawText({arrayBuffer:ab});
-          if(result.value&&result.value.trim()){
-            textoTotal+='\n=== '+f.name+' ===\n'+result.value+'\n';
-          }
-        }catch(e){console.warn('Error Word:',f.name,e);}
-      }
-    }catch(e){console.warn('mammoth.js no disponible:',e);}
-  }
-
-  // 2. Si no hay texto de Word, intentar PDFs
-  if(!textoTotal.trim()&&pdfFiles.length>0){
-    try{
-      if(!window.pdfjsLib){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
-          s.onload=res; s.onerror=rej;
-          document.head.appendChild(s);
-        });
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc=
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      }
-      for(const pdf of pdfFiles){
-        try{
-          const ab=await pdf.arrayBuffer();
-          const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
-          let txt='\n=== '+pdf.name+' ===\n';
-          for(let p=1;p<=Math.min(doc.numPages,3);p++){
-            const page=await doc.getPage(p);
-            const tc=await page.getTextContent();
-            txt+=tc.items.map(i=>i.str).join(' ')+'\n';
-          }
-          if(txt.trim().length>50) textoTotal+=txt;
-        }catch(e){console.warn('Error PDF:',pdf.name,e);}
-      }
-    }catch(e){console.warn('PDF.js error:',e);}
-  }
-
-  if(!textoTotal.trim()){
-    throw new Error('No se encontró texto en los documentos. Los archivos pueden ser imágenes escaneadas sin texto digital.');
-  }
-
-  const texto=textoTotal.slice(0,15000);
-
-  const prompt=`Eres un experto en derecho colombiano. Analiza este texto extraído de documentos judiciales de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
-
-Carpeta: "${folderName}" | Radicado: "${radHint}" | Accionante probable: "${acHint}"
-
-TEXTO EXTRAÍDO:
-${texto}
-
-Extrae los datos del proceso y devuelve ÚNICAMENTE este JSON sin markdown:
-{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}
-
-Para derechoSierju usa: Salud / Seguridad Social / Vida / Mínimo Vital / Igualdad / Educación / Debido Proceso / Derecho de Petición / Habeas Data / Derecho al Trabajo / Contra Providencias Judiciales / Vivienda / Otros
-Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
-Fechas en formato AAAA-MM-DD`;
-
-  try{
-    const resp=await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,
-      {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
-      }
-    );
-    if(!resp.ok){
-      const err=await resp.text();
-      let msg='Error Gemini '+resp.status;
-      try{const j=JSON.parse(err);msg=j?.error?.message||msg;}catch{}
-      throw new Error(msg);
-    }
-    const data=await resp.json();
-    const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    if(!raw) throw new Error('Gemini devolvió respuesta vacía');
-    const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
-    return{...fb,...parsed};
-  }catch(e){
-    console.error('Gemini error:',e);
-    throw e;
-  }
-}
 
 
 // Abre el selector de carpeta para formulario NUEVO
