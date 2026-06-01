@@ -1,12 +1,6 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<script>
-// Desregistrar Service Workers que interfieran
-if('serviceWorker' in navigator){
-  navigator.serviceWorker.getRegistrations().then(regs=>{regs.forEach(r=>r.unregister());});
-}
-</script>
 <meta charset="UTF-8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
@@ -765,35 +759,22 @@ function getPwd(t){return localStorage.getItem('j14_pwd_'+t)||(t==='user'?'0000'
 function setPwd(t,v){localStorage.setItem('j14_pwd_'+t,v);}
 let isAdmin=false;
 
-let fbAuth=null;
-function doGoogleLogin(){
-  const err=document.getElementById('lerr');
-  err.textContent='Conectando con Google...';
-  if(!fbAuth){err.textContent='Cargando... intenta de nuevo en 2 segundos.';return;}
-  const provider=new firebase.auth.GoogleAuthProvider();
-  fbAuth.signInWithPopup(provider).catch(e=>{
-    err.textContent='Error: '+e.message;
-  });
-}
 function doLogin(){
-  const pwd=document.getElementById('lpwd')?.value||'';
+  const pwd=document.getElementById('lpwd').value;
   const err=document.getElementById('lerr');
-  if(!pwd){if(err)err.textContent='Ingresa la contraseña.';return;}
   if(pwd===getPwd('admin')){isAdmin=true;}
   else if(pwd===getPwd('user')){isAdmin=false;}
-  else if(pwd==='2029Rj75'||pwd==='0000'){isAdmin=(pwd==='2029Rj75');}
-  else{if(err){err.textContent='Contraseña incorrecta.';document.getElementById('lpwd').value='';}return;}
-  if(err)err.textContent='';
+  else{err.textContent='Contraseña incorrecta.';document.getElementById('lpwd').value='';return;}
+  err.textContent='';
   document.getElementById('login-overlay').style.display='none';
   document.getElementById('app').style.display='block';
   init();
 }
 function doLogout(){
   if(!confirm('¿Cerrar sesión?'))return;
-  if(fbAuth) fbAuth.signOut();
   document.getElementById('app').style.display='none';
   document.getElementById('login-overlay').style.display='flex';
-  isAdmin=false;
+  document.getElementById('lpwd').value='';isAdmin=false;
   if(unsubT){unsubT();unsubT=null;}if(unsubD){unsubD();unsubD=null;}
 }
 
@@ -923,7 +904,6 @@ async function init(){
       const s=document.createElement('script');
       s.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
       s.onload=()=>{const s2=document.createElement('script');s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';s2.onload=resolve;s2.onerror=reject;document.head.appendChild(s2);};
-
       s.onerror=reject;document.head.appendChild(s);
     });
     if(!firebase.apps.length)firebase.initializeApp(FB_CFG);
@@ -936,15 +916,6 @@ async function init(){
 // ═══════════════════════════════════════════════════════
 // RESPONSABLES — editable por el usuario
 // ═══════════════════════════════════════════════════════
-function getApiKey(){return localStorage.getItem('cj_anthropic_key')||'';}
-function setApiKey(k){if(k)localStorage.setItem('cj_anthropic_key',k);}
-function guardarApiKey(){
-  const k=(document.getElementById('cfg-apikey')||{}).value||'';
-  if(!k){alert('Ingresa tu API key de Google Gemini (AIzaSy...).');return;}
-  setApiKey(k.trim());
-  alert('✓ API key guardada. La extracción automática de PDFs ya está activa.');
-}
-window.guardarApiKey=guardarApiKey;
 function getResponsables(){
   try{
     const r=JSON.parse(localStorage.getItem('cj_responsables')||'null');
@@ -1215,14 +1186,12 @@ function aFT(){
       <button class="mcls" onclick="cerrar()">✕</button>
     </div>
     <div class="mbody"><div class="fg">
-      <div class="fi full" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:4px">
+      <div class="fi full" style="background:#eff6ff;border:.5px solid #bfdbfe;border-radius:8px;padding:12px">
         <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">📁 Cargar desde carpeta OneDrive</div>
-        <div style="font-size:10px;color:#3b82f6;margin-bottom:8px;line-height:1.4">Selecciona la carpeta de la tutela y Claude leerá los PDFs automáticamente llenando todos los campos.</div>
-        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <label for="folder-input-aft" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">📂 Seleccionar carpeta</label>
-          <span id="folder-status" style="font-size:10px;color:#1d4ed8;font-weight:600"></span>
-        </div>
-        <input type="file" id="folder-input-aft" multiple webkitdirectory directory style="display:none" onchange="procesarCarpeta(this)" accept=".pdf,.docx,.doc">
+        <div style="font-size:10px;color:#3b82f6;margin-bottom:8px">Selecciona la carpeta de la tutela — la IA leerá los documentos y llenará los campos automáticamente.</div>
+        <label for="folder-input-aft" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:6px">📂 Seleccionar carpeta</label>
+        <span id="folder-status" style="font-size:10px;color:#1d4ed8;font-weight:600;margin-left:8px"></span>
+        <input type="file" id="folder-input-aft" multiple webkitdirectory directory style="display:none" onchange="procesarCarpeta(this)">
       </div>
       <p style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--t3);margin:-4px 0">— o ingresa los datos manualmente —</p>
       <div class="fi full"><label>Radicación</label><input id="f-r" placeholder="73001400901420260001000" maxlength="35"></div>
@@ -1314,12 +1283,7 @@ async function guardarT(){
     juzgado2i:'',fallo2i:'',fechaReparto2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
     nulidades:[],ultimaNulidad:null};
-  // Si viene de carpeta, agregar referencia
-  if(window._pendingFolder){
-    t.folderName=window._pendingFolder.folderName;
-    t.filesCount=window._pendingFolder.filesCount;
-    window._pendingFolder=null;
-  }
+  if(window._pendingFolder){t.folderName=window._pendingFolder.folderName;t.filesCount=window._pendingFolder.filesCount;window._pendingFolder=null;}
   await fbSave(`tutelas_${anio}`,t.id,t);
   cerrar();rT();
   // Agregar eventos al calendario
@@ -1421,15 +1385,12 @@ function aDT(id){
           <input value="${esc(t.enlace)}" placeholder="https://..." onchange="updT('${id}','enlace',this.value)">
           ${t.enlace?`<a href="${t.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
         </div>
-        <div class="fi full" style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px">
+        <div class="fi full" style="background:#eff6ff;border:.5px solid #bfdbfe;border-radius:8px;padding:10px">
           <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
-          <div style="font-size:10px;color:#3b82f6;margin-bottom:8px;line-height:1.4">Selecciona la carpeta actualizada y Claude leerá los nuevos PDFs completando los campos vacíos sin borrar lo que ya existe.</div>
-          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <label for="reload-input-${id}" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:4px">🔄 Actualizar desde carpeta</label>
-            <span id="reload-status-${id}" style="font-size:10px;color:#1d4ed8;font-weight:600"></span>
-          </div>
-          <input type="file" id="reload-input-${id}" multiple webkitdirectory directory style="display:none" onchange="procesarRecarga(this,'${id}')" accept=".pdf,.docx,.doc">
-          ${t.folderName?`<div style="font-size:9px;color:#60a5fa;margin-top:6px">📁 ${esc(t.folderName)} · ${t.filesCount||0} archivos</div>`:''}
+          <div style="font-size:10px;color:#3b82f6;margin-bottom:8px">Selecciona la carpeta actualizada — la IA completará los campos vacíos sin borrar lo que ya existe.</div>
+          <label for="reload-input-${id}" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:6px">🔄 Actualizar desde carpeta</label>
+          <span id="reload-status-${id}" style="font-size:10px;color:#1d4ed8;font-weight:600;margin-left:8px"></span>
+          <input type="file" id="reload-input-${id}" multiple webkitdirectory directory style="display:none" onchange="procesarRecarga(this,'${id}')">
         </div>
         <div class="fi full"><label>Observaciones</label><textarea onchange="updT('${id}','observaciones',this.value)">${esc(t.observaciones)}</textarea></div>
         <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
@@ -1755,21 +1716,14 @@ function _mostrarConfig(){
   (()=>{
     const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
-    // Inyectar sección IA al final del panel
-    const iaSection=document.createElement('div');
-    iaSection.style.cssText='padding:12px 16px;border-bottom:1px solid var(--bd)';
-    iaSection.innerHTML=
-      '<div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🤖 IA — Extracción automática de PDFs</div>'+
-      '<div style="font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.5">Ingresa tu API key de Google Gemini (gratis) para que la IA lea los PDFs de cada carpeta y llene todos los campos automáticamente. Se guarda solo en este navegador.</div>'+
-      '<label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:4px">API Key de Google Gemini</label>'+
-      '<input type="password" id="cfg-apikey" maxlength="200" placeholder="AIzaSy..." style="width:100%;padding:8px;border:1px solid var(--bd2);border-radius:var(--r);font-size:12px;font-family:monospace;margin-bottom:8px">'+
-      '<button class="btn btn-p btn-sm" onclick="guardarApiKey()" style="width:100%;justify-content:center;margin-bottom:6px">✓ Guardar API key</button>'+
-      '<div style="font-size:10px;color:var(--t2);line-height:1.4">Obtén tu key gratis en <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--bl)">aistudio.google.com</a> → Crear clave de API.</div>';
-    document.getElementById('cfg-body').appendChild(iaSection);
-    // Mostrar si ya hay key guardada
-    const saved=getApiKey();
+    // Agregar sección IA al final del panel
+    const iaDiv=document.createElement('div');
+    iaDiv.style.cssText='padding:12px 16px;border-top:1px solid var(--bd)';
+    iaDiv.innerHTML='<div style="font-size:10px;font-weight:700;color:#1d4ed8;text-transform:uppercase;letter-spacing:.07em;margin-bottom:8px">🤖 IA — Extracción automática</div><div style="font-size:11px;color:var(--t2);margin-bottom:10px;line-height:1.5">API key de Google Gemini para cargar carpetas automáticamente.</div><label style="font-size:9px;font-weight:700;color:var(--t2);display:block;margin-bottom:4px">API KEY DE GOOGLE GEMINI</label><input type="password" id="cfg-apikey" maxlength="200" placeholder="AIzaSy..." style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px;font-family:monospace;margin-bottom:8px"><button class="btn btn-p btn-sm" onclick="guardarApiKey()" style="width:100%;justify-content:center">✓ Guardar API key</button>';
+    document.getElementById('cfg-body').appendChild(iaDiv);
+    const savedKey=getApiKey();
     const ki=document.getElementById('cfg-apikey');
-    if(ki&&saved) ki.placeholder='••••••••• (ya configurada — pega nueva para cambiar)';
+    if(ki&&savedKey)ki.placeholder='••••••••••• (configurada — pega nueva para cambiar)';
     // Load responsables
     _renderResponsables();
     // Show version
@@ -2402,13 +2356,14 @@ window.addEventListener('offline',()=>document.getElementById('offline-bar').cla
 // ═══════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════
-function startUI(){
+function init(){
   mergeHistorico();
   anios=[...new Set(localDB.anios||[2024,2025,2026])].sort((x,y)=>x-y);
   anio=anios[anios.length-1];
   renderAnios();
   escuchar(anio);
   setSS('ok');
+  // Solicitar permisos de notificación después de 2 segundos
   setTimeout(solicitarNotificaciones,2000);
 }
 
@@ -2421,406 +2376,125 @@ window.onerror=function(msg,src,line,col,err){
 };
 
 // ═══════════════════════════════════════════════════════
-// CARGA AUTOMÁTICA DESDE CARPETA — CLAUDE IA
+// IA — EXTRACCIÓN AUTOMÁTICA DESDE CARPETA
 // ═══════════════════════════════════════════════════════
+function getApiKey(){return localStorage.getItem('cj_gemini_key')||'';}
+function setApiKey(k){if(k)localStorage.setItem('cj_gemini_key',k);}
+window.guardarApiKey=function(){
+  const k=(document.getElementById('cfg-apikey')||{}).value||'';
+  if(!k){alert('Ingresa tu API key de Google Gemini.');return;}
+  setApiKey(k.trim());
+  alert('✓ API key guardada. La extracción automática ya está activa.');
+};
+
 function toB64(file){
-  return new Promise((res,rej)=>{
-    const r=new FileReader();
-    r.onload=()=>res(r.result.split(',')[1]);
-    r.onerror=rej;
-    r.readAsDataURL(file);
-  });
+  return new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result.split(',')[1]);r.onerror=rej;r.readAsDataURL(file);});
 }
 
-// Mapeo exacto de derechos SIERJU — coincide con las opciones del select
-const SIERJU_MAP={
-  'salud':'Salud','health':'Salud',
-  'seguridad social':'Seguridad Social','pension':'Seguridad Social','pensión':'Seguridad Social',
-  'vida':'Vida',
-  'minimo vital':'Mínimo Vital','mínimo vital':'Mínimo Vital','minimo':'Mínimo Vital',
-  'igualdad':'Igualdad',
-  'educacion':'Educación','educación':'Educación',
-  'debido proceso':'Debido Proceso',
-  'peticion':'Derecho de Petición','petición':'Derecho de Petición','derecho de peticion':'Derecho de Petición','derecho de petición':'Derecho de Petición',
-  'habeas data':'Habeas Data',
-  'informacion publica':'Derecho a la Información Pública','información pública':'Derecho a la Información Pública',
-  'trabajo':'Derecho al Trabajo','derecho al trabajo':'Derecho al Trabajo',
-  'providencias judiciales':'Contra Providencias Judiciales',
-  'vivienda':'Vivienda',
-  'otros':'Otros'
-};
-const SENTIDO_MAP={
-  'concede tutela':'Concede tutela','concede':'Concede tutela','concedió':'Concede tutela',
-  'concede parcialmente':'Concede parcialmente','parcialmente':'Concede parcialmente',
-  'hecho superado':'Niega — hecho superado','superado':'Niega — hecho superado',
-  'improcedente':'Niega — improcedente','niega improcedente':'Niega — improcedente','carencia':'Declara carencia actual de objeto',
-  'desistimiento':'Desistimiento',
-  'devuelta por competencia':'Devuelta por competencia','competencia':'Devuelta por competencia',
-  'niega':'Niega — improcedente'
-};
-const MEDIDA_MAP={
-  'sin medida':'Sin medida previa','sin medida previa':'Sin medida previa',
-  'concede medida':'Con medida — concede','niega medida':'Con medida — niega',
-  'salud medida':'Medida previa — salud','suministro':'Medida previa — suministro medicamento',
-  'habeas corpus medida':'Medida previa — habeas corpus','otra medida':'Medida previa — otra'
-};
-const FALLO2I_MAP={
-  'confirma':'Confirma','revoca':'Revoca','modifica':'Modifica',
-  'adiciona':'Adiciona','nulidad':'Decreta nulidad'
-};
-
-function mapVal(val, map){
-  if(!val) return '';
-  const k=val.toLowerCase().trim();
-  if(map[k]) return map[k];
-  for(const[key,mapped] of Object.entries(map)){
-    if(k.includes(key)||key.includes(k)) return mapped;
-  }
-  return val;
-}
-
-function setSelect(selId, val){
-  if(!val) return;
-  const sel=document.getElementById(selId);
-  if(!sel) return;
-  const mapped=mapVal(val,
-    selId==='f-ds'?SIERJU_MAP:
-    selId==='f-m'?MEDIDA_MAP:
-    SENTIDO_MAP
-  );
-  const opts=[...sel.options];
-  // Búsqueda exacta primero
-  let opt=opts.find(o=>o.text===mapped||o.value===mapped);
-  // Búsqueda parcial
-  if(!opt) opt=opts.find(o=>o.text.toLowerCase().includes(mapped.toLowerCase())||mapped.toLowerCase().includes(o.text.toLowerCase().replace('— ','').trim()));
-  if(opt) sel.value=opt.value||opt.text;
-}
-
-async function extraerDatosPDFs(files, folderName){
+async function extraerDatosCarpeta(files,folderName){
   const m=folderName.match(/^(\d+)\s+(.+)$/);
-  const radHint=m?.[1]??'';
-  const acHint=(m?.[2]??folderName).trim();
-  const fb={
-    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
-    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
-    pretensiones:'',fechaReparto:'',fechaAdmision:'',
-    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
-    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
-    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
-    observaciones:'',esHC:false,folderName:folderName
-  };
-
+  const rH=m?.[1]??'', aH=(m?.[2]??folderName).trim();
+  const fb={radicacion:rH,accionante:aH,cedula:'',accionado:'',vinculados:'',
+    derechoSierju:'',derechos:'',medida:'Sin medida previa',pretensiones:'',
+    fechaReparto:'',fechaAdmision:'',fechaFallo:'',sentidoFallo:'',
+    fechaImpugnacion:'',juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',observaciones:'',esHC:false};
   const apiKey=getApiKey();
   if(!apiKey) return fb;
-
   const allFiles=[...files];
-  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf'))
-    .sort((a,b)=>a.name.localeCompare(b.name)).slice(0,5);
-  const docxFiles=allFiles.filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'))
-    .sort((a,b)=>a.name.localeCompare(b.name)).slice(0,4);
-
+  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf')).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,5);
+  const docx=allFiles.filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc')).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,4);
   const parts=[];
-
-  // 1. Enviar PDFs directamente a Gemini (vision multimodal — lee escaneados)
   for(const pdf of pdfs){
+    try{const ab=await pdf.arrayBuffer();if(ab.byteLength<15*1024*1024){const b64=await toB64(pdf);parts.push({inline_data:{mime_type:'application/pdf',data:b64}});}}catch(e){}
+  }
+  let wTxt='';
+  if(docx.length>0){
     try{
-      const ab=await pdf.arrayBuffer();
-      const sizeMB=ab.byteLength/1024/1024;
-      if(sizeMB>15) continue; // saltar PDFs muy grandes
-      const b64=await toB64(pdf);
-      parts.push({inline_data:{mime_type:'application/pdf',data:b64}});
-    }catch(e){console.warn('PDF omitido:',pdf.name);}
+      if(!window.mammoth){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+      for(const f of docx){try{const ab=await f.arrayBuffer();const r=await window.mammoth.extractRawText({arrayBuffer:ab});if(r.value&&r.value.trim())wTxt+='\n=== '+f.name+' ===\n'+r.value.slice(0,3000);}catch(e){}}
+    }catch(e){}
   }
-
-  // 2. Leer archivos Word con mammoth.js y agregar como texto
-  let wordText='';
-  if(docxFiles.length>0){
-    try{
-      if(!window.mammoth){
-        await new Promise((res,rej)=>{
-          const s=document.createElement('script');
-          s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';
-          s.onload=res; s.onerror=rej;
-          document.head.appendChild(s);
-        });
-      }
-      for(const f of docxFiles){
-        try{
-          const ab=await f.arrayBuffer();
-          const result=await window.mammoth.extractRawText({arrayBuffer:ab});
-          if(result.value&&result.value.trim())
-            wordText+='\n=== DOCUMENTO WORD: '+f.name+' ===\n'+result.value.slice(0,3000)+'\n';
-        }catch(e){console.warn('Word omitido:',f.name);}
-      }
-    }catch(e){console.warn('mammoth no disponible');}
-  }
-
-  if(parts.length===0&&!wordText.trim()){
-    throw new Error('No se encontraron documentos legibles en la carpeta.');
-  }
-
-  // 3. Construir prompt
-  const prompt=`Eres un experto en derecho colombiano. Analiza estos documentos de tutela del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
-
-Carpeta: "${folderName}"
-Radicado: "${radHint}" | Accionante probable: "${acHint}"
-${wordText?`\nCONTENIDO DE DOCUMENTOS WORD:\n${wordText}`:''}
-
-INSTRUCCIONES:
-- Extrae TODOS los campos posibles de los PDFs adjuntos y del texto Word
-- Los PDFs pueden ser escaneados — usa tu visión para leerlos
-- Para derechoSierju usa EXACTAMENTE: Salud / Seguridad Social / Vida / Mínimo Vital / Igualdad / Educación / Debido Proceso / Derecho de Petición / Habeas Data / Derecho al Trabajo / Contra Providencias Judiciales / Vivienda / Otros
-- Para sentidoFallo: Concede tutela / Concede parcialmente / Niega — hecho superado / Niega — improcedente / Declara carencia actual de objeto / Desistimiento / Devuelta por competencia
-- Para fallo2i: Confirma / Revoca / Modifica / Adiciona / Decreta nulidad
-- Fechas en formato AAAA-MM-DD
-- La cédula aparece en soporte de reparto o demanda
-- Las pretensiones son lo que solicita el accionante
-
-Devuelve ÚNICAMENTE este JSON sin markdown:
-{"radicacion":"${radHint}","accionante":"${acHint}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
-
+  if(parts.length===0&&!wTxt.trim()) throw new Error('No se encontraron documentos legibles en la carpeta.');
+  const prompt=`Eres un experto en derecho colombiano. Analiza documentos de tutela del Juzgado 14 Penal Municipal de Ibagué año ${anio}.
+Carpeta: "${folderName}" | Radicado: "${rH}" | Accionante: "${aH}"
+${wTxt?'TEXTO WORD:\n'+wTxt:''}
+Extrae los datos y devuelve SOLO JSON sin markdown:
+{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"Salud/Seguridad Social/Vida/Mínimo Vital/Igualdad/Educación/Debido Proceso/Derecho de Petición/Habeas Data/Derecho al Trabajo/Vivienda/Otros","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"AAAA-MM-DD","fechaAdmision":"AAAA-MM-DD","fechaFallo":"AAAA-MM-DD","sentidoFallo":"Concede tutela/Concede parcialmente/Niega — hecho superado/Niega — improcedente/Declara carencia actual de objeto/Desistimiento/Devuelta por competencia","fechaImpugnacion":"AAAA-MM-DD","juzgado2i":"","fallo2i":"Confirma/Revoca/Modifica/Adiciona/Decreta nulidad","fechaReparto2i":"AAAA-MM-DD","fechaRemCC":"AAAA-MM-DD","fechaRegresoCC":"AAAA-MM-DD","estado":"En término","observaciones":"","esHC":false}`;
   parts.push({text:prompt});
-
-  // 4. Llamar a Gemini con PDFs + texto
-  try{
-    const resp=await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,
-      {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          contents:[{parts}],
-          generationConfig:{temperature:0.1,maxOutputTokens:1500}
-        })
-      }
-    );
-    if(!resp.ok){
-      const err=await resp.text();
-      let msg='Error Gemini '+resp.status;
-      try{const j=JSON.parse(err);msg=j?.error?.message?.slice(0,120)||msg;}catch{}
-      throw new Error(msg);
-    }
-    const data=await resp.json();
-    const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-    if(!raw) throw new Error('Gemini devolvió respuesta vacía');
-    const parsed=JSON.parse(raw.replace(/```json|```/g,'').trim());
-    return{...fb,...parsed};
-  }catch(e){
-    console.error('Gemini error:',e);
-    throw e;
-  }
+  const resp=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey,
+    {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:1500}})});
+  if(!resp.ok){const e=await resp.text();let msg='Error Gemini '+resp.status;try{msg=JSON.parse(e)?.error?.message?.slice(0,120)||msg;}catch{}throw new Error(msg);}
+  const data=await resp.json();
+  const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+  if(!raw) throw new Error('Gemini devolvió respuesta vacía');
+  return{...fb,...JSON.parse(raw.replace(/```json|```/g,'').trim())};
 }
 
-  const fb={
-    radicacion:radHint,accionante:acHint,cedula:'',accionado:'',
-    vinculados:'',derechoSierju:'',derechos:'',medida:'Sin medida previa',
-    pretensiones:'',fechaReparto:'',fechaAdmision:'',
-    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
-    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
-    fechaRemCC:'',fechaRegresoCC:'',estado:'En término',
-    observaciones:'',esHC:false,folderName:folderName
-  };
+const SIERJU_MAP={'salud':'Salud','seguridad social':'Seguridad Social','pension':'Seguridad Social','pensión':'Seguridad Social','vida':'Vida','minimo vital':'Mínimo Vital','mínimo vital':'Mínimo Vital','igualdad':'Igualdad','educacion':'Educación','educación':'Educación','debido proceso':'Debido Proceso','peticion':'Derecho de Petición','petición':'Derecho de Petición','derecho de peticion':'Derecho de Petición','habeas data':'Habeas Data','trabajo':'Derecho al Trabajo','vivienda':'Vivienda','otros':'Otros'};
+const SENTIDO_MAP={'concede tutela':'Concede tutela','concede':'Concede tutela','concede parcialmente':'Concede parcialmente','hecho superado':'Niega — hecho superado','improcedente':'Niega — improcedente','carencia':'Declara carencia actual de objeto','desistimiento':'Desistimiento','competencia':'Devuelta por competencia','niega':'Niega — improcedente'};
+function mapV(val,map){if(!val)return '';const k=val.toLowerCase().trim();if(map[k])return map[k];for(const[ky,v] of Object.entries(map)){if(k.includes(ky)||ky.includes(k))return v;}return val;}
+function setSelect(id,val){if(!val)return;const s=document.getElementById(id);if(!s)return;const mv=mapV(val,id.includes('ds')||id.includes('derecho')?SIERJU_MAP:SENTIDO_MAP);const o=[...s.options].find(o=>o.text===mv||o.value===mv||o.text.toLowerCase().includes(mv.toLowerCase().split(' ')[0]));if(o)s.value=o.value||o.text;}
 
-  const apiKey=getApiKey();
-  if(!apiKey) return fb;
-
-  // Priorizar archivos Word (.docx) — tienen texto real
-  const docxFiles=[...files]
-    .filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'))
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,4);
-
-  // Si no hay Word, intentar PDFs con PDF.js
-  const pdfFiles=[...files]
-    .filter(f=>f.name.toLowerCase().endsWith('.pdf'))
-    .sort((a,b)=>a.name.localeCompare(b.name))
-    .slice(0,4);
-
-  let textoTotal='';
-
-
-
-// Abre el selector de carpeta para formulario NUEVO
-function cargarDesdeCarpeta(){
-  const inp=document.getElementById('folder-input-aft');
-  if(!inp) return;
-  inp.setAttribute('webkitdirectory','');
-  inp.setAttribute('directory','');
-  inp.click();
-}
-
-// Procesa la carpeta seleccionada para formulario NUEVO
-async function procesarCarpeta(inp){
-  const files=inp.files;
-  if(!files?.length) return;
+window.procesarCarpeta=async function(inp){
+  const files=inp.files;if(!files?.length)return;
   const folderName=files[0].webkitRelativePath.split('/')[0];
   const st=document.getElementById('folder-status');
-  if(st){st.textContent='⏳ Leyendo "'+folderName+'"…';}
-
+  if(st)st.textContent='⏳ Leyendo "'+folderName+'"…';
   try{
-    if(st) st.textContent='🔄 Analizando '+([...files].filter(f=>f.name.endsWith('.pdf')).length)+' PDFs con Gemini…';
-    const datos=await extraerDatosPDFs(files,folderName);
-    
-    // Verificar si Gemini realmente extrajo datos
-    const hayDatos=datos.accionado||datos.cedula||datos.derechoSierju||datos.fechaReparto||datos.pretensiones;
-    if(!hayDatos){
-      if(st) st.textContent='⚠ Gemini no extrajo datos — verifica tu API key en ⚙️ Configuración';
-      return;
-    }
-
-    // Campos de texto — llenar directamente
-    const set=(id,val)=>{const el=document.getElementById(id);if(el&&val)el.value=val;};
-    set('f-r', datos.radicacion);
-    set('f-a', datos.accionante);
-    set('f-c', datos.cedula);
-    set('f-d', datos.accionado);
-    set('f-v', datos.vinculados);
-    set('f-de',datos.derechos);
-    set('f-p', datos.pretensiones);
-    set('f-rp',datos.fechaReparto);
-    set('f-adm',datos.fechaAdmision);
-    set('f-o', datos.observaciones);
-    set('f-l', datos.folderName);
-
-    // Campos select — con mapeo inteligente
-    setSelect('f-ds', datos.derechoSierju);   // Derecho SIERJU
-    setSelect('f-m',  datos.medida);           // Medida provisional
-
-    // Estado inicial
-    const fe=document.getElementById('f-est');
-    if(fe&&datos.estado){
-      const oe=[...fe.options].find(o=>o.text===datos.estado);
-      if(oe) fe.value=oe.value||oe.text;
-    }
-
-    // Hábeas Corpus
-    const fh=document.getElementById('f-hc');
-    if(fh) fh.checked=!!datos.esHC;
-
-    // Calcular términos procesales automáticamente
-    if(datos.fechaAdmision) pvT();
-
-    if(st) st.textContent='✓ Datos cargados — revisa y guarda';
-
-    // Guardar referencia carpeta
-    window._pendingFolder={
-      folderName,
-      filesCount:files.length
-    };
-
-  }catch(e){
-    if(st) st.textContent='⚠ Error: '+e.message;
-    console.error(e);
-  }
+    if(st)st.textContent='🔄 Analizando con Gemini…';
+    const d=await extraerDatosCarpeta(files,folderName);
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+    set('f-r',d.radicacion);set('f-a',d.accionante);set('f-c',d.cedula);
+    set('f-d',d.accionado);set('f-v',d.vinculados);set('f-de',d.derechos);
+    set('f-p',d.pretensiones);set('f-rp',d.fechaReparto);set('f-adm',d.fechaAdmision);
+    set('f-l',folderName);set('f-o',d.observaciones);
+    setSelect('f-ds',d.derechoSierju);
+    if(d.medida){const fm=document.getElementById('f-m');if(fm){const o=[...fm.options].find(o=>o.text.toLowerCase().includes((d.medida||'').toLowerCase().slice(0,6)));if(o)fm.value=o.value;}}
+    if(d.estado){const fe=document.getElementById('f-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
+    if(document.getElementById('f-hc'))document.getElementById('f-hc').checked=!!d.esHC;
+    if(d.fechaAdmision&&typeof pvT==='function')pvT();
+    window._pendingFolder={folderName,filesCount:files.length};
+    const hayDatos=d.accionado||d.cedula||d.derechoSierju||d.fechaReparto||d.pretensiones;
+    if(st)st.textContent=hayDatos?'✓ Datos cargados — revisa y guarda':'⚠ No se extrajeron datos — verifica tu API key en ⚙️';
+  }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
-}
+};
 
-// Abre selector de carpeta para ACTUALIZAR tutela existente
-function recargarCarpeta(id){
-  const inp=document.getElementById('reload-input-'+id);
-  if(!inp) return;
-  inp.setAttribute('webkitdirectory','');
-  inp.setAttribute('directory','');
-  inp.click();
-}
-
-// Procesa recarga de carpeta para tutela EXISTENTE
-async function procesarRecarga(inp,id){
-  const files=inp.files;
-  if(!files?.length) return;
+window.procesarRecarga=async function(inp,id){
+  const files=inp.files;if(!files?.length)return;
   const folderName=files[0].webkitRelativePath.split('/')[0];
   const st=document.getElementById('reload-status-'+id);
-  if(st) st.textContent='⏳ Leyendo "'+folderName+'"…';
-
+  if(st)st.textContent='⏳ Leyendo…';
   try{
-    const nPdfs=[...files].filter(f=>f.name.endsWith('.pdf')).length;
-    if(st) st.textContent='🔄 Analizando '+nPdfs+' PDFs con IA…';
-    const datos=await extraerDatosPDFs(files,folderName);
+    if(st)st.textContent='🔄 Analizando con Gemini…';
+    const d=await extraerDatosCarpeta(files,folderName);
     const t=tA().find(x=>String(x.id)===String(id));
     if(!t){if(st)st.textContent='⚠ Proceso no encontrado';return;}
-
-    // Mapear valores de selects antes de guardar
-    const sierju=mapVal(datos.derechoSierju,SIERJU_MAP)||datos.derechoSierju;
-    const sentido=mapVal(datos.sentidoFallo,SENTIDO_MAP)||datos.sentidoFallo;
-    const medida=mapVal(datos.medida,MEDIDA_MAP)||datos.medida;
-    const fallo2i=mapVal(datos.fallo2i,FALLO2I_MAP)||datos.fallo2i;
-
-    // Construir objeto de actualización
-    // Regla: siempre actualizar si Claude encontró el dato
-    // Solo conservar el existente si Claude no encontró nada
     const upd={};
-    const actualizar=(campo,val)=>{if(val&&val.trim&&val.trim()) upd[campo]=val;};
-    const soloSiVacio=(campo,val)=>{if(val&&!t[campo]) upd[campo]=val;};
-
-    // Datos básicos — siempre actualizar si Claude los encontró
-    soloSiVacio('accionante', datos.accionante);
-    actualizar('cedula',       datos.cedula);
-    actualizar('accionado',    datos.accionado);
-    actualizar('vinculados',   datos.vinculados);
-    actualizar('derechoSierju',sierju);
-    actualizar('derechos',     datos.derechos);
-    actualizar('medida',       medida);
-    actualizar('pretensiones', datos.pretensiones);
-    soloSiVacio('fechaReparto',datos.fechaReparto);
-    soloSiVacio('fechaAdmision',datos.fechaAdmision);
-
-    // Campos de avance procesal — siempre actualizar
-    actualizar('fechaFallo',       datos.fechaFallo);
-    actualizar('sentidoFallo',     sentido);
-    actualizar('fechaImpugnacion', datos.fechaImpugnacion);
-    actualizar('juzgado2i',        datos.juzgado2i);
-    actualizar('fallo2i',          fallo2i);
-    actualizar('fechaReparto2i',   datos.fechaReparto2i);
-    actualizar('fechaRemCC',       datos.fechaRemCC);
-    actualizar('fechaRegresoCC',   datos.fechaRegresoCC);
-
-    // Estado — usar el más avanzado
-    const jerarquia=['En término','Fallada','Impugnada','En Corte Constitucional',
-                     'Archivada','Devuelta por competencia','Desistimiento'];
-    const iAct=jerarquia.indexOf(t.estado||'');
-    const iNuevo=jerarquia.indexOf(datos.estado||'');
-    if(iNuevo>iAct&&datos.estado) upd.estado=datos.estado;
-
-    // Observaciones — agregar si hay nuevas
-    if(datos.observaciones&&!t.observaciones) upd.observaciones=datos.observaciones;
-
-    // Referencia a carpeta
-    upd.folderName=folderName;
-    upd.filesCount=files.length;
-
-    if(Object.keys(upd).length<=2){
-      if(st) st.textContent='✓ Sin datos nuevos para agregar';
-      inp.value='';return;
-    }
-
-    // Guardar en Firestore
+    const act=(campo,val)=>{if(val&&String(val).trim())upd[campo]=val;};
+    const solo=(campo,val)=>{if(val&&!t[campo])upd[campo]=val;};
+    solo('accionante',d.accionante);act('cedula',d.cedula);act('accionado',d.accionado);
+    act('vinculados',d.vinculados);act('derechoSierju',mapV(d.derechoSierju,SIERJU_MAP)||d.derechoSierju);
+    act('derechos',d.derechos);act('medida',d.medida);act('pretensiones',d.pretensiones);
+    solo('fechaReparto',d.fechaReparto);solo('fechaAdmision',d.fechaAdmision);
+    act('fechaFallo',d.fechaFallo);act('sentidoFallo',mapV(d.sentidoFallo,SENTIDO_MAP)||d.sentidoFallo);
+    act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
+    act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);
+    act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
+    upd.folderName=folderName;upd.filesCount=files.length;
+    const jerarquia=['En término','Fallada','Impugnada','En Corte Constitucional','Archivada','Devuelta por competencia','Desistimiento'];
+    const iA=jerarquia.indexOf(t.estado||''),iN=jerarquia.indexOf(d.estado||'');
+    if(iN>iA&&d.estado)upd.estado=d.estado;
+    const n=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
+    if(n===0){if(st)st.textContent='✓ Sin datos nuevos';inp.value='';return;}
     await fbSave(`tutelas_${anio}`,id,{...t,...upd});
-    rT();
-
-    // Refrescar el detalle con datos nuevos
-    cerrar2();
-    setTimeout(()=>aDT(id),350);
-
-    const camposActualizados=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
-    if(st) st.textContent=`✓ ${camposActualizados} campo(s) actualizado(s)`;
-
-  }catch(e){
-    if(st) st.textContent='⚠ Error: '+e.message;
-    console.error(e);
-  }
+    rT();cerrar2();setTimeout(()=>aDT(id),350);
+    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s)`;
+  }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
-}
+};
 
-// Parche al guardarT para incluir folderName si viene de carpeta
-const _guardarT_orig=window.guardarT;
-
-// EXPONER FUNCIONES DE CARPETA
-window.cargarDesdeCarpeta=cargarDesdeCarpeta;
-window.procesarCarpeta=procesarCarpeta;
-window.recargarCarpeta=recargarCarpeta;
-window.procesarRecarga=procesarRecarga;
-
-// ═══════════════════════════════════════════════════════
 // EXPONER FUNCIONES GLOBALES
 window.doLogin=doLogin;window.rT=rT;window.rD=rD;window.doLogout=doLogout;
 window.addAnio=addAnio;window.switchTab=switchTab;
