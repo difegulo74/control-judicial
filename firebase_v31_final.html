@@ -922,37 +922,12 @@ async function init(){
       if(typeof firebase!=='undefined'){resolve();return;}
       const s=document.createElement('script');
       s.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
-      s.onload=()=>{
-        // Cargar Auth + Firestore en paralelo
-        const sAuth=document.createElement('script');
-        sAuth.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js';
-        document.head.appendChild(sAuth);
-        const s2=document.createElement('script');
-        s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';
-        s2.onload=()=>{
-          sAuth.onload=()=>{ resolve(); };
-          if(sAuth.complete) resolve();
-        };
-        s2.onerror=reject;
-        document.head.appendChild(s2);
-      };
+      s.onload=()=>{const s2=document.createElement('script');s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';s2.onload=resolve;s2.onerror=reject;document.head.appendChild(s2);};
+
       s.onerror=reject;document.head.appendChild(s);
     });
     if(!firebase.apps.length)firebase.initializeApp(FB_CFG);
     fbDb=firebase.firestore();
-    if(firebase.auth){
-      fbAuth=firebase.auth();
-      fbAuth.onAuthStateChanged(user=>{
-        if(user){
-          document.getElementById('login-overlay').style.display='none';
-          document.getElementById('app').style.display='block';
-          isAdmin=true;
-        } else {
-          document.getElementById('login-overlay').style.display='flex';
-          document.getElementById('app').style.display='none';
-        }
-      });
-    }
     try{fbDb.enablePersistence();}catch(e){}
     escuchar(anio);setTimeout(solicitarNotificaciones,2000);
   }catch(e){setSS('e','Sin internet');console.error('Firebase:',e);}
@@ -2427,14 +2402,13 @@ window.addEventListener('offline',()=>document.getElementById('offline-bar').cla
 // ═══════════════════════════════════════════════════════
 // INICIO
 // ═══════════════════════════════════════════════════════
-function init(){
+function startUI(){
   mergeHistorico();
   anios=[...new Set(localDB.anios||[2024,2025,2026])].sort((x,y)=>x-y);
   anio=anios[anios.length-1];
   renderAnios();
   escuchar(anio);
   setSS('ok');
-  // Solicitar permisos de notificación después de 2 segundos
   setTimeout(solicitarNotificaciones,2000);
 }
 
