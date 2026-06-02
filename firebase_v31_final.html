@@ -1739,7 +1739,7 @@ function _mostrarConfig(){
       const tipo=savedKey.startsWith('AQ.')?'Bearer AQ.':savedKey.startsWith('AIza')?'API key AIzaSy':'key';
       ki.placeholder='••••••• ('+tipo+' guardada — pega nueva para cambiar)';
       const bar=document.getElementById('ia-estado-bar');
-      if(bar){bar.style.display='block';bar.style.background='#dbeafe';bar.style.color='#1d4ed8';bar.textContent='✓ IA configurada · '+tipo;}
+      if(bar){bar.style.display='block';bar.style.background='#dbeafe';bar.style.color='#1d4ed8';bar.textContent='✓ IA configurada · '+tipo+' guardada';}
     }
     const savedProxy=getProxyUrl();
     const pi=document.getElementById('cfg-proxy');
@@ -2406,9 +2406,9 @@ window.guardarApiKey=function(){
   const k=(document.getElementById('cfg-apikey')||{}).value||'';
   if(!k){alert('Ingresa tu API key de Google Gemini.');return;}
   setApiKey(k.trim());
-  const tipo=k.startsWith('AQ.')?'Bearer AQ.':k.startsWith('AIza')?'API key AIzaSy':'key';
+  const tipo=k.startsWith('AQ.')?'API key AQ.':k.startsWith('AIza')?'API key AIzaSy':'key';
   const bar=document.getElementById('ia-estado-bar');
-  if(bar){bar.style.display='block';bar.style.background='#dbeafe';bar.style.color='#1d4ed8';bar.textContent='✓ IA configurada · '+tipo;}
+  if(bar){bar.style.display='block';bar.style.background='#dbeafe';bar.style.color='#1d4ed8';bar.textContent='✓ IA configurada · '+tipo+' guardada';}
   alert('✓ API key guardada ('+tipo+'). La extracción automática ya está activa.');
 };
 window.guardarProxyUrl=function(){
@@ -2443,7 +2443,6 @@ function toB64(file){
 
 // Helper centralizado: llama a Gemini (directo o vía proxy GAS)
 async function _llamarGemini(apiKey, promptText, conParts, extraParts){
-  const isBearer=apiKey.startsWith('AQ.');
   const proxyUrl=getProxyUrl();
   const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
   const parts=extraParts?[...extraParts]:[];
@@ -2452,15 +2451,13 @@ async function _llamarGemini(apiKey, promptText, conParts, extraParts){
 
   let resp;
   if(proxyUrl){
-    // Ruta proxy GAS: no hay problema de CORS, la key se guarda en el script
+    // Ruta proxy GAS: sin CORS, la key viaja en el body
     resp=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
       body:JSON.stringify({...body,apiKey})});
   } else {
-    // Llamada directa
-    const url=isBearer?ENDPOINT:ENDPOINT+'?key='+apiKey;
-    const headers={'Content-Type':'application/json'};
-    if(isBearer) headers['Authorization']='Bearer '+apiKey;
-    resp=await fetch(url,{method:'POST',headers,body:JSON.stringify(body)});
+    // Llamada directa — AQ. y AIzaSy. van siempre como ?key=
+    const url=ENDPOINT+'?key='+apiKey;
+    resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
   }
 
   if(!resp.ok){
