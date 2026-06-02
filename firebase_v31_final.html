@@ -2444,7 +2444,7 @@ function toB64(file){
 // Helper centralizado: llama a Gemini (directo o vía proxy GAS)
 async function _llamarGemini(apiKey, promptText, conParts, extraParts){
   const proxyUrl=getProxyUrl();
-  const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+  const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
   const parts=extraParts?[...extraParts]:[];
   parts.push({text:promptText});
   const body={contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:1500}};
