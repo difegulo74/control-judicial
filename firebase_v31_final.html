@@ -2475,7 +2475,7 @@ async function _llamarGemini(apiKey, promptText, conParts, extraParts){
   if(data?.error) throw new Error('Error Gemini: '+JSON.stringify(data.error).slice(0,180));
   const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
   if(!raw) throw new Error('Sin respuesta de Gemini. Respuesta recibida: '+JSON.stringify(data).slice(0,200));
-  return JSON.parse(raw.replace(/```json|```/g,'').trim());
+ let cleaned=raw.replace(/```json|```/g,'').trim();const i0=cleaned.indexOf('{'),i1=cleaned.lastIndexOf('}');if(i0>=0&&i1>i0)cleaned=cleaned.substring(i0,i1+1);return JSON.parse(cleaned);
 }
 
 async function extraerDatosCarpeta(files,folderName){
