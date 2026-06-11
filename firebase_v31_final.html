@@ -2448,7 +2448,7 @@ async function _llamarGemini(apiKey, promptText, conParts, extraParts){
   const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
   const parts=extraParts?[...extraParts]:[];
   parts.push({text:promptText});
-  const body={contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:8192},thinkingConfig:{thinkingBudget:0}};
+  const body={contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:8192}};
 
   let resp;
   if(proxyUrl){
