@@ -792,7 +792,23 @@ function cargarEventosLocal(){try{return JSON.parse(localStorage.getItem('cj_eve
 function guardarEventosLocal(){try{localStorage.setItem('cj_eventos_v3',JSON.stringify(localDB.eventos||[]));}catch(e){}}
 function guardarLocal(d){try{localStorage.setItem('cj_eventos_v3',JSON.stringify(d.eventos||[]));}catch(e){}}
 
-async function fbSave(col,id,data){if(!fbDb){console.warn('fbDb no listo');return;}setSS('s');try{await fbDb.collection(col).doc(String(id)).set(data);setSS('ok');}catch(e){setSS('e','Error: '+e.message);console.error(e);}}
+async function fbSave(col,id,data){
+  if(!fbDb){alert('⚠ SIN CONEXIÓN A FIREBASE\n\nEl cambio NO se guardó. Verifica tu conexión a internet y recarga la página.');setSS('e','Sin Firebase');return false;}
+  setSS('s');
+  try{
+    await fbDb.collection(col).doc(String(id)).set(data);
+    setSS('ok');
+    return true;
+  }catch(e){
+    console.error('fbSave ERROR:',e);
+    setSS('e','Error: '+e.message);
+    let hint='';
+    if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 CAUSA: Las REGLAS de Firestore están bloqueando la escritura (probablemente expiró el modo de prueba de 30 días).\n\nSOLUCIÓN: console.firebase.google.com → proyecto Control-Judicial-J14 → Firestore Database → pestaña "Reglas" → cambiar la condición a:\nallow read, write: if true;\n→ Publicar.';
+    else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 CAUSA: Problema de red. Verifica internet y reintenta.';
+    alert('⚠ EL CAMBIO NO SE GUARDÓ EN FIREBASE\n\nError: '+e.message+hint);
+    return false;
+  }
+}
 async function fbDel(col,id){try{await fbDb.collection(col).doc(String(id)).delete();setSS('ok');}catch(e){setSS('e','Error');}}
 
 function mergeHistorico(){
@@ -1285,7 +1301,8 @@ async function guardarT(){
     fechaRemCC:'',fechaRegresoCC:'',
     nulidades:[],ultimaNulidad:null};
   if(window._pendingFolder){t.folderName=window._pendingFolder.folderName;t.filesCount=window._pendingFolder.filesCount;window._pendingFolder=null;}
-  await fbSave(`tutelas_${anio}`,t.id,t);
+  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
+  if(!_ok)return; // NO cerrar el formulario: el guardado falló y ya se mostró el error
   cerrar();rT();
   // Agregar eventos al calendario
 }
@@ -1428,7 +1445,9 @@ function aDT(id){
 
 async function updT(id,campo,val){
   const t=tA().find(x=>String(x.id)===String(id));
-  if(!t)return;t[campo]=val;await fbSave(`tutelas_${anio}`,t.id,t);
+  if(!t)return;t[campo]=val;
+  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
+  if(!_ok)setSS('e','⚠ Cambio NO guardado');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2443,39 +2462,74 @@ function toB64(file){
 }
 
 // Helper centralizado: llama a Gemini (directo o vía proxy GAS)
-async function _llamarGemini(apiKey, promptText, conParts, extraParts){
+// v32: CASCADA DE MODELOS + REINTENTOS AUTOMÁTICOS (adiós "prueba dos veces")
+const GEMINI_MODELOS=['gemini-flash-latest','gemini-3-flash-preview','gemini-3.1-flash-lite'];
+const _espera=ms=>new Promise(r=>setTimeout(r,ms));
+
+function _etiquetaError(code,msg){
+  const label={400:'Solicitud inválida (revisa el formato de la key)',401:'Key expirada o inválida — genera una nueva en aistudio.google.com',403:'Sin permisos — activa la API Generative Language en el proyecto',404:'Modelo no encontrado',429:'Cuota agotada — espera unos minutos o usa key de otro proyecto',500:'Error interno de Google',503:'Servicio saturado (high demand)'}[code]||('Error '+(code||''));
+  return label+(msg?' — '+String(msg).slice(0,180):'');
+}
+
+async function _llamarGeminiUnaVez(apiKey, body, modelo){
   const proxyUrl=getProxyUrl();
-  const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent';
+  const ENDPOINT='https://generativelanguage.googleapis.com/v1beta/models/'+modelo+':generateContent';
+  let resp;
+  if(proxyUrl){
+    // Ruta proxy GAS: sin CORS — la key y el modelo viajan en el body (requiere proxy v7+)
+    resp=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
+      body:JSON.stringify({...body,apiKey,_model:modelo})});
+  } else {
+    // Llamada directa — AQ. y AIzaSy. van siempre como ?key=
+    resp=await fetch(ENDPOINT+'?key='+apiKey,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }
+  let data=null,rawTxt='';
+  try{rawTxt=await resp.text();data=JSON.parse(rawTxt);}catch{}
+  // El proxy GAS siempre responde HTTP 200: el error real viene dentro del JSON
+  const errMsg=data?.error?.message||'';
+  const errCode=data?.error?.code||(!resp.ok?resp.status:0);
+  if(!resp.ok||errMsg){
+    const e=new Error(errMsg||('HTTP '+resp.status));
+    e.code=errCode;e.raw=(rawTxt||'').slice(0,300);
+    throw e;
+  }
+  const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
+  if(!raw){const e=new Error('Respuesta vacía de Gemini: '+JSON.stringify(data).slice(0,200));e.code=598;throw e;}
+  let cleaned=raw.replace(/```json|```/g,'').trim();
+  const i0=cleaned.indexOf('{'),i1=cleaned.lastIndexOf('}');
+  if(i0>=0&&i1>i0)cleaned=cleaned.substring(i0,i1+1);
+  return JSON.parse(cleaned);
+}
+
+async function _llamarGemini(apiKey, promptText, conParts, extraParts){
   const parts=extraParts?[...extraParts]:[];
   parts.push({text:promptText});
   const body={contents:[{parts}],generationConfig:{temperature:0.1,maxOutputTokens:8192}};
-
-  let resp;
-  if(proxyUrl){
-    // Ruta proxy GAS: sin CORS, la key viaja en el body
-    resp=await fetch(proxyUrl,{method:'POST',headers:{'Content-Type':'text/plain'},
-      body:JSON.stringify({...body,apiKey})});
-  } else {
-    // Llamada directa — AQ. y AIzaSy. van siempre como ?key=
-    const url=ENDPOINT+'?key='+apiKey;
-    resp=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const st=document.getElementById('folder-status');
+  let ultimoError=null;
+  for(const modelo of GEMINI_MODELOS){
+    for(let intento=1;intento<=3;intento++){
+      try{
+        return await _llamarGeminiUnaVez(apiKey,body,modelo);
+      }catch(e){
+        ultimoError=e;
+        const msg=(e.message||'')+' '+(e.raw||'');
+        const code=e.code||0;
+        console.warn('Gemini ['+modelo+'] intento '+intento+'/3:',code,e.message);
+        // Modelo inexistente/retirado → pasar al siguiente modelo de inmediato
+        if(code===404||/not found|is not supported/i.test(msg))break;
+        // Error de key/permisos → reintentar no sirve, abortar con mensaje claro
+        if(code===400||code===401||code===403)throw new Error(_etiquetaError(code,e.message));
+        // 429/500/503/high demand → esperar y reintentar automáticamente
+        if(intento<3){
+          const ms=intento===1?2500:6000;
+          if(st)st.textContent='⏳ '+modelo+' ocupado — reintento automático '+(intento+1)+'/3 en '+(ms/1000)+'s…';
+          await _espera(ms);
+        }
+      }
+    }
   }
-
-  if(!resp.ok){
-    let rawErr='';try{rawErr=await resp.text();}catch{}
-    let msg='';try{msg=JSON.parse(rawErr)?.error?.message||'';}catch{}
-    const label={400:'Solicitud inválida (revisa el formato de la key)',401:'Token expirado o inválido — regenera tu key AQ. en Google Cloud',403:'Sin permisos — activa la API Generative Language en console.cloud.google.com',404:'Endpoint no encontrado',429:'Cuota agotada — espera ~30 segundos y reintenta',500:'Error interno de Google — reintenta en unos minutos'}[resp.status]||'Error '+resp.status;
-    const detalle=msg?msg.slice(0,200):'';
-    const corsHint=(resp.status===0||rawErr==='')?' · POSIBLE BLOQUEO CORS: con token AQ. usa el proxy GAS en ⚙️ Configuración':'';
-    throw new Error(label+(detalle?' — '+detalle:'')+corsHint);
-  }
-
-  const data=await resp.json();
-  if(data?.error?.message) throw new Error('Gemini: '+data.error.message.slice(0,180));
-  if(data?.error) throw new Error('Error Gemini: '+JSON.stringify(data.error).slice(0,180));
-  const raw=data?.candidates?.[0]?.content?.parts?.[0]?.text||'';
-  if(!raw) throw new Error('Sin respuesta de Gemini. Respuesta recibida: '+JSON.stringify(data).slice(0,200));
- let cleaned=raw.replace(/```json|```/g,'').trim();const i0=cleaned.indexOf('{'),i1=cleaned.lastIndexOf('}');if(i0>=0&&i1>i0)cleaned=cleaned.substring(i0,i1+1);return JSON.parse(cleaned);
+  throw new Error(_etiquetaError(ultimoError?.code,ultimoError?.message)+' · Se agotaron '+GEMINI_MODELOS.length+' modelos × 3 intentos.');
 }
 
 async function extraerDatosCarpeta(files,folderName){
@@ -2570,9 +2624,10 @@ window.procesarRecarga=async function(inp,id){
     if(iN>iA&&d.estado)upd.estado=d.estado;
     const n=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
     if(n===0){if(st)st.textContent='✓ Sin datos nuevos';inp.value='';return;}
-    await fbSave(`tutelas_${anio}`,id,{...t,...upd});
+    const _ok=await fbSave(`tutelas_${anio}`,id,{...t,...upd});
+    if(!_ok){if(st)st.textContent='✗ Datos extraídos pero NO GUARDADOS — revisa el error mostrado';inp.value='';return;}
     rT();cerrar2();setTimeout(()=>aDT(id),350);
-    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s)`;
+    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s) y guardados en Firebase`;
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
 };
