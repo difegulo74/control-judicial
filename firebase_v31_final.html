@@ -525,6 +525,9 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <div class="mbody" id="cfg-body"></div>
   </div>
 </div>
+<!-- v32.2: Firebase SDK cargado directamente (no dinámicamente) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 <script src="datos_db.js"></script>
 <script>
 // ═══════════════════════════════════════════════════════
@@ -926,13 +929,8 @@ async function init(){
   renderAnios();rT();rD();actualizarBanner();
   setSS('s','Conectando Firebase...');
   try{
-    await new Promise((resolve,reject)=>{
-      if(typeof firebase!=='undefined'){resolve();return;}
-      const s=document.createElement('script');
-      s.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
-      s.onload=()=>{const s2=document.createElement('script');s2.src='https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';s2.onload=resolve;s2.onerror=reject;document.head.appendChild(s2);};
-      s.onerror=reject;document.head.appendChild(s);
-    });
+    // v32.2: Firebase ya cargó en el head como script directo
+    if(typeof firebase==='undefined') throw new Error('SDK no disponible (verifica conexión a gstatic.com)');
     if(!firebase.apps.length)firebase.initializeApp(FB_CFG);
     fbDb=firebase.firestore();
     try{fbDb.enablePersistence();}catch(e){}
