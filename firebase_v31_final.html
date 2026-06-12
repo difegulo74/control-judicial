@@ -793,7 +793,17 @@ function guardarEventosLocal(){try{localStorage.setItem('cj_eventos_v3',JSON.str
 function guardarLocal(d){try{localStorage.setItem('cj_eventos_v3',JSON.stringify(d.eventos||[]));}catch(e){}}
 
 async function fbSave(col,id,data){
-  if(!fbDb){alert('⚠ SIN CONEXIÓN A FIREBASE\n\nEl cambio NO se guardó. Verifica tu conexión a internet y recarga la página.');setSS('e','Sin Firebase');return false;}
+  // v32.1: ESPERA HASTA 5s a que Firebase termine de inicializarse (fix race condition)
+  if(!fbDb){
+    setSS('s','⏳ Esperando Firebase...');
+    for(let i=0;i<10&&!fbDb;i++) await new Promise(r=>setTimeout(r,500));
+  }
+  if(!fbDb){
+    const fbStatus=(typeof firebase==='undefined')?'SDK no cargó (¿bloqueado por antivirus/firewall?)':'SDK cargado pero firestore() no se inicializó';
+    alert('⚠ FIREBASE NO INICIALIZADO\n\nDiagnóstico: '+fbStatus+'\n\n🔧 Acciones recomendadas:\n1) Verifica que tengas internet real (abre google.com)\n2) Recarga con Ctrl+F5\n3) Si persiste, presiona F12 → pestaña Network → recarga → busca si "firebase-app-compat.js" cargó en verde');
+    setSS('e','Sin Firebase');
+    return false;
+  }
   setSS('s');
   try{
     await fbDb.collection(col).doc(String(id)).set(data);
@@ -803,9 +813,9 @@ async function fbSave(col,id,data){
     console.error('fbSave ERROR:',e);
     setSS('e','Error: '+e.message);
     let hint='';
-    if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 CAUSA: Las REGLAS de Firestore están bloqueando la escritura (probablemente expiró el modo de prueba de 30 días).\n\nSOLUCIÓN: console.firebase.google.com → proyecto Control-Judicial-J14 → Firestore Database → pestaña "Reglas" → cambiar la condición a:\nallow read, write: if true;\n→ Publicar.';
+    if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 CAUSA: Las REGLAS de Firestore bloquean la escritura.\n\nSOLUCIÓN: console.firebase.google.com → Control-Judicial-J14 → Firestore → Reglas → allow read, write: if true; → Publicar.';
     else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 CAUSA: Problema de red. Verifica internet y reintenta.';
-    alert('⚠ EL CAMBIO NO SE GUARDÓ EN FIREBASE\n\nError: '+e.message+hint);
+    alert('⚠ EL CAMBIO NO SE GUARDÓ\n\nError: '+e.message+hint);
     return false;
   }
 }
@@ -2657,10 +2667,12 @@ document.getElementById('lpwd').addEventListener('keydown',function(e){if(e.key=
 
 </script>
 <script>
+// v32.1: SW DESACTIVADO + auto-desregistro del existente (resuelve caché agresiva que rompía Firebase)
 if('serviceWorker' in navigator){
-  navigator.serviceWorker.register('/control-judicial/sw.js')
-    .then(function(r){console.log('SW registrado');})
-    .catch(function(e){console.log('SW error:',e);});
+  navigator.serviceWorker.getRegistrations().then(function(regs){
+    regs.forEach(function(r){r.unregister();});
+    if(regs.length) console.log('🔧 SW desregistrado:',regs.length);
+  }).catch(function(){});
 }
 </script>
 </body>
