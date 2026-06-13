@@ -914,6 +914,8 @@ function importarParche(){
 }
 
 async function init(){
+  // v32.3: mergeHistorico — copiado de la init() v30 legacy
+  try{ mergeHistorico(); }catch(e){ console.warn('mergeHistorico:',e); }
   // Borrar SOLO eventos del calendario (no afecta contraseñas ni responsables)
   try{
     localStorage.removeItem('cj_eventos_v3');
@@ -2402,9 +2404,9 @@ window.addEventListener('online',()=>document.getElementById('offline-bar').clas
 window.addEventListener('offline',()=>document.getElementById('offline-bar').classList.add('show'));
 
 // ═══════════════════════════════════════════════════════
-// INICIO
+// INICIO (función legacy v30 — RENOMBRADA en v32.3 para que NO sobrescriba la init() v31 que conecta Firebase)
 // ═══════════════════════════════════════════════════════
-function init(){
+function init_legacy_v30_unused(){
   mergeHistorico();
   anios=[...new Set(localDB.anios||[2024,2025,2026])].sort((x,y)=>x-y);
   anio=anios[anios.length-1];
