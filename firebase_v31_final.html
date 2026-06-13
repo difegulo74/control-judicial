@@ -853,7 +853,7 @@ function escuchar(a){
   setSS('s','Sincronizando...');
   unsubT=fbDb.collection('tutelas_'+a).onSnapshot(snap=>{
     const recs=[];snap.forEach(d=>recs.push({...d.data(),_fb:true}));
-    recs.sort((x,y)=>(y.fechaAdmision||'').localeCompare(x.fechaAdmision||''));
+    recs.sort((x,y)=>((y.radicacion||'').replace(/\D/g,'')).localeCompare((x.radicacion||'').replace(/\D/g,''),undefined,{numeric:true}));
     const hist=PRELOADED_DB.tutelas[a]||[];
     const ids=new Set(recs.map(x=>String(x.id)));
     hist.forEach(h=>{if(!ids.has(String(h.id)))recs.push(h);});
@@ -1336,6 +1336,11 @@ async function guardarT(){
   if(!rad){alert('La radicación es obligatoria.');return;}
   const ds=document.getElementById('f-ds').value;
   if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
+  // v33.2: prevenir radicados duplicados
+  const existe=tA().find(x=>(x.radicacion||'').replace(/\D/g,'')===rad.replace(/\D/g,'')&&rad.trim());
+  if(existe){
+    if(!confirm('⚠ YA EXISTE una tutela con el radicado:\n'+rad+'\n('+(existe.accionante||'sin accionante')+')\n\nSi es un duplicado, cancela y edita la existente.\n¿Crear de todas formas?'))return;
+  }
   const t={id:Date.now(),radicacion:rad,
     esHC:document.getElementById('f-hc').checked,
     accionante:document.getElementById('f-a').value.trim(),
@@ -1476,7 +1481,23 @@ function aDT(id){
             ${['Concede tutela','Concede parcialmente','Niega — hecho superado','Niega — improcedente','Declara carencia actual de objeto','Desistimiento','Devuelta por competencia'].map(o=>`<option${t.sentidoFallo===o?' selected':''}>${o}</option>`).join('')}
           </select>
         </div>
-        <div class="fsec">Impugnación y 2ª instancia</div>
+        ${(t.ciclosAnulados&&t.ciclosAnulados.length)?`
+        <div class="fi full" style="grid-column:1/-1">
+          <details style="background:#f1f5f9;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px">
+            <summary style="cursor:pointer;font-size:11px;font-weight:700;color:#475569">📜 Ciclo(s) anulado(s) anterior(es) — ${t.ciclosAnulados.length} (clic para ver)</summary>
+            <div style="font-size:10px;color:#64748b;margin-top:8px;line-height:1.6">
+              ${t.ciclosAnulados.map((c,i)=>`
+              <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:6px;padding:8px;margin-top:6px">
+                <b style="color:#475569">Ciclo ${i+1} — anulado el ${fmt(c.nulidadFecha)} (nulidad #${c.nulidadIndice})</b><br>
+                • Fallo anulado: ${fmt(c.falloAnterior)||'—'} ${c.sentidoAnterior?'('+c.sentidoAnterior+')':''}<br>
+                • Impugnación: ${fmt(c.impugnacion)||'—'} | Juzgado 2ª: ${c.juzgado2i||'—'}<br>
+                • Reparto 2ª: ${fmt(c.reparto2i)||'—'} | Fallo 2ª: ${c.fallo2i||'—'}<br>
+                ${c.remCC||c.regresoCC?`• Corte C.: rem ${fmt(c.remCC)||'—'} / regreso ${fmt(c.regresoCC)||'—'}<br>`:''}
+              </div>`).join('')}
+            </div>
+          </details>
+        </div>`:''}
+        <div class="fsec">Impugnación y 2ª instancia${(t.ciclosAnulados&&t.ciclosAnulados.length)?' <span style="font-size:10px;font-weight:400;color:#475569">(nuevo ciclo)</span>':''}</div>
         <div class="fi"><label>Fecha impugnación</label><input type="date" value="${t.fechaImpugnacion||''}" onchange="updT('${id}','fechaImpugnacion',this.value)"></div>
         <div class="fi"><label>Juzgado 2ª instancia</label><input value="${esc(t.juzgado2i)}" onchange="updT('${id}','juzgado2i',this.value)"></div>
         <div class="fi"><label>Fecha reparto 2ª instancia</label><input type="date" value="${t.fechaReparto2i||''}" onchange="updT('${id}','fechaReparto2i',this.value)"></div>
@@ -1548,9 +1569,24 @@ function aDT(id){
 
 async function updT(id,campo,val){
   const t=tA().find(x=>String(x.id)===String(id));
-  if(!t)return;t[campo]=val;
-  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
-  if(!_ok)setSS('e','⚠ Cambio NO guardado');
+  if(!t)return;
+  t[campo]=val;
+  if(!fbDb){setSS('e','⚠ Sin Firebase'); alert('⚠ El cambio NO se guardó porque Firebase no está conectado. Recarga con Ctrl+F5.');return;}
+  setSS('s','Guardando '+campo+'...');
+  try{
+    await fbDb.collection(`tutelas_${anio}`).doc(String(t.id)).set(t);
+    const check=await fbDb.collection(`tutelas_${anio}`).doc(String(t.id)).get();
+    if(!check||!check.exists||check.data()[campo]!==val){
+      setSS('e','⚠ NO verificado');
+      console.warn('updT no verificado:',campo,val,check&&check.data&&check.data()[campo]);
+      return;
+    }
+    setSS('ok','✓ '+campo+' guardado');
+  }catch(e){
+    console.error('updT ERROR:',e);
+    setSS('e','Error: '+e.message);
+    alert('⚠ ERROR al guardar el campo "'+campo+'":\n'+e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1648,21 +1684,46 @@ async function resolverNulidad(id){
   if(!fecha){alert('La fecha del nuevo fallo es obligatoria.');return;}
   const ult=t.nulidades&&t.nulidades.length?t.nulidades[t.nulidades.length-1].fecha:'';
   if(ult&&fecha<ult){alert('⚠ El nuevo fallo debe ser POSTERIOR a la fecha de la nulidad ('+fmt(ult)+').\n\nRevisa la fecha ingresada.');return;}
-  if(!confirm('¿Registrar nuevo fallo del '+fmt(fecha)+'?\n\n• La nulidad activa queda RESUELTA y la alerta desaparece.\n• El estado pasa a "Fallada".\n• El ciclo de impugnación anterior (contra el fallo anulado) se limpia para iniciar uno nuevo.\n• El historial de nulidades se conserva.'))return;
-  t.fechaFallo=fecha;
-  t.sentidoFallo=sentido||t.sentidoFallo||'';
-  t.estado='Fallada';
-  // Reiniciar el ciclo de impugnación anterior (era contra el fallo anulado)
-  t.fechaImpugnacion='';t.juzgado2i='';t.fechaReparto2i='';t.fallo2i='';
-  t.fechaRemCC='';t.fechaRegresoCC='';
-  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
-  if(!_ok){setSS('e','⚠ No guardado');return;}
+  if(!confirm('¿Registrar nuevo fallo del '+fmt(fecha)+'?\n\n• La nulidad activa queda RESUELTA y la alerta desaparece.\n• El estado pasa a "Fallada".\n• El ciclo de impugnación anterior (contra el fallo anulado) se LIMPIA para iniciar uno nuevo.\n• El historial de nulidades se conserva.'))return;
+  // v33.5: GUARDAR snapshot del ciclo anulado en historial antes de limpiar
+  const cicloAnulado={
+    nulidadFecha:ult||'',
+    nulidadIndice:(t.nulidades||[]).length,
+    falloAnterior:t.fechaFallo||'',sentidoAnterior:t.sentidoFallo||'',
+    impugnacion:t.fechaImpugnacion||'',juzgado2i:t.juzgado2i||'',
+    reparto2i:t.fechaReparto2i||'',fallo2i:t.fallo2i||'',
+    remCC:t.fechaRemCC||'',regresoCC:t.fechaRegresoCC||''
+  };
+  const ciclosAnulados=Array.isArray(t.ciclosAnulados)?[...t.ciclosAnulados,cicloAnulado]:[cicloAnulado];
+  // v33.4: armar objeto LIMPIO con campos del ciclo anterior reiniciados
+  const merged={...t,
+    fechaFallo:fecha,
+    sentidoFallo:sentido||'',
+    estado:'Fallada',
+    fechaImpugnacion:'',juzgado2i:'',fechaReparto2i:'',fallo2i:'',
+    fechaRemCC:'',fechaRegresoCC:'',
+    ciclosAnulados:ciclosAnulados
+  };
+  // Guardado VERIFICADO por lectura post-escritura
+  if(!fbDb){alert('⚠ Firebase no conectado. Recarga con Ctrl+F5.');return;}
+  const col=`tutelas_${anio}`;
+  try{
+    await fbDb.collection(col).doc(String(t.id)).set(merged);
+    const check=await fbDb.collection(col).doc(String(t.id)).get();
+    if(!check||!check.exists){alert('⚠ El guardado NO se verificó en Firebase. Intenta de nuevo.');return;}
+    // verificar que los campos quedaron en blanco
+    const d=check.data();
+    if(d.fechaImpugnacion||d.juzgado2i||d.fallo2i){
+      console.warn('resolverNulidad: limpieza incompleta',d);
+      alert('⚠ ATENCIÓN: algunos campos del ciclo anterior no se limpiaron. Por favor bórralos manualmente en el formulario.');
+    }
+  }catch(e){
+    console.error('resolverNulidad ERROR:',e);
+    alert('⚠ ERROR al guardar:\n'+e.message);return;
+  }
   cerrar2();rT();actualizarBanner();
   setTimeout(()=>aDT(id),320);
-  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
-    new Notification('Nulidad resuelta — '+(t.radicacion||''),{body:'Nuevo fallo: '+fmt(fecha)+(sentido?' · '+sentido:'')});
-  }
-  alert('✓ Nuevo fallo registrado el '+fmt(fecha)+'.\n\nLa nulidad queda RESUELTA y la alerta desaparece.\nEl trámite continúa: ya puede registrar nueva impugnación o remisión a Corte si aplica.\n\nEsta tutela seguirá contando en el histórico de nulidades.');
+  alert('✓ Nuevo fallo registrado el '+fmt(fecha)+' y VERIFICADO en Firebase.\n\nLa nulidad queda RESUELTA y la alerta desaparece.\nEl ciclo de impugnación anterior se LIMPIÓ.\n\nSi hay nueva impugnación, llena los campos en blanco y se reiniciarán los términos.\n\nEsta tutela seguirá contando en el histórico de nulidades.');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1823,7 +1884,22 @@ function aDD(id){
 
 async function updD(id,campo,val){
   const d=dA().find(x=>String(x.id)===String(id));
-  if(!d)return;d[campo]=val;await fbSave(`desacatos_${anio}`,d.id,d);
+  if(!d)return;
+  d[campo]=val;
+  if(!fbDb){setSS('e','⚠ Sin Firebase'); alert('⚠ El cambio NO se guardó porque Firebase no está conectado. Recarga con Ctrl+F5.');return;}
+  setSS('s','Guardando '+campo+'...');
+  try{
+    await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).set(d);
+    const check=await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).get();
+    if(!check||!check.exists||check.data()[campo]!==val){
+      setSS('e','⚠ NO verificado');return;
+    }
+    setSS('ok','✓ '+campo+' guardado');
+  }catch(e){
+    console.error('updD ERROR:',e);
+    setSS('e','Error: '+e.message);
+    alert('⚠ ERROR al guardar:\n'+e.message);
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2717,13 +2793,33 @@ async function extraerDatosCarpeta(files,folderName){
     }catch(e){}
   }
   if(pdfParts.length===0&&!wTxt.trim()) throw new Error('No se encontraron documentos legibles en la carpeta (necesita .docx o .pdf con texto).');
-  const prompt=`Eres un experto en derecho colombiano. Analiza documentos de tutela del Juzgado 14 Penal Municipal de Ibagué año ${anio}.
-Carpeta: "${folderName}" | Radicado: "${rH}" | Accionante: "${aH}"
-${wTxt?'TEXTO WORD:\n'+wTxt:''}
-Extrae los datos y devuelve SOLO JSON sin markdown:
-{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"Salud/Seguridad Social/Vida/Mínimo Vital/Igualdad/Educación/Debido Proceso/Derecho de Petición/Habeas Data/Derecho al Trabajo/Vivienda/Otros","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"AAAA-MM-DD","fechaAdmision":"AAAA-MM-DD","fechaFallo":"AAAA-MM-DD","sentidoFallo":"Concede tutela/Concede parcialmente/Niega — hecho superado/Niega — improcedente/Declara carencia actual de objeto/Desistimiento/Devuelta por competencia","fechaImpugnacion":"AAAA-MM-DD","juzgado2i":"","fallo2i":"Confirma/Revoca/Modifica/Adiciona/Decreta nulidad","fechaReparto2i":"AAAA-MM-DD","fechaRemCC":"AAAA-MM-DD","fechaRegresoCC":"AAAA-MM-DD","estado":"En término","observaciones":"","esHC":false}`;
+  const prompt=`Eres un asistente experto en derecho constitucional colombiano (acciones de tutela, Decreto 2591/91). Analiza CUIDADOSAMENTE los documentos adjuntos de una tutela del Juzgado 14 Penal Municipal de Ibague, ano ${anio}. Los PDF son documentos ESCANEADOS (imagenes): leelos con atencion aplicando OCR visual, pagina por pagina.
+
+Carpeta: "${folderName}" | Radicado: "${rH}" | Accionante (tomado del nombre de carpeta): "${aH}"
+${wTxt?'\nTEXTO EXTRAIDO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
+
+DONDE BUSCAR CADA DATO:
+- "accionado": entidad o persona demandada. Aparece en la demanda y en el AUTO ADMISORIO (suele decir "ACCIONADO", "contra" o "en contra de").
+- "vinculados": terceros vinculados al tramite, mencionados en el auto admisorio.
+- "derechoSierju" + "derechos": el DERECHO FUNDAMENTAL invocado. Buscalo en el AUTO ADMISORIO (lo menciona expresamente) y en el escrito de tutela / soporte de reparto. Si no esta literal, INFIERELO del contenido: EPS, medicamentos, cirugia, citas o tratamientos medicos -> "Salud"; pension, semanas cotizadas, mesadas -> "Seguridad Social"; pago de salarios o reintegro laboral -> "Derecho al Trabajo"; falta de respuesta a una peticion u oficio -> "Derecho de Peticion"; cupo o acceso escolar -> "Educacion"; correccion de datos -> "Habeas Data"; subsidio o reubicacion de vivienda -> "Vivienda"; minimo vital, etc.
+- "pretensiones": que solicita concretamente el accionante (en la demanda).
+- "fechaReparto": fecha del acta/soporte de reparto.
+- "fechaAdmision": fecha del AUTO ADMISORIO.
+- "medida": si el auto admisorio decreto alguna medida provisional.
+- "esHC": true SOLO si es Habeas Corpus.
+
+REGLAS ESTRICTAS:
+- Lee TODAS las paginas de TODOS los documentos adjuntos antes de responder.
+- NO dejes vacio un campo si la informacion esta presente en los documentos.
+- "derechoSierju" DEBE ser exactamente uno de: Salud, Seguridad Social, Vida, Minimo Vital, Igualdad, Educacion, Debido Proceso, Derecho de Peticion, Habeas Data, Derecho al Trabajo, Vivienda, Otros.
+- Todas las fechas en formato AAAA-MM-DD. Si una fecha no aparece, dejala como "".
+- Responde UNICAMENTE con el objeto JSON, sin texto antes ni despues, sin markdown, sin explicaciones.
+
+JSON a devolver:
+{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En termino","observaciones":"","esHC":false}`;
   const extraParts=pdfParts.length>0?pdfParts:undefined;
   const parsed=await _llamarGemini(apiKey,prompt,true,extraParts);
+  window._ultimaExtraccion={folder:folderName,pdfs:pdfs.length,docx:docx.length,parsed};
   return{...fb,...parsed};
 }
 
@@ -2756,7 +2852,7 @@ window.procesarCarpeta=async function(inp){
       if(st)st.innerHTML='✓ Datos cargados. <b style="color:#dc2626">⬇ Revisa los campos y haz clic en "✓ Guardar radicación" (abajo) para GUARDAR</b>';
       const bg=document.getElementById('btn-guardar-rad');if(bg)bg.classList.add('btn-pendiente');
     }else{
-      if(st)st.textContent='⚠ No se extrajeron datos — verifica tu API key en ⚙️';
+      if(st)st.innerHTML='⚠ Gemini no extrajo campos. Posibles causas: PDF muy pesado, cuota del día agotada, o el modelo no leyó bien el escaneo. <b>Puedes llenar los campos manualmente y guardar.</b> Reintenta en 1-2 min si fue saturación.';
     }
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
