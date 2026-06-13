@@ -111,6 +111,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;ba
 .nul-banner.show{display:flex}
 .nul-banner i{animation:pulse 1.5s infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@keyframes pulseBtn{0%,100%{box-shadow:0 0 0 0 rgba(16,185,129,.5);transform:scale(1)}50%{box-shadow:0 0 0 8px rgba(16,185,129,0);transform:scale(1.04)}}
+.btn-pendiente{animation:pulseBtn 1.2s ease-in-out infinite!important;background:#059669!important;border-color:#059669!important}
 
 /* TABS */
 .tabs{background:var(--card);border-bottom:1px solid var(--bd);padding:0 14px;display:flex;position:sticky;top:94px;z-index:180;overflow-x:auto}
@@ -365,7 +367,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
       <div class="sc or"><div class="v" id="st-pr">0</div><div class="l">Próximas</div></div>
       <div class="sc gr"><div class="v" id="st-vi">0</div><div class="l">Vigentes</div></div>
       <div class="sc bl"><div class="v" id="st-fa">0</div><div class="l">Falladas</div></div>
-      <div class="sc nu" onclick="filtrarNul()" title="Ver con nulidad"><div class="v" id="st-nu">0</div><div class="l">Nulidades</div></div>
+      <div class="sc nu" onclick="filtrarNulHist()" title="Ver con nulidad (histórico)"><div class="v" id="st-nu">0</div><div class="l">Nulidades</div></div>
     </div>
     <button class="btn btn-p" onclick="aFT()">+ Agregar</button>
   </div>
@@ -375,7 +377,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
       <option value="">Todas las alertas</option>
       <option value="VENCIDO">Vencidas</option><option value="PROXIMO">Próximas</option>
       <option value="VIGENTE">Vigentes</option><option value="FALLADA">Falladas</option>
-      <option value="NULIDAD">Con nulidad</option><option value="HC">Hábeas Corpus</option>
+      <option value="NULIDAD">Con nulidad activa</option><option value="NUL_HIST">Con nulidad (histórico)</option><option value="HC">Hábeas Corpus</option>
     </select>
     <select id="fet" onchange="rT()">
       <option value="">Todos los estados</option>
@@ -488,6 +490,13 @@ tr.has-nul td{background:var(--nu-bg)!important}
         <div class="resumen-title">☰ Resumen consolidado — <span id="sresumen-anio"></span></div>
         <div style="overflow-x:auto;padding:12px">
           <table class="sierju-table" id="sresumen-table"></table>
+        </div>
+      </div>
+      <div class="resumen-card">
+        <div class="resumen-title">🚨 Nulidades decretadas — <span id="snul-anio"></span></div>
+        <div style="overflow-x:auto;padding:12px">
+          <table class="sierju-table" id="snul-table"></table>
+          <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.5">Una misma tutela puede tener varias nulidades decretadas (no se limita a una). La columna <b>Nulidades decretadas</b> suma todas las decretadas en el período (incluye repetidas sobre la misma tutela); <b>Tutelas afectadas</b> cuenta tutelas distintas. <b>Pendientes de nuevo fallo</b> son las que hoy tienen nulidad activa sin resolver.</div>
         </div>
       </div>
     </div>
@@ -655,6 +664,8 @@ function hasNulActiva(r){
   if(!r.fechaFallo)return true;
   return ult>r.fechaFallo;
 }
+// v33: nulidad HISTÓRICA — la tutela tuvo al menos una nulidad alguna vez (resuelta o no)
+function hasNulHist(r){return !!(r.nulidades&&r.nulidades.length);}
 function aKeyT(t){
   if(hasNulActiva(t))return 'NULIDAD';
   if(t.fechaFallo)return 'FALLADA';
@@ -1032,9 +1043,34 @@ function _genXlsx(){
       });
     });
   });
+  // NULIDADES (v33) — resumen por período + detalle
+  const mesEnAnio=(f,m)=>f&&f.startsWith(String(anio))&&m.includes(parseInt(f.split('-')[1]));
+  const nulRows=[];
+  PERS.forEach(per=>{
+    let nDecr=0,tAfect=0,pend=0;
+    tA().forEach(t=>{
+      if(!t.nulidades||!t.nulidades.length)return;
+      const enP=t.nulidades.filter(n=>mesEnAnio(n.fecha,per.m));
+      if(enP.length){nDecr+=enP.length;tAfect++;}
+      if(hasNulActiva(t)){const ult=t.nulidades[t.nulidades.length-1].fecha;if(mesEnAnio(ult,per.m))pend++;}
+    });
+    nulRows.push({'Período':per.n,'Nulidades decretadas':nDecr,'Tutelas afectadas':tAfect,'Pendientes nuevo fallo':pend});
+  });
+  nulRows.push({'Período':'TOTAL '+anio,'Nulidades decretadas':nulRows.reduce((a,r)=>a+r['Nulidades decretadas'],0),'Tutelas afectadas':tA().filter(hasNulHist).length,'Pendientes nuevo fallo':tA().filter(hasNulActiva).length});
+  const nulDet=[];
+  tA().forEach(t=>{
+    (t.nulidades||[]).forEach((n,i)=>{
+      nulDet.push({'Radicación':t.radicacion||'','Nulidad #':i+1,'Fecha nulidad':fd(n.fecha),
+        'Auto':n.auto||'','Proferida por':n.quien||'','Causal':n.nota||'',
+        'Estado':(i===t.nulidades.length-1&&hasNulActiva(t))?'ACTIVA — pendiente fallo':'Resuelta'});
+    });
+  });
+
   if(trows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(trows),'Tutelas '+anio);
   if(drows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(drows),'Desacatos '+anio);
   if(srows.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(srows),'SIERJU '+anio);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nulRows),'Nulidades '+anio);
+  if(nulDet.length)XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(nulDet),'Detalle Nulidades');
   const fecha=new Date().toISOString().split('T')[0];
   XLSX.writeFile(wb,'ControlJudicial_'+anio+'_'+fecha+'.xlsx');
   alert('✓ Excel generado: ControlJudicial_'+anio+'_'+fecha+'.xlsx');
@@ -1088,15 +1124,23 @@ function actualizarBanner(){
   const tot=nt+nd;
   const ban=document.getElementById('nul-banner');
   ban.classList.toggle('show',tot>0);
-  document.getElementById('nul-txt').textContent=`⚠ ${tot} RADICACIÓN(ES) CON NULIDAD — REQUIEREN NUEVO FALLO INMEDIATO`;
-  document.getElementById('st-nu').textContent=nt;
-  document.getElementById('sd-nu').textContent=nd;
+  document.getElementById('nul-txt').textContent=`⚠ ${tot} RADICACIÓN(ES) CON NULIDAD ACTIVA — REQUIEREN NUEVO FALLO INMEDIATO`;
+  // v33: contador de tarjeta = HISTÓRICO (cuántas tutelas han tenido nulidad alguna vez)
+  const histT=tA().filter(hasNulHist).length;
+  const histD=dA().filter(hasNulHist).length;
+  const elNuT=document.getElementById('st-nu');
+  if(elNuT)elNuT.textContent=nt>0?`${histT} (${nt} act.)`:`${histT}`;
+  const elNuD=document.getElementById('sd-nu');
+  if(elNuD)elNuD.textContent=nd>0?`${histD} (${nd} act.)`:`${histD}`;
   // Ajustar posición de tabs
   const tabs=document.getElementById('tabs');
   tabs.className='tabs'+(tot>0?' with-nul':'');
 }
 function filtrarNul(){switchTab('t');document.getElementById('fat').value='NULIDAD';rT();}
 function filtrarNulD(){switchTab('d');document.getElementById('fad').value='NULIDAD';rD();}
+// v33: filtros para nulidad histórica (contador de tarjeta)
+function filtrarNulHist(){switchTab('t');document.getElementById('fat').value='NUL_HIST';rT();}
+function filtrarNulHistD(){switchTab('d');document.getElementById('fad').value='NUL_HIST';rD();}
 
 // ═══════════════════════════════════════════════════════
 // RENDER TUTELAS
@@ -1109,6 +1153,7 @@ function rT(){
   let data=[...rows];
   if(q)data=data.filter(t=>(t.radicacion+t.accionante+t.accionado+(t.derechoSierju||'')).toLowerCase().includes(q));
   if(fa==='NULIDAD')data=data.filter(t=>hasNulActiva(t));
+  else if(fa==='NUL_HIST')data=data.filter(t=>hasNulHist(t));
   else if(fa==='HC')data=data.filter(t=>t.esHC);
   else if(fa)data=data.filter(t=>aKeyT(t)===fa);
   if(fe)data=data.filter(t=>t.estado===fe);
@@ -1162,6 +1207,7 @@ function rD(){
   let data=[...rows];
   if(q)data=data.filter(d=>(d.radicacion+d.tutelaBase+d.incidentado).toLowerCase().includes(q));
   if(fa==='NULIDAD')data=data.filter(d=>hasNulActiva(d));
+  else if(fa==='NUL_HIST')data=data.filter(d=>hasNulHist(d));
   else if(fa)data=data.filter(d=>aKeyD(d)===fa);
   if(fe)data=data.filter(d=>d.estado===fe);
 
@@ -1262,7 +1308,7 @@ function aFT(){
     </div></div>
     <div class="mfoot">
       <button class="btn" onclick="cerrar()">Cancelar</button>
-      <button class="btn btn-p" onclick="guardarT()">✓ Guardar radicación</button>
+      <button class="btn btn-p" id="btn-guardar-rad" onclick="guardarT()">✓ Guardar radicación</button>
     </div>`;
   document.getElementById('mf').classList.add('o');
 }
@@ -1310,11 +1356,38 @@ async function guardarT(){
     juzgado2i:'',fallo2i:'',fechaReparto2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
     nulidades:[],ultimaNulidad:null};
-  if(window._pendingFolder){t.folderName=window._pendingFolder.folderName;t.filesCount=window._pendingFolder.filesCount;window._pendingFolder=null;}
-  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
-  if(!_ok)return; // NO cerrar el formulario: el guardado falló y ya se mostró el error
+  if(window._pendingFolder){t.folderName=window._pendingFolder.folderName;t.filesCount=window._pendingFolder.filesCount;}
+  // v33.1: guardado VERIFICADO — guarda y lee de vuelta para confirmar
+  if(!fbDb){
+    setSS('s','⏳ Esperando Firebase...');
+    for(let i=0;i<10&&!fbDb;i++) await new Promise(r=>setTimeout(r,500));
+  }
+  if(!fbDb){alert('⚠ Firebase no está conectado.\n\nRecarga con Ctrl+F5 y vuelve a intentar. Si persiste, revisa tu conexión a internet.');setSS('e','Sin Firebase');return;}
+  const col=`tutelas_${anio}`;
+  setSS('s','Guardando...');
+  try{
+    await fbDb.collection(col).doc(String(t.id)).set(t);
+    // VERIFICACIÓN: leer de vuelta para CONFIRMAR que quedó guardado
+    const check=await fbDb.collection(col).doc(String(t.id)).get();
+    if(!check||!check.exists){
+      alert('⚠ El guardado NO se pudo verificar en Firebase.\n\nLa radicación podría no haberse guardado. Revisa tu conexión e intenta de nuevo.');
+      setSS('e','No verificado');
+      return;
+    }
+  }catch(e){
+    console.error('guardarT ERROR:',e);
+    let hint='';
+    if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 Las reglas de Firestore bloquean la escritura. Revisa la pestaña Reglas en console.firebase.google.com.';
+    else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 Problema de red. Verifica tu internet.';
+    alert('⚠ ERROR al guardar la radicación:\n'+e.message+hint);
+    setSS('e','Error: '+e.message);
+    return;
+  }
+  window._pendingFolder=null;
+  const bg=document.getElementById('btn-guardar-rad');if(bg)bg.classList.remove('btn-pendiente');
   cerrar();rT();
-  // Agregar eventos al calendario
+  setSS('ok','✓ Radicación guardada y verificada');
+  alert('✓ Radicación guardada y VERIFICADA en Firebase:\n\n'+rad+'\nColección: '+col+'\n\nYa puedes recargar (F5) — la radicación quedará.');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1330,12 +1403,21 @@ function aDT(id){
   const derOpts=DERECHOS_SIERJU.map(d=>`<option${t.derechoSierju===d?' selected':''}>${d}</option>`).join('');
   const nulHTML=t.nulidades&&t.nulidades.length?`
     <div class="nul-hist"><h4>🚨 Historial de nulidades (${t.nulidades.length})</h4>
-    ${t.nulidades.map((n,i)=>`<div class="nul-item">
+    ${t.nulidades.map((n,i)=>{
+      const esUltima=i===t.nulidades.length-1;
+      const activa=esUltima&&hasNulActiva(t);
+      const estadoNul=activa
+        ?'<span style="color:#dc2626;font-weight:700">⚠ ACTIVA — pendiente de nuevo fallo</span>'
+        :esUltima
+          ?'<span style="color:#059669;font-weight:700">✓ Resuelta con fallo del '+fmt(t.fechaFallo)+'</span>'
+          :'<span style="color:#059669;font-weight:700">✓ Resuelta (nuevo fallo proferido; luego se decretó otra nulidad)</span>';
+      return `<div class="nul-item">
       <b>#${i+1} — Nulidad decretada: ${fmt(n.fecha)}</b><br>
       Auto: ${n.auto||'—'} | Proferida por: ${n.quien||'—'}<br>
       ${n.nota?`<span style="color:var(--t2)">${n.nota}</span><br>`:''}
-      <span style="color:var(--or)">→ Nueva alerta D9: ${fmt(n.dia9)} | Nuevo vencimiento: ${fmt(n.vce)}</span>
-    </div>`).join('')}</div>`:'';
+      <span style="color:var(--or)">→ Nueva alerta D9: ${fmt(n.dia9)} | Nuevo vencimiento: ${fmt(n.vce)}</span><br>
+      ${estadoNul}
+    </div>`;}).join('')}</div>`:'';
 
   document.getElementById('mdi').innerHTML=`
     <div class="mhdr">
@@ -1350,6 +1432,17 @@ function aDT(id){
       <div class="pbar">${hn?'<div class="ps nul" style="flex:none;width:100%">⚠ NULIDAD ACTIVA — TÉRMINOS REINICIADOS</div>':pasos.map((p,i)=>`<div class="ps ${i<etapa?'done':i===etapa?'act':'pending'}">${p}</div>`).join('')}</div>
       ${hn?`<div class="tbox nl"><h4>↻ Términos desde la fecha de nulidad</h4>
         ${trows([['Nueva alerta D9',tc.dia9,'wa'],['Nuevo vencimiento D10',tc.vce,'al']])}
+      </div>`:''}
+      ${hn?`<div style="background:#ecfdf5;border:1.5px solid #6ee7b7;border-radius:10px;padding:14px;margin-top:10px">
+        <h4 style="color:#047857;font-size:12px;margin:0 0 4px">⚖️ Registrar nuevo fallo (resuelve la nulidad)</h4>
+        <p style="font-size:10px;color:#059669;margin:0 0 10px;line-height:1.4">Tras la nulidad se reanuda el trámite en primera instancia. Al registrar el nuevo fallo esta alerta desaparece, el estado pasa a <b>Fallada</b> y el proceso continúa: podrá registrar una nueva impugnación → 2ª instancia → Corte si aplica. El historial de nulidades se conserva y el ciclo de impugnación anterior (contra el fallo anulado) se limpia.</p>
+        <div class="fg">
+          <div class="fi"><label>Fecha del nuevo fallo ★</label><input type="date" id="rnf-fecha" value="${hoy()}"></div>
+          <div class="fi"><label>Sentido del nuevo fallo</label>
+            <select id="rnf-sentido"><option value="">Seleccionar...</option>${['Concede tutela','Concede parcialmente','Niega — hecho superado','Niega — improcedente','Declara carencia actual de objeto','Desistimiento','Devuelta por competencia'].map(o=>`<option>${o}</option>`).join('')}</select>
+          </div>
+        </div>
+        <button class="btn btn-p" style="margin-top:8px;background:#059669;border-color:#059669" onclick="resolverNulidad('${id}')">✓ Registrar nuevo fallo y resolver nulidad</button>
       </div>`:''}
       ${nulHTML}
       <div class="fg" style="margin-top:10px">
@@ -1543,6 +1636,33 @@ async function guardarNulidad(id,tipo){
     });
   }
   alert(`Nulidad #${r.nulidades.length} registrada.\nNuevo vencimiento: ${fmt(tc.vce)}\nNueva alerta día 9: ${fmt(tc.dia9)}`);
+}
+
+// v33: RESOLVER NULIDAD — registra el nuevo fallo tras la nulidad y reinicia el trámite
+async function resolverNulidad(id){
+  const t=tA().find(x=>String(x.id)===String(id));
+  if(!t)return;
+  const fEl=document.getElementById('rnf-fecha'),sEl=document.getElementById('rnf-sentido');
+  const fecha=fEl?fEl.value:'';
+  const sentido=sEl?sEl.value:'';
+  if(!fecha){alert('La fecha del nuevo fallo es obligatoria.');return;}
+  const ult=t.nulidades&&t.nulidades.length?t.nulidades[t.nulidades.length-1].fecha:'';
+  if(ult&&fecha<ult){alert('⚠ El nuevo fallo debe ser POSTERIOR a la fecha de la nulidad ('+fmt(ult)+').\n\nRevisa la fecha ingresada.');return;}
+  if(!confirm('¿Registrar nuevo fallo del '+fmt(fecha)+'?\n\n• La nulidad activa queda RESUELTA y la alerta desaparece.\n• El estado pasa a "Fallada".\n• El ciclo de impugnación anterior (contra el fallo anulado) se limpia para iniciar uno nuevo.\n• El historial de nulidades se conserva.'))return;
+  t.fechaFallo=fecha;
+  t.sentidoFallo=sentido||t.sentidoFallo||'';
+  t.estado='Fallada';
+  // Reiniciar el ciclo de impugnación anterior (era contra el fallo anulado)
+  t.fechaImpugnacion='';t.juzgado2i='';t.fechaReparto2i='';t.fallo2i='';
+  t.fechaRemCC='';t.fechaRegresoCC='';
+  const _ok=await fbSave(`tutelas_${anio}`,t.id,t);
+  if(!_ok){setSS('e','⚠ No guardado');return;}
+  cerrar2();rT();actualizarBanner();
+  setTimeout(()=>aDT(id),320);
+  if(typeof Notification!=='undefined'&&Notification.permission==='granted'){
+    new Notification('Nulidad resuelta — '+(t.radicacion||''),{body:'Nuevo fallo: '+fmt(fecha)+(sentido?' · '+sentido:'')});
+  }
+  alert('✓ Nuevo fallo registrado el '+fmt(fecha)+'.\n\nLa nulidad queda RESUELTA y la alerta desaparece.\nEl trámite continúa: ya puede registrar nueva impugnación o remisión a Corte si aplica.\n\nEsta tutela seguirá contando en el histórico de nulidades.');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2319,6 +2439,36 @@ function rStat(){
   rBody+=`<tr class="total-row"><td>TOTAL AÑO ${anio}</td><td style="text-align:center">${gtTI}</td><td style="text-align:center">${gtTF}</td><td style="text-align:center">${gtDI}</td><td style="text-align:center">${gtDD}</td></tr>`;
   rBody+='</tbody>';
   rTable.innerHTML=rHead+rBody;
+
+  // ── TABLA NULIDADES (v33) ── decisión propia en estadística
+  const snAnio=document.getElementById('snul-anio');if(snAnio)snAnio.textContent=anio;
+  const snTable=document.getElementById('snul-table');
+  if(snTable){
+    let snHead=`<thead><tr>
+      <th>Período</th>
+      <th style="text-align:center">Nulidades<br>decretadas</th>
+      <th style="text-align:center">Tutelas<br>afectadas</th>
+      <th style="text-align:center">Pendientes<br>nuevo fallo</th>
+    </tr></thead>`;
+    let snBody='<tbody>';
+    let gN=0;
+    [1,2,3,4].forEach(pp=>{
+      let nDecr=0,tAfect=0,pend=0;
+      tuts.forEach(t=>{
+        if(!t.nulidades||!t.nulidades.length)return;
+        const enP=t.nulidades.filter(n=>enPer(n.fecha,pp));
+        if(enP.length){nDecr+=enP.length;tAfect++;}
+        if(hasNulActiva(t)){const ult=t.nulidades[t.nulidades.length-1].fecha;if(enPer(ult,pp))pend++;}
+      });
+      gN+=nDecr;
+      snBody+=`<tr><td><strong>${PERIODOS[pp].lbl}</strong></td><td style="text-align:center">${numCell(nDecr)}</td><td style="text-align:center">${numCell(tAfect)}</td><td style="text-align:center">${numCell(pend)}</td></tr>`;
+    });
+    const totTutAfect=tuts.filter(hasNulHist).length;
+    const totPend=tuts.filter(hasNulActiva).length;
+    snBody+=`<tr class="total-row"><td>TOTAL AÑO ${anio}</td><td style="text-align:center">${gN}</td><td style="text-align:center">${totTutAfect}</td><td style="text-align:center">${totPend}</td></tr>`;
+    snBody+='</tbody>';
+    snTable.innerHTML=snHead+snBody;
+  }
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2602,7 +2752,12 @@ window.procesarCarpeta=async function(inp){
     if(d.fechaAdmision&&typeof pvT==='function')pvT();
     window._pendingFolder={folderName,filesCount:files.length};
     const hayDatos=d.accionado||d.cedula||d.derechoSierju||d.fechaReparto||d.pretensiones;
-    if(st)st.textContent=hayDatos?'✓ Datos cargados — revisa y guarda':'⚠ No se extrajeron datos — verifica tu API key en ⚙️';
+    if(hayDatos){
+      if(st)st.innerHTML='✓ Datos cargados. <b style="color:#dc2626">⬇ Revisa los campos y haz clic en "✓ Guardar radicación" (abajo) para GUARDAR</b>';
+      const bg=document.getElementById('btn-guardar-rad');if(bg)bg.classList.add('btn-pendiente');
+    }else{
+      if(st)st.textContent='⚠ No se extrajeron datos — verifica tu API key en ⚙️';
+    }
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
 };
@@ -2634,10 +2789,22 @@ window.procesarRecarga=async function(inp,id){
     if(iN>iA&&d.estado)upd.estado=d.estado;
     const n=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
     if(n===0){if(st)st.textContent='✓ Sin datos nuevos';inp.value='';return;}
-    const _ok=await fbSave(`tutelas_${anio}`,id,{...t,...upd});
-    if(!_ok){if(st)st.textContent='✗ Datos extraídos pero NO GUARDADOS — revisa el error mostrado';inp.value='';return;}
+    // v33.1: actualización VERIFICADA
+    if(!fbDb){if(st)st.textContent='⚠ Firebase no conectado — recarga (Ctrl+F5)';inp.value='';return;}
+    const col=`tutelas_${anio}`;const merged={...t,...upd};
+    try{
+      await fbDb.collection(col).doc(String(id)).set(merged);
+      const check=await fbDb.collection(col).doc(String(id)).get();
+      if(!check||!check.exists){if(st)st.textContent='✗ No se pudo verificar el guardado';inp.value='';return;}
+    }catch(err){
+      console.error('procesarRecarga ERROR:',err);
+      if(st)st.textContent='✗ Error al guardar';
+      alert('⚠ ERROR al actualizar:\n'+err.message+(/permission|insufficient/i.test(err.message)?'\n\n🔧 Las reglas de Firestore bloquean la escritura.':''));
+      inp.value='';return;
+    }
     rT();cerrar2();setTimeout(()=>aDT(id),350);
-    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s) y guardados en Firebase`;
+    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s) y verificados`;
+    alert('✓ Actualización guardada y VERIFICADA en Firebase:\n'+n+' campo(s) actualizado(s).\n\nYa puedes recargar (F5) — los cambios quedarán.');
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
 };
@@ -2650,6 +2817,7 @@ window.aFT=aFT;window.aFD=aFD;window.pvT=pvT;window.pvD=pvD;
 window.guardarT=guardarT;window.guardarD=guardarD;
 window.aDT=aDT;window.aDD=aDD;window.updT=updT;window.updD=updD;
 window.abrirFormNulidad=abrirFormNulidad;window.pvNul=pvNul;window.guardarNulidad=guardarNulidad;
+window.resolverNulidad=resolverNulidad;window.filtrarNulHist=filtrarNulHist;window.filtrarNulHistD=filtrarNulHistD;
 window.confElimT=confElimT;window.confElimD=confElimD;
 window.verifySec=verifySec;window.cerrarSec=cerrarSec;
 window.abrirConfig=abrirConfig;window.cerrarCfg=cerrarCfg;window.guardarCfg=guardarCfg;
