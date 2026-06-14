@@ -2955,7 +2955,7 @@ JSON a devolver (rellena cada campo desde su fuente autoritativa):
   console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
   const parsed=await _llamarGemini(apiKey,prompt,false);
   console.log('[Extracción] Gemini respondió:',parsed);
-  window._ultimaExtraccion={folder:folderName,pdfs:pdfsToUse.length,docx:docxToUse.length,pdfDiag,pdfTxtLen:pdfTxt.length,wTxtLen:wTxt.length,parsed};
+  window._ultimaExtraccion={folder:folderName,pdfs:docsSelectos.length,pdfsTotal:docs.length,docx:docxToUse.length,pdfDiag,pdfTxtLen:pdfTxt.length,wTxtLen:wTxt.length,parsed};
   return{...fb,...parsed};
 }
 
