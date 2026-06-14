@@ -626,6 +626,18 @@ function addHab(ds,n){
   if(!ds)return '';let d=new Date(ds+'T12:00:00'),c=0;
   while(c<n){d.setDate(d.getDate()+1);if(esHabil(dISO(d)))c++;}return dISO(d);
 }
+// v33.13: addHabIncl — el día base cuenta como día 1 (regla del despacho).
+// Para vencimiento del fallo (10 días) y día N de alerta, el día de admisión
+// se cuenta como día 1, no como día 0. Confirma con el ejemplo:
+// admisión lun 25/05/2026 → día 9 = jue 04/06 / día 10 (vence) = vie 05/06.
+function addHabIncl(ds,n){
+  if(!ds||n<1)return '';
+  let d=new Date(ds+'T12:00:00');
+  let iso=dISO(d);
+  let c=esHabil(iso)?1:0;
+  while(c<n){d.setDate(d.getDate()+1);iso=dISO(d);if(esHabil(iso))c++;}
+  return iso;
+}
 function fmt(ds){if(!ds)return '—';const[y,m,d]=ds.split('-');return `${d}/${m}/${y}`;}
 function hoy(){return new Date().toISOString().split('T')[0];}
 function diff(ds){if(!ds)return null;return Math.ceil((new Date(ds+'T12:00:00')-new Date(hoy()+'T12:00:00'))/864e5);}
@@ -644,15 +656,15 @@ function getAlertaDiasTutela(t){return getAlertaDias(t);}
 function termT(t){
   const base=t.ultimaNulidad||t.fechaAdmision;
   if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:'',ejecutoria:'',limImpugnacion:''};
-  // v33.12: TODOS los términos en días HÁBILES (Decreto 2591/91 + jurisprudencia C.C.)
-  // — antes se usaba addD (calendario) y addFin (calendario+corrimiento), lo cual
-  // ignoraba los festivos intermedios y daba vencimientos incorrectos.
-  const vce=addHab(base,10);                  // vencimiento del fallo (día 10 hábil)
+  // v33.13: vencimiento (día 10) y día N de alerta cuentan la admisión como día 1.
+  // Términos post-vencimiento (correo, ejecutoria, lím impugnación) cuentan
+  // desde el día SIGUIENTE al vencimiento (excluyente), según práctica del despacho.
+  const vce=addHabIncl(base,10);              // día 10 hábil = vencimiento del fallo
   const dias=getAlertaDias(t);
-  const dia9=addHab(base,dias);               // día N de alerta (default 9, configurable 1-10)
-  const cor2=addHab(vce,2);                   // 2 días hábiles de correo tras vencimiento
-  const eje3=addHab(cor2,3);                  // 3 días hábiles de ejecutoria tras correo
-  const limImpugnacion=addHab(eje3,2);        // 2 días hábiles para enviar impugnación al reparto
+  const dia9=addHabIncl(base,dias);           // día N hábil de alerta
+  const cor2=addHab(vce,2);                   // 2 días hábiles DESPUÉS del vencimiento
+  const eje3=addHab(cor2,3);                  // 3 días hábiles DESPUÉS del correo
+  const limImpugnacion=addHab(eje3,2);        // 2 días hábiles DESPUÉS de ejecutoria
   let remCC=addD(eje3,1);while(remCC&&!esHabil(remCC))remCC=addD(remCC,1);
   const vce2i=t.fechaReparto2i?addHab(t.fechaReparto2i,20):'';
   return{dia9,vce,cor2,eje3,remCC,vce2i,ejecutoria:eje3,limImpugnacion};
@@ -660,11 +672,15 @@ function termT(t){
 function termD(d){
   const base=d.ultimaNulidad||d.fechaSolicitud;
   if(!base)return{req:'',aper:'',dia9:'',vce:'',remCons:'',resCons:'',ofic:''};
+  // v33.13: vencimiento y día N con la misma regla que tutelas (base = día 1, hábiles).
+  const vce=addHabIncl(base,10);
+  const dias=getAlertaDias(d);
+  const dia9=addHabIncl(base,dias);
   return{
-    req:addFin(base,1),aper:addFin(base,2),dia9:addD(base,9),
-    vce:addFin(base,10),remCons:addD(addFin(base,10),1),
-    resCons:addD(addD(addFin(base,10),1),3),
-    ofic:addD(addD(addD(addFin(base,10),1),3),1)
+    req:addFin(base,1),aper:addFin(base,2),dia9,vce,
+    remCons:addD(vce,1),
+    resCons:addD(addD(vce,1),3),
+    ofic:addD(addD(addD(vce,1),3),1)
   };
 }
 function trows(arr){
@@ -721,11 +737,64 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.12';
+var APP_VERSION='33.15';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
 function setVersion(v){localStorage.setItem('cj_version',v);}
+// v33.14: URL base de OneDrive/SharePoint del despacho — configurable una sola vez
+function getOneDriveBase(){return localStorage.getItem('cj_onedrive_base')||'';}
+function setOneDriveBase(v){
+  v=(v||'').trim();
+  if(v&&!v.endsWith('/'))v+='/';  // asegurar trailing slash
+  localStorage.setItem('cj_onedrive_base',v);
+}
+function buildOneDriveURL(folderName){
+  const base=getOneDriveBase();
+  if(!base||!folderName)return '';
+  // El folderName ya viene "tal cual" de la carpeta local. Encoderlo respetando
+  // que la base ya tiene su propio encoding (%20 para espacios).
+  return base+encodeURIComponent(folderName);
+}
+async function regenerarLinksOneDrive(){
+  const base=getOneDriveBase();
+  if(!base){alert('⚠ Primero configura la URL base de OneDrive en ajustes.');return;}
+  if(!fbDb){alert('⚠ Firebase no está conectado.');return;}
+  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Tutelas sin enlace (las que el sistema dejó vacías)\n• Tutelas con link viejo a Rama Judicial (autogenerados por versiones anteriores)\n\nNO toca tutelas con un enlace manual de OneDrive ya pegado.'))return;
+  // Detecta links que son "candidatos a reemplazo": vacíos, inválidos o de Rama Judicial
+  const esCandidato=(t)=>{
+    if(!t.folderName)return false;
+    if(!t.enlace)return true;
+    if(!/^https?:\/\//i.test(t.enlace))return true;
+    if(/ramajudicial\.gov\.co|consultaprocesos/i.test(t.enlace))return true; // viejo autogenerado
+    return false; // ya tiene un enlace manual válido, no tocar
+  };
+  let n=0,err=0;
+  for(const yr of Object.keys(localDB.tutelas)){
+    for(const t of (localDB.tutelas[yr]||[])){
+      if(!esCandidato(t))continue;
+      const nuevo=buildOneDriveURL(t.folderName);
+      if(!nuevo)continue;
+      try{
+        await fbDb.collection('tutelas_'+yr).doc(String(t.id)).set({...t,enlace:nuevo});
+        n++;
+      }catch(e){console.error('Regen link error:',e);err++;}
+    }
+  }
+  for(const yr of Object.keys(localDB.desacatos)){
+    for(const d of (localDB.desacatos[yr]||[])){
+      if(!esCandidato(d))continue;
+      const nuevo=buildOneDriveURL(d.folderName);
+      if(!nuevo)continue;
+      try{
+        await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,enlace:nuevo});
+        n++;
+      }catch(e){err++;}
+    }
+  }
+  alert('✓ '+n+' enlace(s) regenerado(s).'+(err>0?'\n⚠ '+err+' error(es).':''));
+}
+window.regenerarLinksOneDrive=regenerarLinksOneDrive;
 
 // Aplicar parche de actualización
 async function aplicarParche(patchData){
@@ -1424,17 +1493,14 @@ async function guardarT(){
     fechaRemCC:'',fechaRegresoCC:'',
     alertaDias:9,
     nulidades:[],ultimaNulidad:null};
-  // v33.12: Si el usuario no proporcionó enlace, generar automáticamente
-  // el enlace de consulta de procesos en la Rama Judicial.
-  if(!t.enlace&&t.radicacion){
-    const radLimpio=String(t.radicacion).replace(/\D/g,'');
-    if(radLimpio.length>=20){
-      t.enlace=`https://consultaprocesos.ramajudicial.gov.co/Procesos/NumeroRadicacion?radicacion=${radLimpio}`;
-    }
-  }
   if(window._pendingFolder){
     t.folderName=window._pendingFolder.folderName;
     t.filesCount=window._pendingFolder.filesCount;
+    // v33.14: si hay URL base de OneDrive configurada y no hay enlace manual, construir automáticamente
+    if(!t.enlace&&t.folderName){
+      const auto=buildOneDriveURL(t.folderName);
+      if(auto)t.enlace=auto;
+    }
     // v33.11: si se detectó nulidad automáticamente, aplicar historial
     if(window._pendingFolder.ciclosAnulados){t.ciclosAnulados=window._pendingFolder.ciclosAnulados;}
     if(window._pendingFolder.nulidades){t.nulidades=window._pendingFolder.nulidades;}
@@ -2096,7 +2162,7 @@ function abrirConfig(){
 }
 function _mostrarConfig(){
   (()=>{
-    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
+    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base del año activo</label>\n    <input id="cfg-od" placeholder="https://etbcsj-my.sharepoint.com/.../TUTELAS%202026/" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de OneDrive del año. El sistema agregará automáticamente el nombre de cada carpeta y construirá el enlace ↗ para cada tutela.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URL base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
     // Agregar sección IA al final del panel
     const iaDiv=document.createElement('div');
@@ -2134,9 +2200,18 @@ function _mostrarConfig(){
     const vl2=document.getElementById('ver-lbl2');
     if(vl)vl.textContent='v'+v;
     if(vl2)vl2.textContent='v'+v;
+    // v33.14: precargar URL base OneDrive
+    const elOd=document.getElementById('cfg-od');
+    if(elOd)elOd.value=getOneDriveBase();
     document.getElementById('mcfg').classList.add('o');setTimeout(_actualizarEstadoNotif,100);
   })();
 }
+function guardarOneDriveBase(){
+  const v=(document.getElementById('cfg-od').value||'').trim();
+  setOneDriveBase(v);
+  alert('✓ URL base de OneDrive guardada.\n\nPara aplicarla a tutelas ya creadas con folderName, usa "🔄 Regenerar enlaces".');
+}
+window.guardarOneDriveBase=guardarOneDriveBase;
 function _renderResponsables(){
   const lista=document.getElementById('resp-lista');
   if(!lista)return;
@@ -2957,8 +3032,8 @@ async function extraerDatosCarpeta(files,folderName){
     if(tiene('juzgado primero penal del circuito','juzgado segundo penal del circuito','juzgado tercero penal del circuito','juzgado cuarto penal del circuito','juzgado quinto penal del circuito','juzgado sexto penal del circuito','juzgado séptimo penal del circuito','juzgado octavo penal del circuito','juzgado noveno penal del circuito','juzgado décimo penal del circuito','penal del circuito','segunda instancia','2a instancia','2ª instancia','confirmar la sentencia','confirmar el fallo','revocar la sentencia','revocar el fallo','modificar la sentencia','adicionar la sentencia')&&tiene('resuelve','dispone','confirma','revoca','modifica','adiciona'))return {prio:6,tipo:'SENTENCIA 2ª INSTANCIA'};
     // 3) ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA — formato específico de las actas
     if(tiene('acta individual de reparto','acta de reparto','reparto')&&tiene('tutelas 2a instancia','tutelas 2ª instancia','grupo tutelas 2','penal del circuito','penal circuito'))return {prio:5,tipo:'ACTA REPARTO 2ª INST'};
-    // 4) AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA DE TÉRMINOS
-    if(tiene('concede el recurso','conceder el recurso','conceder la impugnación','concede la impugnación','recurso de alzada','interpuesto impugnación','presentó oportunamente impugnación','notifica concede impugnación'))return {prio:4,tipo:'CONCEDE IMPUGNACIÓN'};
+    // 4) AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA DE TÉRMINOS / MEMORIAL DE IMPUGNACIÓN
+    if(tiene('concede el recurso','conceder el recurso','conceder la impugnación','concede la impugnación','recurso de alzada','interpuesto impugnación','presentó oportunamente impugnación','notifica concede impugnación','interpongo el recurso','interpongo recurso','impugno la sentencia','impugno el fallo','presento impugnación','presento recurso de impugnación','manifiesto que impugno'))return {prio:4,tipo:'IMPUGNACIÓN'};
     // 5) SENTENCIA / FALLO 1ª INSTANCIA — parte resolutiva sin características de 2ª inst
     if(tiene('declarar improcedente','declarar procedente','tutelar el derecho','amparar el derecho','conceder el amparo','niega el amparo','niega la tutela','carencia actual de objeto','hecho superado')&&tiene('resuelve','primero','segundo'))return {prio:3,tipo:'SENTENCIA 1ª INSTANCIA'};
     // 6) AUTO ADMISORIO — frase muy típica del decreto 2591
@@ -2972,7 +3047,8 @@ async function extraerDatosCarpeta(files,folderName){
     if(/sentencia|fallo/.test(n)&&!/2|seg|segunda/.test(n))return {prio:3,tipo:'SENTENCIA 1ª (por nombre)'};
     if(/sentencia.*2|seginstancia|segunda/.test(n))return {prio:6,tipo:'SENTENCIA 2ª (por nombre)'};
     if(/nulidad/.test(n))return {prio:7,tipo:'NULIDAD (por nombre)'};
-    if(/concede.?impug|terminos/i.test(n))return {prio:4,tipo:'CONCEDE IMPUG (por nombre)'};
+    if(/concede.?impug|terminos|términos/i.test(n))return {prio:4,tipo:'CONCEDE IMPUG (por nombre)'};
+    if(/impugn/i.test(n))return {prio:4,tipo:'IMPUGNACIÓN MEMORIAL (por nombre)'};
     if(/cto|circuito/.test(n))return {prio:5,tipo:'REPARTO 2ª (por nombre)'};
     if(/reparto|soporte/.test(n))return {prio:2,tipo:'REPARTO 1ª (por nombre)'};
     return {prio:9,tipo:'OTRO'};
@@ -3055,13 +3131,17 @@ async function extraerDatosCarpeta(files,folderName){
     throw new Error('No se pudo extraer texto de ningún archivo de la carpeta. Posibles causas: (1) PDFs son escaneos sin OCR; (2) pdf.js no cargó; (3) carpeta vacía. Diagnóstico: '+pdfDiag.join(' | '));
   }
 
+  const listaArchivos=[...pdfsToScan,...docxToUse].map(f=>'  • '+f.name).join('\n');
   const prompt=`Eres un asistente experto en derecho constitucional colombiano (acciones de tutela, Decreto 2591/91). A continuación tienes el TEXTO COMPLETO de los documentos de una tutela del Juzgado 14 Penal Municipal de Ibagué año ${anio}.
 
 Carpeta: "${folderName}"
 Radicado tomado del nombre de carpeta: "${rH}"
 Accionante tomado del nombre de carpeta: "${aH}"
 
-${pdfTxt?'TEXTO DE ARCHIVOS PDF:\n'+pdfTxt+'\n':''}
+📁 LISTA COMPLETA DE ARCHIVOS DE LA CARPETA (incluye los que NO se pudieron extraer por ser escaneos sin OCR — para esos USA EL NOMBRE como fuente de fechas):
+${listaArchivos}
+
+${pdfTxt?'TEXTO DE ARCHIVOS PDF (los que sí se pudieron extraer):\n'+pdfTxt+'\n':''}
 ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
 
 🗺️ MAPA DE FUENTES AUTORITATIVAS — cada dato tiene UN documento que es el más confiable. Ve a la fuente correcta primero:
@@ -3089,8 +3169,12 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
     - Si el accionante desistió → "Desistimiento"
     - Si se devuelve por competencia → "Devuelta por competencia"
 
-📌 AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA TÉRMINOS (archivos "TerminosConcedeImpugnacion", "ConcedeImpugnacion") — fuente para:
-  • fechaImpugnacion: fecha en que el accionante PRESENTÓ la impugnación (NO la fecha del auto que la concede). Frase típica: "habiendo interpuesto impugnación el pasado [fecha]"
+📌 IMPUGNACIÓN — fuente para fechaImpugnacion. PUEDE provenir de TRES tipos de archivos (revisa los tres):
+  (a) MEMORIAL DEL ACCIONANTE (archivo con nombre "Impugnacion[fecha]", "Impugnación", "RecursoImpugnacion") — el escrito mismo. Contiene frases como "interpongo el recurso de impugnación", "impugno la sentencia", "presento impugnación contra el fallo". La fechaImpugnacion = fecha del escrito.
+  (b) AUTO CONCEDE IMPUGNACIÓN (archivo "TerminosConcedeImpugnacion", "ConcedeImpugnacion") — el auto del juzgado que concede el recurso. Suele decir "habiendo interpuesto impugnación el pasado [fecha]" — esa fecha (NO la del auto) es fechaImpugnacion.
+  (c) NOMBRE DEL ARCHIVO COMO FUENTE: si el archivo se llama "Impugnacion12062026" o "Impugnacion07042026" o similar, el bloque numérico DDMMAAAA al final es la fecha de la impugnación. USA esa fecha si el contenido no la trae explícita.
+  
+  Prioridad: si encuentras la fecha en (a) o (b), úsala. Si NO, usa la fecha del nombre del archivo (c).
 
 📌 ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA (archivos "ActaReparto1Cto", "ActaReparto9Cto", "ActaReparto[N]Cto" — reparto a Juzgado del Circuito) — fuente para:
   • juzgado2i: a qué juzgado le correspondió (ej: "JUZGADO 1 PENAL DEL CIRCUITO IBAGUE", "JUZGADO 9 PENAL DEL CIRCUITO IBAGUE"). Si hay MÚLTIPLES actas (porque hubo nulidades), TOMA LA MÁS RECIENTE para los campos planos; las anteriores van en sus respectivos ciclos anulados.
@@ -3141,6 +3225,7 @@ FORMATO de cada elemento del array nulidades:
 REGLAS ESTRICTAS:
 - USA EL TEXTO QUE TE DI ARRIBA. No inventes datos que no aparezcan.
 - NO dejes vacío un campo si la información ESTÁ en el texto correspondiente.
+- 🔑 NOMBRES DE ARCHIVOS COMO FUENTE: muchos archivos colombianos llevan la fecha en el nombre (ej: "Impugnacion12062026", "ContestacionSriaSaludTolima27052026", "Sentencia28052026"). Si NO logras extraer una fecha del CONTENIDO del PDF (por ser escaneo sin OCR), USA la fecha del NOMBRE del archivo. Patrón: DDMMAAAA al final del nombre → fecha "AAAA-MM-DD".
 - Si hay DOS valores que se contradicen (ej: auto admisorio dice un accionado y soporte de reparto dice otro), CONFÍA EN EL AUTO ADMISORIO.
 - "derechoSierju" DEBE ser EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho al Trabajo, Vivienda, Otros.
 - Todas las fechas formato AAAA-MM-DD. Convierte "10 de marzo de 2026" → "2026-03-10".
@@ -3256,12 +3341,10 @@ window.procesarRecarga=async function(inp,id){
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
     upd.folderName=folderName;upd.filesCount=files.length;
-    // v33.12: si la tutela no tiene enlace válido, generar el link de Rama Judicial
+    // v33.14: si hay URL base de OneDrive configurada y la tutela no tiene enlace válido, generar
     if(!t.enlace||!/^https?:\/\//i.test(t.enlace)){
-      const radLimpio=String(t.radicacion||'').replace(/\D/g,'');
-      if(radLimpio.length>=20){
-        upd.enlace=`https://consultaprocesos.ramajudicial.gov.co/Procesos/NumeroRadicacion?radicacion=${radLimpio}`;
-      }
+      const auto=buildOneDriveURL(folderName);
+      if(auto)upd.enlace=auto;
     }
 
     // ═══ v33.11: APLICACIÓN AUTOMÁTICA DE NULIDAD(ES) — soporta múltiples ═══
