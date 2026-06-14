@@ -705,7 +705,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='2.0';
+var APP_VERSION='33.11';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -903,8 +903,7 @@ function guardarCfg(){
   if(u)setPwd('user',u);if(a)setPwd('admin',a);
   alert('Contraseñas actualizadas.');cerrarCfg();
 }
-function confElimT(id){pedirAdmin(async()=>{if(!confirm('¿ELIMINAR?'))return;await fbDel('tutelas_'+anio,id);});}
-function confElimD(id){pedirAdmin(async()=>{if(!confirm('¿ELIMINAR?'))return;await fbDel('desacatos_'+anio,id);});}
+// confElimT y confElimD están definidas más abajo (sección ELIMINAR — solo admin) con verificación post-eliminación
 function importarParche(){
   const input=document.createElement('input');input.type='file';input.accept='.json,.patch';
   input.onchange=async e=>{
@@ -996,7 +995,7 @@ function _genXlsx(){
       'F.Fallo':fd(t.fechaFallo),'Sentido':t.sentidoFallo||'',
       'F.Impugnación':fd(t.fechaImpugnacion),'Juzgado 2ªI':t.juzgado2i||'',
       'F.Reparto 2ªI':fd(t.fechaReparto2i),'Vence 2ªI':fd(tc.vce2i),
-      'Fallo 2ªI':t.fallo2i||'','F.RemCC':fd(t.fechaRemCC),'F.RegresoCC':fd(t.fechaRegresoCC),
+      'F.Fallo 2ªI':fd(t.fechaFallo2i),'Fallo 2ªI':t.fallo2i||'','F.RemCC':fd(t.fechaRemCC),'F.RegresoCC':fd(t.fechaRegresoCC),
       'Estado':t.estado||'','Responsable':t.responsable||'',
       'Nulidades':(t.nulidades||[]).length,'Observaciones':t.observaciones||''};
   });
@@ -1188,7 +1187,7 @@ function rT(){
       <td>${eBadge(t.estado)}</td>
       <td><div class="ract">
         <button class="btn btn-ic btn-sm" onclick="aDT('${t.id}')">✏</button>
-        ${t.enlace?`<a href="${t.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
+        ${(t.enlace&&/^https?:\/\//i.test(t.enlace))?`<a href="${t.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
         ${isAdmin?`<button class="btn btn-ic btn-sm btn-d" onclick="confElimT('${t.id}')">🗑</button>`:''}
       </div></td>`;
     tbody.appendChild(tr);
@@ -1238,7 +1237,7 @@ function rD(){
       <td>${eBadge(d.estado)}</td>
       <td><div class="ract">
         <button class="btn btn-ic btn-sm" onclick="aDD('${d.id}')">✏</button>
-        ${d.enlace?`<a href="${d.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
+        ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" class="btn btn-ic btn-sm" target="_blank">↗</a>`:''}
         ${isAdmin?`<button class="btn btn-ic btn-sm btn-d" onclick="confElimD('${d.id}')">🗑</button>`:''}
       </div></td>`;
     tbody.appendChild(tr);
@@ -1358,10 +1357,17 @@ async function guardarT(){
     enlace:document.getElementById('f-l').value.trim(),
     observaciones:document.getElementById('f-o').value.trim(),
     fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
-    juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    juzgado2i:'',fallo2i:'',fechaReparto2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
     nulidades:[],ultimaNulidad:null};
-  if(window._pendingFolder){t.folderName=window._pendingFolder.folderName;t.filesCount=window._pendingFolder.filesCount;}
+  if(window._pendingFolder){
+    t.folderName=window._pendingFolder.folderName;
+    t.filesCount=window._pendingFolder.filesCount;
+    // v33.11: si se detectó nulidad automáticamente, aplicar historial
+    if(window._pendingFolder.ciclosAnulados){t.ciclosAnulados=window._pendingFolder.ciclosAnulados;}
+    if(window._pendingFolder.nulidades){t.nulidades=window._pendingFolder.nulidades;}
+    if(window._pendingFolder.ultimaNulidad){t.ultimaNulidad=window._pendingFolder.ultimaNulidad;}
+  }
   // v33.1: guardado VERIFICADO — guarda y lee de vuelta para confirmar
   if(!fbDb){
     setSS('s','⏳ Esperando Firebase...');
@@ -1489,9 +1495,11 @@ function aDT(id){
               ${t.ciclosAnulados.map((c,i)=>`
               <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:6px;padding:8px;margin-top:6px">
                 <b style="color:#475569">Ciclo ${i+1} — anulado el ${fmt(c.nulidadFecha)} (nulidad #${c.nulidadIndice})</b><br>
-                • Fallo anulado: ${fmt(c.falloAnterior)||'—'} ${c.sentidoAnterior?'('+c.sentidoAnterior+')':''}<br>
-                • Impugnación: ${fmt(c.impugnacion)||'—'} | Juzgado 2ª: ${c.juzgado2i||'—'}<br>
-                • Reparto 2ª: ${fmt(c.reparto2i)||'—'} | Fallo 2ª: ${c.fallo2i||'—'}<br>
+                • Reparto 1ª: ${fmt(c.fechaReparto)||'—'} &nbsp;|&nbsp; Admisorio: ${fmt(c.fechaAdmision)||'—'}<br>
+                • Sentencia 1ª: ${fmt(c.falloAnterior)||'—'} ${c.sentidoAnterior?'<i>('+c.sentidoAnterior+')</i>':''}<br>
+                • Impugnación: ${fmt(c.impugnacion)||'—'} &nbsp;|&nbsp; Juzgado 2ª: ${c.juzgado2i||'—'}<br>
+                • Reparto 2ª: ${fmt(c.reparto2i)||'—'}<br>
+                • Sentencia 2ª: ${fmt(c.fechaFallo2i)||'—'} ${c.fallo2i?'<i>('+c.fallo2i+')</i>':''}<br>
                 ${c.remCC||c.regresoCC?`• Corte C.: rem ${fmt(c.remCC)||'—'} / regreso ${fmt(c.regresoCC)||'—'}<br>`:''}
               </div>`).join('')}
             </div>
@@ -1502,7 +1510,8 @@ function aDT(id){
         <div class="fi"><label>Juzgado 2ª instancia</label><input value="${esc(t.juzgado2i)}" onchange="updT('${id}','juzgado2i',this.value)"></div>
         <div class="fi"><label>Fecha reparto 2ª instancia</label><input type="date" value="${t.fechaReparto2i||''}" onchange="updT('${id}','fechaReparto2i',this.value)"></div>
         <div class="fi"><label>Vencimiento 2ª inst. (20 días hábiles)</label><input value="${fmt(tc.vce2i)}" readonly></div>
-        <div class="fi"><label>Fallo 2ª instancia</label>
+        <div class="fi"><label>Fecha fallo 2ª instancia</label><input type="date" value="${t.fechaFallo2i||''}" onchange="updT('${id}','fechaFallo2i',this.value)"></div>
+        <div class="fi"><label>Sentido fallo 2ª instancia</label>
           <select onchange="updT('${id}','fallo2i',this.value)">
             <option value="">Seleccionar...</option>
             ${['Confirma','Revoca','Modifica','Adiciona','Decreta nulidad'].map(o=>`<option${t.fallo2i===o?' selected':''}>${o}</option>`).join('')}
@@ -1525,7 +1534,7 @@ function aDT(id){
         </div>
         <div class="fi full"><label>Enlace OneDrive (opcional — pegar URL pública si existe)</label>
           <input value="${esc(t.enlace)}" placeholder="https://... (déjelo en blanco si no tiene URL pública)" onchange="updT('${id}','enlace',this.value)">
-          ${t.enlace?`<a href="${t.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+          ${(t.enlace&&/^https?:\/\//i.test(t.enlace))?`<a href="${t.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
           ${t.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(t.folderName)}${t.filesCount?' <span style="color:var(--t2)">('+t.filesCount+' archivos)</span>':''}</div>`:''}
         </div>
         <div class="fi full" style="background:#eff6ff;border:.5px solid #bfdbfe;border-radius:8px;padding:10px">
@@ -1687,12 +1696,16 @@ async function resolverNulidad(id){
   if(ult&&fecha<ult){alert('⚠ El nuevo fallo debe ser POSTERIOR a la fecha de la nulidad ('+fmt(ult)+').\n\nRevisa la fecha ingresada.');return;}
   if(!confirm('¿Registrar nuevo fallo del '+fmt(fecha)+'?\n\n• La nulidad activa queda RESUELTA y la alerta desaparece.\n• El estado pasa a "Fallada".\n• El ciclo de impugnación anterior (contra el fallo anulado) se LIMPIA para iniciar uno nuevo.\n• El historial de nulidades se conserva.'))return;
   // v33.5: GUARDAR snapshot del ciclo anulado en historial antes de limpiar
+  // v33.11: snapshot COMPLETO — incluye reparto 1ª, admisorio, y fecha de fallo 2ª
   const cicloAnulado={
     nulidadFecha:ult||'',
     nulidadIndice:(t.nulidades||[]).length,
+    fechaReparto:t.fechaReparto||'',
+    fechaAdmision:t.fechaAdmision||'',
     falloAnterior:t.fechaFallo||'',sentidoAnterior:t.sentidoFallo||'',
     impugnacion:t.fechaImpugnacion||'',juzgado2i:t.juzgado2i||'',
     reparto2i:t.fechaReparto2i||'',fallo2i:t.fallo2i||'',
+    fechaFallo2i:t.fechaFallo2i||'',
     remCC:t.fechaRemCC||'',regresoCC:t.fechaRegresoCC||''
   };
   const ciclosAnulados=Array.isArray(t.ciclosAnulados)?[...t.ciclosAnulados,cicloAnulado]:[cicloAnulado];
@@ -1701,7 +1714,7 @@ async function resolverNulidad(id){
     fechaFallo:fecha,
     sentidoFallo:sentido||'',
     estado:'Fallada',
-    fechaImpugnacion:'',juzgado2i:'',fechaReparto2i:'',fallo2i:'',
+    fechaImpugnacion:'',juzgado2i:'',fechaReparto2i:'',fallo2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
     ciclosAnulados:ciclosAnulados
   };
@@ -1862,7 +1875,7 @@ function aDD(id){
       </div>
       <div class="fi full"><label>Enlace OneDrive</label>
         <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
-        ${d.enlace?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+        ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
       </div>
       <div class="fi full"><label>Observaciones</label><textarea onchange="updD('${id}','observaciones',this.value)">${esc(d.observaciones)}</textarea></div>
       <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
@@ -1921,13 +1934,53 @@ function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb
 function confElimT(id){
   pedirAdmin(async()=>{
     if(!confirm('¿ELIMINAR definitivamente esta radicación? No se puede deshacer.'))return;
-    await fbDel(`tutelas_${anio}`,id);rT();
+    if(!fbDb){alert('⚠ Firebase no está conectado. Recarga con Ctrl+F5.');return;}
+    const col=`tutelas_${anio}`;
+    setSS('s','Eliminando...');
+    try{
+      await fbDb.collection(col).doc(String(id)).delete();
+      // v33.11: VERIFICACIÓN post-eliminación
+      const check=await fbDb.collection(col).doc(String(id)).get();
+      if(check&&check.exists){
+        alert('⚠ La eliminación NO se verificó.\n\nLa tutela sigue en Firebase. Posibles causas:\n• Permisos insuficientes en las reglas Firestore\n• El registro tiene un ID distinto al esperado\n\nIntenta de nuevo o revisa la consola (F12).');
+        setSS('e','No verificada');
+        return;
+      }
+      setSS('ok','✓ Eliminada y verificada');
+      rT();
+      alert('✓ Tutela eliminada y VERIFICADA en Firebase.');
+    }catch(e){
+      console.error('confElimT ERROR:',e);
+      let hint='';
+      if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 Las reglas de Firestore bloquean la eliminación.';
+      else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 Problema de red.';
+      alert('⚠ ERROR al eliminar:\n'+e.message+hint);
+      setSS('e','Error');
+    }
   });
 }
 function confElimD(id){
   pedirAdmin(async()=>{
     if(!confirm('¿ELIMINAR definitivamente este incidente? No se puede deshacer.'))return;
-    await fbDel(`desacatos_${anio}`,id);rD();
+    if(!fbDb){alert('⚠ Firebase no está conectado. Recarga con Ctrl+F5.');return;}
+    const col=`desacatos_${anio}`;
+    setSS('s','Eliminando...');
+    try{
+      await fbDb.collection(col).doc(String(id)).delete();
+      const check=await fbDb.collection(col).doc(String(id)).get();
+      if(check&&check.exists){
+        alert('⚠ La eliminación NO se verificó. El desacato sigue en Firebase.');
+        setSS('e','No verificada');
+        return;
+      }
+      setSS('ok','✓ Eliminada y verificada');
+      rD();
+      alert('✓ Desacato eliminado y VERIFICADO en Firebase.');
+    }catch(e){
+      console.error('confElimD ERROR:',e);
+      alert('⚠ ERROR al eliminar:\n'+e.message);
+      setSS('e','Error');
+    }
   });
 }
 
@@ -2775,7 +2828,7 @@ async function extraerDatosCarpeta(files,folderName){
   const fb={radicacion:rH,accionante:aH,cedula:'',accionado:'',vinculados:'',
     derechoSierju:'',derechos:'',medida:'Sin medida previa',pretensiones:'',
     fechaReparto:'',fechaAdmision:'',fechaFallo:'',sentidoFallo:'',
-    fechaImpugnacion:'',juzgado2i:'',fallo2i:'',fechaReparto2i:'',
+    fechaImpugnacion:'',juzgado2i:'',fallo2i:'',fechaReparto2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',estado:'En término',observaciones:'',esHC:false};
   const apiKey=getApiKey();
   if(!apiKey){console.warn('extraerDatosCarpeta: sin apiKey'); return fb;}
@@ -2858,9 +2911,11 @@ async function extraerDatosCarpeta(files,folderName){
     }
   }
 
-  // ── PASO 2: Ordenar por prioridad (autoridad documental) y tomar los TOP 10 ──
+  // ── PASO 2: Ordenar por prioridad (autoridad documental) y tomar los TOP 15 ──
+  // v33.11: 15 docs cubre casos con múltiples nulidades sucesivas (cada nulidad
+  // suma ~3 docs: nueva sentencia 1ª, nuevo reparto 2ª, nueva sentencia 2ª)
   docs.sort((a,b)=>a.prio-b.prio||a.nombre.localeCompare(b.nombre));
-  const docsSelectos=docs.slice(0,10);
+  const docsSelectos=docs.slice(0,15);
 
   // ── PASO 3: Construir pdfTxt en orden de autoridad con etiquetas claras ──
   let pdfTxt='';
@@ -2905,17 +2960,17 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
 
 🗺️ MAPA DE FUENTES AUTORITATIVAS — cada dato tiene UN documento que es el más confiable. Ve a la fuente correcta primero:
 
-📌 AUTO ADMISORIO (archivos con "admisorio", "avoca", "avocaibal") — fuente autoritativa para:
+📌 AUTO ADMISORIO ORIGINAL (archivos con "admisorio", "avoca", "avocaibal" — pero NO "AvocaNulidad" ni "AutoAvocaNulidad") — fuente autoritativa para:
   • accionante: nombre completo
   • cedula: número de cédula del accionante (incluye puntos como aparece, ej "13.256.690")
   • accionado: entidad/persona demandada con NIT (frase típica: "en contra de [X] NIT [Y]")
   • vinculados: terceros (Personería Municipal, Procuraduría, Ministerio Público, otras entidades vinculadas por oficio)
   • derechoSierju + derechos: derecho fundamental ADMITIDO. Frase típica del juez: "por la presunta vulneración de su derecho fundamental al [X]"
-  • fechaAdmision: fecha del auto (formato AAAA-MM-DD)
+  • fechaAdmision: fecha del auto admisorio ORIGINAL (UNA SOLA VEZ en la vida del expediente — NO se actualiza con autos posteriores de avoca-nulidad)
   • medida: si decretó alguna medida provisional
 
-📌 SOPORTE/ACTA DE REPARTO 1ª INSTANCIA (archivos "SoporteLegadaTutela", "001Soporte", "ActaReparto" sin Cto) — fuente para:
-  • fechaReparto: cuándo se radicó/recibió la tutela en el despacho
+📌 SOPORTE/ACTA DE REPARTO 1ª INSTANCIA ORIGINAL (archivos "SoporteLegadaTutela", "001Soporte", "ActaReparto" sin Cto, y siempre la PRIMERA cronológicamente) — fuente para:
+  • fechaReparto: cuándo se radicó/recibió la tutela en el despacho POR PRIMERA VEZ (NO cambia tras nulidades)
 
 📌 SENTENCIA 1ª INSTANCIA (archivos con "Sentencia", "Fallo", "Sentencia1aInst") — fuente para:
   • fechaFallo: fecha del fallo de primera instancia
@@ -2931,15 +2986,51 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
 📌 AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA TÉRMINOS (archivos "TerminosConcedeImpugnacion", "ConcedeImpugnacion") — fuente para:
   • fechaImpugnacion: fecha en que el accionante PRESENTÓ la impugnación (NO la fecha del auto que la concede). Frase típica: "habiendo interpuesto impugnación el pasado [fecha]"
 
-📌 ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA (archivos "ActaReparto1Cto", "ActaReparto9Cto", reparto a Juzgado del Circuito) — fuente para:
-  • juzgado2i: a qué juzgado le correspondió (ej: "JUZGADO 1 PENAL DEL CIRCUITO IBAGUE", "JUZGADO 9 PENAL DEL CIRCUITO IBAGUE")
-  • fechaReparto2i: fecha del reparto a 2ª instancia
+📌 ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA (archivos "ActaReparto1Cto", "ActaReparto9Cto", "ActaReparto[N]Cto" — reparto a Juzgado del Circuito) — fuente para:
+  • juzgado2i: a qué juzgado le correspondió (ej: "JUZGADO 1 PENAL DEL CIRCUITO IBAGUE", "JUZGADO 9 PENAL DEL CIRCUITO IBAGUE"). Si hay MÚLTIPLES actas (porque hubo nulidades), TOMA LA MÁS RECIENTE para los campos planos; las anteriores van en sus respectivos ciclos anulados.
+  • fechaReparto2i: fecha del reparto MÁS RECIENTE a 2ª instancia.
 
 📌 SENTENCIA 2ª INSTANCIA (archivos "Sentencia2aInst", "SegInstancia", "SegInstanciaDecretaNulidad") — fuente para:
-  • fallo2i: lee la parte resolutiva y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Modifica", "Adiciona", "Decreta nulidad"
+  • fallo2i: lee la parte resolutiva de la sentencia MÁS RECIENTE y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Modifica", "Adiciona", "Decreta nulidad". Si la más reciente decretó nulidad pero ya hay un ciclo posterior (caso típico al cargar una carpeta de NULIDADES), entonces fallo2i del ciclo vigente queda VACÍO (porque el ciclo vigente aún no tiene sentencia 2ª).
+  • fechaFallo2i: fecha de la sentencia 2ª MÁS RECIENTE (NO confundir con fecha de reparto). Si el ciclo vigente aún no tiene sentencia 2ª, dejar vacío.
 
 📌 AUTO DECRETA NULIDAD (archivos "DecretaNulidad", "AvocaNulidad") — si existe, indica:
   • observaciones: agregar "Nulidad decretada el [fecha] por [Juzgado] - causal: [resumen breve]"
+
+═══════════════════════════════════════════════════════
+🚨 PASO ESPECIAL — DETECCIÓN AUTOMÁTICA DE NULIDAD(ES):
+═══════════════════════════════════════════════════════
+Una tutela puede tener CERO, UNA o MÚLTIPLES nulidades sucesivas (se han visto casos con 4 nulidades). Tu tarea es identificar TODAS y ordenarlas cronológicamente.
+
+DEFINICIÓN: Hay UNA nulidad cada vez que una sentencia de 2ª instancia DECRETA o DECLARA la nulidad de lo actuado. Tras la nulidad, el trámite se REANUDA en 1ª instancia y puede volver a subir a 2ª instancia. Esto puede repetirse.
+
+🔑 REGLA DE ORO — ORDENAMIENTO CRONOLÓGICO ESTRICTO:
+Antes de armar el JSON, lista mentalmente en ORDEN CRONOLÓGICO ASCENDENTE (más antiguo a más reciente):
+  • TODAS las actas de reparto a 2ª instancia (cada una con su FECHA y JUZGADO)
+  • TODAS las sentencias de 1ª instancia (con su fecha y sentido)
+  • TODAS las sentencias de 2ª instancia (con su fecha y sentido)
+  • TODOS los autos que decretan nulidad
+
+NUNCA mezcles datos de ciclos diferentes. Cada acta de reparto pertenece al ciclo que comienza con la sentencia 1ª que la precede.
+
+Si la carpeta contiene N nulidades:
+  • Habrá N "ciclos anulados" (cada uno con SU sentencia 1ª, SU impugnación, SU reparto 2ª, SU sentencia 2ª que decretó nulidad).
+  • Habrá 1 "ciclo vigente" (post-última-nulidad, el más reciente).
+  • Los CAMPOS PLANOS del JSON (fechaFallo, fechaImpugnacion, juzgado2i, fechaReparto2i, fallo2i, fechaFallo2i) van con datos del CICLO VIGENTE.
+  • fechaReparto y fechaAdmision NO cambian nunca (siempre del auto admisorio original).
+  • El array ciclosAnulados[] tiene los N ciclos anulados en orden cronológico ASCENDENTE.
+  • El array nulidades[] tiene las N nulidades en el mismo orden.
+
+Si NO HAY NULIDAD:
+  • nulidadDetectada = false
+  • ciclosAnulados = []
+  • nulidades = []
+
+FORMATO de cada elemento del array ciclosAnulados (uno por nulidad, en orden cronológico):
+{"fechaReparto":"","fechaAdmision":"","falloAnterior":"","sentidoAnterior":"","impugnacion":"","juzgado2i":"","reparto2i":"","fechaFallo2i":"","fallo2i":"Decreta nulidad","nulidadFecha":"","nulidadJuzgado":"","nulidadCausal":""}
+
+FORMATO de cada elemento del array nulidades:
+{"fecha":"","juzgado":"","causal":""}
 
 REGLAS ESTRICTAS:
 - USA EL TEXTO QUE TE DI ARRIBA. No inventes datos que no aparezcan.
@@ -2950,7 +3041,7 @@ REGLAS ESTRICTAS:
 - Responde ÚNICAMENTE con el objeto JSON, sin texto antes ni después, sin markdown, sin explicaciones.
 
 JSON a devolver (rellena cada campo desde su fuente autoritativa):
-{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
+{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false,"nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
 
   console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
   const parsed=await _llamarGemini(apiKey,prompt,false);
@@ -2977,16 +3068,58 @@ window.procesarCarpeta=async function(inp){
     set('f-r',d.radicacion);set('f-a',d.accionante);set('f-c',d.cedula);
     set('f-d',d.accionado);set('f-v',d.vinculados);set('f-de',d.derechos);
     set('f-p',d.pretensiones);set('f-rp',d.fechaReparto);set('f-adm',d.fechaAdmision);
-    set('f-l',d.enlace||'');set('f-o',d.observaciones);
+    set('f-l',(d.enlace&&/^https?:\/\//i.test(d.enlace))?d.enlace:'');set('f-o',d.observaciones);
     setSelect('f-ds',d.derechoSierju);
     if(d.medida){const fm=document.getElementById('f-m');if(fm){const o=[...fm.options].find(o=>o.text.toLowerCase().includes((d.medida||'').toLowerCase().slice(0,6)));if(o)fm.value=o.value;}}
     if(d.estado){const fe=document.getElementById('f-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
     if(document.getElementById('f-hc'))document.getElementById('f-hc').checked=!!d.esHC;
     if(d.fechaAdmision&&typeof pvT==='function')pvT();
     window._pendingFolder={folderName,filesCount:files.length};
+
+    // ═══ v33.11: DETECCIÓN AUTOMÁTICA DE NULIDAD(ES) ═══
+    // Sin confirmaciones. Si hay N nulidades, se aplican TODAS al guardar.
+    if(Array.isArray(d.nulidades)&&d.nulidades.length>0){
+      const ciclosArr=Array.isArray(d.ciclosAnulados)?d.ciclosAnulados:[];
+      const snaps=[],nuls=[];
+      d.nulidades.forEach((n,i)=>{
+        if(!n.fecha)return;
+        const ca=ciclosArr[i]||{};
+        snaps.push({
+          nulidadFecha:n.fecha,
+          nulidadIndice:i+1,
+          fechaReparto:ca.fechaReparto||d.fechaReparto||'',
+          fechaAdmision:ca.fechaAdmision||d.fechaAdmision||'',
+          falloAnterior:ca.falloAnterior||'',
+          sentidoAnterior:mapV(ca.sentidoAnterior,SENTIDO_MAP)||ca.sentidoAnterior||'',
+          impugnacion:ca.impugnacion||'',
+          juzgado2i:ca.juzgado2i||n.juzgado||'',
+          reparto2i:ca.reparto2i||'',
+          fechaFallo2i:ca.fechaFallo2i||n.fecha||'',
+          fallo2i:ca.fallo2i||'Decreta nulidad',
+          remCC:'',regresoCC:''
+        });
+        nuls.push({
+          fecha:n.fecha,
+          auto:n.juzgado||'Sentencia 2ª inst.',
+          quien:n.juzgado||'Superior jerárquico',
+          nota:n.causal||''
+        });
+      });
+      if(nuls.length>0){
+        window._pendingFolder.ciclosAnulados=snaps;
+        window._pendingFolder.nulidades=nuls;
+        window._pendingFolder.ultimaNulidad=nuls[nuls.length-1].fecha;
+        // Limpiar campos del ciclo vigente si Gemini no extrajo nueva sentencia 2ª
+        if(!d.fallo2i){const fe=document.getElementById('f-est');}
+      }
+    }
+    // ═══ FIN detección automática nulidad ═══
+
     const hayDatos=d.accionado||d.cedula||d.derechoSierju||d.fechaReparto||d.pretensiones;
+    const nNuls=(window._pendingFolder&&window._pendingFolder.nulidades)?window._pendingFolder.nulidades.length:0;
     if(hayDatos){
-      if(st)st.innerHTML='✓ Datos cargados. <b style="color:#dc2626">⬇ Revisa los campos y haz clic en "✓ Guardar radicación" (abajo) para GUARDAR</b>';
+      const msgNul=nNuls>0?'<br><b style="color:#dc2626">🚨 '+nNuls+' nulidad(es) detectada(s) — se aplicará(n) al guardar.</b>':'';
+      if(st)st.innerHTML='✓ Datos cargados.'+msgNul+' <b style="color:#dc2626">⬇ Revisa los campos y haz clic en "✓ Guardar radicación" (abajo) para GUARDAR</b>';
       const bg=document.getElementById('btn-guardar-rad');if(bg)bg.classList.add('btn-pendiente');
     }else{
       if(st)st.innerHTML='⚠ Gemini no extrajo campos. Posibles causas: PDF muy pesado, cuota del día agotada, o el modelo no leyó bien el escaneo. <b>Puedes llenar los campos manualmente y guardar.</b> Reintenta en 1-2 min si fue saturación.';
@@ -3014,9 +3147,59 @@ window.procesarRecarga=async function(inp,id){
     solo('fechaReparto',d.fechaReparto);solo('fechaAdmision',d.fechaAdmision);
     act('fechaFallo',d.fechaFallo);act('sentidoFallo',mapV(d.sentidoFallo,SENTIDO_MAP)||d.sentidoFallo);
     act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
-    act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);
+    act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
     upd.folderName=folderName;upd.filesCount=files.length;
+
+    // ═══ v33.11: APLICACIÓN AUTOMÁTICA DE NULIDAD(ES) — soporta múltiples ═══
+    // Sin confirmaciones. Si Gemini detectó N nulidades, se aplican todas
+    // las que NO estén ya registradas (comparando por fecha).
+    let nulApplied=0;
+    if(Array.isArray(d.nulidades)&&d.nulidades.length>0){
+      const existentes=new Set((t.nulidades||[]).map(n=>n.fecha));
+      const ciclosArr=Array.isArray(d.ciclosAnulados)?d.ciclosAnulados:[];
+      const nulsNuevas=[],snapsNuevos=[];
+      d.nulidades.forEach((n,i)=>{
+        if(!n.fecha||existentes.has(n.fecha))return;
+        const ca=ciclosArr[i]||{};
+        const snap={
+          nulidadFecha:n.fecha,
+          nulidadIndice:((t.nulidades||[]).length)+nulsNuevas.length+1,
+          fechaReparto:ca.fechaReparto||t.fechaReparto||'',
+          fechaAdmision:ca.fechaAdmision||t.fechaAdmision||'',
+          falloAnterior:ca.falloAnterior||'',
+          sentidoAnterior:mapV(ca.sentidoAnterior,SENTIDO_MAP)||ca.sentidoAnterior||'',
+          impugnacion:ca.impugnacion||'',
+          juzgado2i:ca.juzgado2i||n.juzgado||'',
+          reparto2i:ca.reparto2i||'',
+          fechaFallo2i:ca.fechaFallo2i||n.fecha||'',
+          fallo2i:ca.fallo2i||'Decreta nulidad',
+          remCC:'',regresoCC:''
+        };
+        snapsNuevos.push(snap);
+        nulsNuevas.push({
+          fecha:n.fecha,
+          auto:n.juzgado||'Sentencia 2ª inst.',
+          quien:n.juzgado||'Superior jerárquico',
+          nota:n.causal||''
+        });
+      });
+      if(nulsNuevas.length>0){
+        upd.ciclosAnulados=Array.isArray(t.ciclosAnulados)?[...t.ciclosAnulados,...snapsNuevos]:snapsNuevos;
+        upd.nulidades=Array.isArray(t.nulidades)?[...t.nulidades,...nulsNuevas]:nulsNuevas;
+        upd.ultimaNulidad=nulsNuevas[nulsNuevas.length-1].fecha;
+        // El ciclo vigente puede estar incompleto. Si Gemini no extrajo nuevo
+        // valor en estos campos 2ª inst, limpiar (los viejos eran del ciclo anulado).
+        if(!d.fechaImpugnacion)upd.fechaImpugnacion='';
+        if(!d.juzgado2i)upd.juzgado2i='';
+        if(!d.fechaReparto2i)upd.fechaReparto2i='';
+        if(!d.fallo2i)upd.fallo2i='';
+        if(!d.fechaFallo2i)upd.fechaFallo2i='';
+        nulApplied=nulsNuevas.length;
+      }
+    }
+    // ═══ FIN aplicación automática de nulidad ═══
+
     const jerarquia=['En término','Fallada','Impugnada','En Corte Constitucional','Archivada','Devuelta por competencia','Desistimiento'];
     const iA=jerarquia.indexOf(t.estado||''),iN=jerarquia.indexOf(d.estado||'');
     if(iN>iA&&d.estado)upd.estado=d.estado;
@@ -3037,7 +3220,9 @@ window.procesarRecarga=async function(inp,id){
     }
     rT();cerrar2();setTimeout(()=>aDT(id),350);
     if(st)st.textContent=`✓ ${n} campo(s) actualizado(s) y verificados`;
-    alert('✓ Actualización guardada y VERIFICADA en Firebase:\n'+n+' campo(s) actualizado(s).\n\nYa puedes recargar (F5) — los cambios quedarán.');
+    alert('✓ Actualización guardada y VERIFICADA en Firebase:\n'+n+' campo(s) actualizado(s).'
+      +(nulApplied>0?'\n\n🚨 '+nulApplied+' nulidad(es) detectada(s) y aplicada(s) automáticamente.':'')
+      +'\n\nYa puedes recargar (F5) — los cambios quedarán.');
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
 };
