@@ -348,7 +348,19 @@ tr.has-nul td{background:var(--nu-bg)!important}
   <button class="yadd" onclick="addAnio()">+ Año</button>
   <div class="ystats" id="ystats"></div>
 </div>
-<div class="nul-banner" id="nul-banner" onclick="switchTab('t');filtrarNul()">
+<div class="alert-panel" id="alert-panel" style="display:none;background:#fff;border-bottom:2px solid #cbd5e1;padding:10px 14px;box-shadow:0 2px 4px rgba(0,0,0,0.05)">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1400px;margin:0 auto">
+    <div id="alert-nul" class="alert-box" style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:10px 12px;display:none">
+      <div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px;display:flex;align-items:center;gap:6px">🚨 NULIDADES ACTIVAS — requieren nuevo fallo <span id="alert-nul-count" style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
+      <div id="alert-nul-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
+    </div>
+    <div id="alert-imp" class="alert-box" style="background:#fff7ed;border:2px solid #ea580c;border-radius:8px;padding:10px 12px;display:none">
+      <div style="font-size:11px;font-weight:800;color:#c2410c;margin-bottom:6px;display:flex;align-items:center;gap:6px">📤 IMPUGNACIONES POR ENVIAR AL REPARTO <span id="alert-imp-count" style="background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
+      <div id="alert-imp-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
+    </div>
+  </div>
+</div>
+<div class="nul-banner" id="nul-banner" style="display:none" onclick="switchTab('t');filtrarNul()">
   🚨<span id="nul-txt">⚠ NULIDAD ACTIVA — REQUIERE NUEVO FALLO</span>
 </div>
 <div class="tabs" id="tabs">
@@ -389,7 +401,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <table>
       <thead><tr>
         <th style="width:28px"></th><th>Radicación</th><th>Accionante</th><th>Accionado</th>
-        <th>Derecho SIERJU</th><th>F.Admisión</th><th>Vence fallo</th>
+        <th>Derecho SIERJU</th><th>Resp.</th><th>F.Admisión</th><th>Vence fallo</th>
         <th>Alerta</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
       <tbody id="tbt"></tbody>
@@ -627,19 +639,23 @@ function abrevRad(rad){
   var p=rad.split('-');
   return p.length>=3?p.slice(-3).join('-'):rad;
 }
-function getAlertaDias(t){return parseInt(t.alertaDias)||9;}
-function getAlertaDiasTutela(t){return parseInt(t.alertaDias)||9;}
+function getAlertaDias(t){const v=parseInt(t.alertaDias);return (v>=1&&v<=10)?v:9;}
+function getAlertaDiasTutela(t){return getAlertaDias(t);}
 function termT(t){
   const base=t.ultimaNulidad||t.fechaAdmision;
-  if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:''};
-  const vce=addFin(base,10);
+  if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:'',ejecutoria:'',limImpugnacion:''};
+  // v33.12: TODOS los términos en días HÁBILES (Decreto 2591/91 + jurisprudencia C.C.)
+  // — antes se usaba addD (calendario) y addFin (calendario+corrimiento), lo cual
+  // ignoraba los festivos intermedios y daba vencimientos incorrectos.
+  const vce=addHab(base,10);                  // vencimiento del fallo (día 10 hábil)
   const dias=getAlertaDias(t);
-  const dia9=addD(base,dias);
-  const cor2=addD(vce,2);
-  const eje3=addD(cor2,3);
+  const dia9=addHab(base,dias);               // día N de alerta (default 9, configurable 1-10)
+  const cor2=addHab(vce,2);                   // 2 días hábiles de correo tras vencimiento
+  const eje3=addHab(cor2,3);                  // 3 días hábiles de ejecutoria tras correo
+  const limImpugnacion=addHab(eje3,2);        // 2 días hábiles para enviar impugnación al reparto
   let remCC=addD(eje3,1);while(remCC&&!esHabil(remCC))remCC=addD(remCC,1);
   const vce2i=t.fechaReparto2i?addHab(t.fechaReparto2i,20):'';
-  return{dia9,vce,cor2,eje3,remCC,vce2i};
+  return{dia9,vce,cor2,eje3,remCC,vce2i,ejecutoria:eje3,limImpugnacion};
 }
 function termD(d){
   const base=d.ultimaNulidad||d.fechaSolicitud;
@@ -705,7 +721,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.11';
+var APP_VERSION='33.12';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -836,13 +852,16 @@ async function fbSave(col,id,data){
 async function fbDel(col,id){try{await fbDb.collection(col).doc(String(id)).delete();setSS('ok');}catch(e){setSS('e','Error');}}
 
 function mergeHistorico(){
+  // v33.12: respetar lista negra de IDs eliminados también al cargar inicial
+  const delT=new Set(JSON.parse(localStorage.getItem('cj_deleted_t')||'[]'));
+  const delD=new Set(JSON.parse(localStorage.getItem('cj_deleted_d')||'[]'));
   Object.keys(PRELOADED_DB.tutelas).forEach(yr=>{
     if(!localDB.tutelas[yr]||!localDB.tutelas[yr].length)
-      localDB.tutelas[yr]=[...PRELOADED_DB.tutelas[yr]];
+      localDB.tutelas[yr]=PRELOADED_DB.tutelas[yr].filter(t=>!delT.has(String(t.id)));
   });
   Object.keys(PRELOADED_DB.desacatos).forEach(yr=>{
     if(!localDB.desacatos[yr]||!localDB.desacatos[yr].length)
-      localDB.desacatos[yr]=[...PRELOADED_DB.desacatos[yr]];
+      localDB.desacatos[yr]=PRELOADED_DB.desacatos[yr].filter(d=>!delD.has(String(d.id)));
   });
   PRELOADED_DB.anios.forEach(a=>{if(!localDB.anios.includes(a))localDB.anios.push(a);});
 }
@@ -851,12 +870,17 @@ function escuchar(a){
   if(!fbDb){setSS('e','Sin conexión Firebase');rT();return;}
   if(unsubT){unsubT();unsubT=null;}if(unsubD){unsubD();unsubD=null;}
   setSS('s','Sincronizando...');
+  // v33.12: lista negra de IDs eliminados (persistente en localStorage)
+  // — evita que el merge con PRELOADED_DB rescate registros que el usuario eliminó.
+  const deletedT=new Set(JSON.parse(localStorage.getItem('cj_deleted_t')||'[]'));
+  const deletedD=new Set(JSON.parse(localStorage.getItem('cj_deleted_d')||'[]'));
   unsubT=fbDb.collection('tutelas_'+a).onSnapshot(snap=>{
     const recs=[];snap.forEach(d=>recs.push({...d.data(),_fb:true}));
     recs.sort((x,y)=>((y.radicacion||'').replace(/\D/g,'')).localeCompare((x.radicacion||'').replace(/\D/g,''),undefined,{numeric:true}));
     const hist=PRELOADED_DB.tutelas[a]||[];
     const ids=new Set(recs.map(x=>String(x.id)));
-    hist.forEach(h=>{if(!ids.has(String(h.id)))recs.push(h);});
+    // Solo agregar del histórico los que NO están en Firebase Y NO fueron eliminados
+    hist.forEach(h=>{const hid=String(h.id);if(!ids.has(hid)&&!deletedT.has(hid))recs.push(h);});
     localDB.tutelas[a]=recs;if(tabAct==='t')rT();renderAnios();actualizarBanner();setSS('ok');
   },err=>{setSS('e','Error Firebase');console.error(err);});
   unsubD=fbDb.collection('desacatos_'+a).onSnapshot(snap=>{
@@ -864,7 +888,7 @@ function escuchar(a){
     recs.sort((x,y)=>(y.fechaSolicitud||'').localeCompare(x.fechaSolicitud||''));
     const hist=PRELOADED_DB.desacatos[a]||[];
     const ids=new Set(recs.map(x=>String(x.id)));
-    hist.forEach(h=>{if(!ids.has(String(h.id)))recs.push(h);});
+    hist.forEach(h=>{const hid=String(h.id);if(!ids.has(hid)&&!deletedD.has(hid))recs.push(h);});
     localDB.desacatos[a]=recs;if(tabAct==='d')rD();renderAnios();actualizarBanner();
   },err=>{console.error(err);});
 }
@@ -1118,22 +1142,59 @@ function rActivo(){tabAct==='t'?rT():tabAct==='d'?rD():tabAct==='c'?rCal():rStat
 // NULIDAD BANNER
 // ═══════════════════════════════════════════════════════
 function actualizarBanner(){
-  const nt=tA().filter(hasNulActiva).length;
-  const nd=dA().filter(hasNulActiva).length;
-  const tot=nt+nd;
-  const ban=document.getElementById('nul-banner');
-  ban.classList.toggle('show',tot>0);
-  document.getElementById('nul-txt').textContent=`⚠ ${tot} RADICACIÓN(ES) CON NULIDAD ACTIVA — REQUIEREN NUEVO FALLO INMEDIATO`;
-  // v33: contador de tarjeta = HISTÓRICO (cuántas tutelas han tenido nulidad alguna vez)
-  const histT=tA().filter(hasNulHist).length;
+  const arr=tA();
+  // === CASILLA 1: NULIDADES ACTIVAS ===
+  const conNul=arr.filter(hasNulActiva);
+  const ndAct=dA().filter(hasNulActiva);
+  const totNul=conNul.length+ndAct.length;
+  // === CASILLA 2: IMPUGNACIONES POR ENVIAR AL REPARTO ===
+  // Criterio: hay impugnación presentada, NO hay reparto 2ª aún
+  const impPend=arr.filter(t=>t.fechaImpugnacion&&!t.fechaReparto2i&&t.fechaFallo);
+  // ── Llenar casilla nulidades ──
+  const boxNul=document.getElementById('alert-nul');
+  if(totNul>0){
+    boxNul.style.display='block';
+    document.getElementById('alert-nul-count').textContent=totNul;
+    const items=conNul.map(t=>{
+      const ult=t.nulidades&&t.nulidades.length?t.nulidades[t.nulidades.length-1].fecha:'';
+      const tc=termT(t);const dv=diff(tc.vce);
+      const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=3?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
+        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <br><span style="color:#64748b">Nulidad: ${fmt(ult)} · Vence nuevo fallo: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.vce)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-nul-list').innerHTML=items||'<i>—</i>';
+  }else{boxNul.style.display='none';}
+  // ── Llenar casilla impugnaciones ──
+  const boxImp=document.getElementById('alert-imp');
+  if(impPend.length>0){
+    boxImp.style.display='block';
+    document.getElementById('alert-imp-count').textContent=impPend.length;
+    const items=impPend.map(t=>{
+      const tc=termT(t);const dv=diff(tc.limImpugnacion);
+      const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=2?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
+        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <br><span style="color:#64748b">Impug.: ${fmt(t.fechaImpugnacion)} · Lím. envío reparto: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.limImpugnacion)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-imp-list').innerHTML=items||'<i>—</i>';
+  }else{boxImp.style.display='none';}
+  // Mostrar el panel si hay al menos una alerta
+  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0)?'block':'none';
+  // === Mantener el banner simple del top (compat con código existente) ===
+  const ban=document.getElementById('nul-banner');if(ban)ban.classList.toggle('show',false);
+  // === Contadores en tarjetas (sin cambios) ===
+  const histT=arr.filter(hasNulHist).length;
   const histD=dA().filter(hasNulHist).length;
   const elNuT=document.getElementById('st-nu');
-  if(elNuT)elNuT.textContent=nt>0?`${histT} (${nt} act.)`:`${histT}`;
+  if(elNuT)elNuT.textContent=conNul.length>0?`${histT} (${conNul.length} act.)`:`${histT}`;
   const elNuD=document.getElementById('sd-nu');
-  if(elNuD)elNuD.textContent=nd>0?`${histD} (${nd} act.)`:`${histD}`;
-  // Ajustar posición de tabs
+  if(elNuD)elNuD.textContent=ndAct.length>0?`${histD} (${ndAct.length} act.)`:`${histD}`;
+  // Ajustar posición de tabs si hay panel visible (legacy - panel ya no es sticky)
   const tabs=document.getElementById('tabs');
-  tabs.className='tabs'+(tot>0?' with-nul':'');
+  if(tabs)tabs.className='tabs';
 }
 function filtrarNul(){switchTab('t');document.getElementById('fat').value='NULIDAD';rT();}
 function filtrarNulD(){switchTab('d');document.getElementById('fad').value='NULIDAD';rD();}
@@ -1181,6 +1242,7 @@ function rT(){
       <td class="trunc" title="${esc(t.accionante)}">${t.accionante||'—'}</td>
       <td class="trunc" title="${esc(t.accionado)}">${t.accionado||'—'}</td>
       <td><span class="badge bgy" style="font-size:8px">${t.derechoSierju||'—'}</span></td>
+      <td style="font-size:10px;font-weight:600;color:#475569">${t.responsable||'—'}</td>
       <td style="font-size:10px">${fmt(t.fechaAdmision)}</td>
       <td style="font-size:10px;font-weight:700;color:var(--n2)">${fmt(tc.vce)}</td>
       <td>${aBadge(k,tc.vce)}</td>
@@ -1316,16 +1378,17 @@ function pvT(){
   const adm=document.getElementById('f-adm').value;
   const box=document.getElementById('pv');
   if(!adm){box.style.display='none';return;}
-  const tc=termT({fechaAdmision:adm,ultimaNulidad:null,fechaReparto2i:''});
+  const tc=termT({fechaAdmision:adm,ultimaNulidad:null,fechaReparto2i:'',alertaDias:9});
   box.style.display='block';
   box.innerHTML=`<div class="tbox bl">
-    <h4>⏰ Términos — festivos Colombia verificados</h4>
+    <h4>⏰ Términos — festivos Colombia verificados (días hábiles)</h4>
     ${trows([
-      ['Fallo - Día 9',tc.dia9,'wa'],
+      ['Día 9 — alerta',tc.dia9,'wa'],
       ['Día 10 — vencimiento del fallo',tc.vce,'al'],
-      ['+ 2 días — fin notificación en correo',tc.cor2,''],
-      ['+ 3 días — ejecutoria',tc.eje3,''],
-      ['Día 6 Ejecutoria Remite Corte C.',tc.remCC,'']
+      ['+ 2 hábiles — fin correo',tc.cor2,''],
+      ['+ 3 hábiles — ejecutoria',tc.ejecutoria,''],
+      ['+ 2 hábiles — lím. envío impugnación al reparto',tc.limImpugnacion,'wa'],
+      ['Remite Corte C. (post-ejecutoria)',tc.remCC,'']
     ])}
   </div>`;
 }
@@ -1359,7 +1422,16 @@ async function guardarT(){
     fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
     juzgado2i:'',fallo2i:'',fechaReparto2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
+    alertaDias:9,
     nulidades:[],ultimaNulidad:null};
+  // v33.12: Si el usuario no proporcionó enlace, generar automáticamente
+  // el enlace de consulta de procesos en la Rama Judicial.
+  if(!t.enlace&&t.radicacion){
+    const radLimpio=String(t.radicacion).replace(/\D/g,'');
+    if(radLimpio.length>=20){
+      t.enlace=`https://consultaprocesos.ramajudicial.gov.co/Procesos/NumeroRadicacion?radicacion=${radLimpio}`;
+    }
+  }
   if(window._pendingFolder){
     t.folderName=window._pendingFolder.folderName;
     t.filesCount=window._pendingFolder.filesCount;
@@ -1480,12 +1552,27 @@ function aDT(id){
         <div class="fsec">Fechas y fallo</div>
         <div class="fi"><label>Fecha reparto</label><input type="date" value="${t.fechaReparto||''}" onchange="updT('${id}','fechaReparto',this.value)"></div>
         <div class="fi"><label>Fecha admisión</label><input type="date" value="${t.fechaAdmision||''}" onchange="updT('${id}','fechaAdmision',this.value)"></div>
+        <div class="fi"><label>Día de alerta (1–10 hábiles)</label>
+          <select onchange="updT('${id}','alertaDias',parseInt(this.value));rT()">
+            ${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}"${getAlertaDias(t)===n?' selected':''}>Día ${n}</option>`).join('')}
+          </select>
+        </div>
+        <div class="fi"><label>Día de alerta — calculado</label><input value="${fmt(tc.dia9)}" readonly style="background:#fff7ed"></div>
+        <div class="fi"><label>Vencimiento fallo (10 días hábiles)</label><input value="${fmt(tc.vce)}" readonly style="background:#fef2f2;font-weight:600"></div>
         <div class="fi"><label>Fecha del fallo</label><input type="date" value="${t.fechaFallo||''}" onchange="updT('${id}','fechaFallo',this.value);rT()"></div>
         <div class="fi"><label>Sentido del fallo</label>
           <select onchange="updT('${id}','sentidoFallo',this.value)">
             <option value="">Seleccionar...</option>
             ${['Concede tutela','Concede parcialmente','Niega — hecho superado','Niega — improcedente','Declara carencia actual de objeto','Desistimiento','Devuelta por competencia'].map(o=>`<option${t.sentidoFallo===o?' selected':''}>${o}</option>`).join('')}
           </select>
+        </div>
+        <div class="fi full" style="grid-column:1/-1;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 12px">
+          <div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:4px">📅 Términos de ejecutoria e impugnación (Art. 32 Decreto 2591/91)</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:10px;color:#166534">
+            <div><b>Fin correo</b> (vence + 2 hábiles)<br><span style="font-size:11px;font-weight:600">${fmt(tc.cor2)}</span></div>
+            <div><b>Ejecutoria</b> (correo + 3 hábiles)<br><span style="font-size:11px;font-weight:600">${fmt(tc.ejecutoria)}</span></div>
+            <div><b>Límite envío al reparto</b> (ejecutoria + 2 hábiles)<br><span style="font-size:11px;font-weight:700;color:#b91c1c">${fmt(tc.limImpugnacion)}</span></div>
+          </div>
         </div>
         ${(t.ciclosAnulados&&t.ciclosAnulados.length)?`
         <div class="fi full" style="grid-column:1/-1">
@@ -1938,14 +2025,23 @@ function confElimT(id){
     const col=`tutelas_${anio}`;
     setSS('s','Eliminando...');
     try{
-      await fbDb.collection(col).doc(String(id)).delete();
+      // v33.12: agregar a lista negra ANTES de eliminar para que el listener
+      // no rescate el registro desde PRELOADED_DB.
+      const sid=String(id);
+      const del=JSON.parse(localStorage.getItem('cj_deleted_t')||'[]');
+      if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_t',JSON.stringify(del));}
+      await fbDb.collection(col).doc(sid).delete();
       // v33.11: VERIFICACIÓN post-eliminación
-      const check=await fbDb.collection(col).doc(String(id)).get();
+      const check=await fbDb.collection(col).doc(sid).get();
       if(check&&check.exists){
         alert('⚠ La eliminación NO se verificó.\n\nLa tutela sigue en Firebase. Posibles causas:\n• Permisos insuficientes en las reglas Firestore\n• El registro tiene un ID distinto al esperado\n\nIntenta de nuevo o revisa la consola (F12).');
         setSS('e','No verificada');
         return;
       }
+      // También limpiar del array local por si el listener no se actualiza inmediatamente
+      Object.keys(localDB.tutelas).forEach(yr=>{
+        localDB.tutelas[yr]=(localDB.tutelas[yr]||[]).filter(t=>String(t.id)!==sid);
+      });
       setSS('ok','✓ Eliminada y verificada');
       rT();
       alert('✓ Tutela eliminada y VERIFICADA en Firebase.');
@@ -1966,13 +2062,19 @@ function confElimD(id){
     const col=`desacatos_${anio}`;
     setSS('s','Eliminando...');
     try{
-      await fbDb.collection(col).doc(String(id)).delete();
-      const check=await fbDb.collection(col).doc(String(id)).get();
+      const sid=String(id);
+      const del=JSON.parse(localStorage.getItem('cj_deleted_d')||'[]');
+      if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_d',JSON.stringify(del));}
+      await fbDb.collection(col).doc(sid).delete();
+      const check=await fbDb.collection(col).doc(sid).get();
       if(check&&check.exists){
         alert('⚠ La eliminación NO se verificó. El desacato sigue en Firebase.');
         setSS('e','No verificada');
         return;
       }
+      Object.keys(localDB.desacatos).forEach(yr=>{
+        localDB.desacatos[yr]=(localDB.desacatos[yr]||[]).filter(d=>String(d.id)!==sid);
+      });
       setSS('ok','✓ Eliminada y verificada');
       rD();
       alert('✓ Desacato eliminado y VERIFICADO en Firebase.');
@@ -2365,6 +2467,10 @@ function rCal(){
       const tc=r.fechaSolicitud?termD(r):termT(r);
       addEv(tc.dia9,'alert','Fallo - Día '+getAlertaDiasTutela(r)+' '+tipo+': '+nom,'#d4770a');
       addEv(tc.vce,'venc','Vence '+tipo+': '+nom,'#c0392b');
+      // v33.12: si hay impugnación presentada pero no se ha enviado al reparto, mostrar plazo
+      if(tipo==='Tutela'&&r.fechaImpugnacion&&!r.fechaReparto2i&&tc.limImpugnacion){
+        addEv(tc.limImpugnacion,'alert','Lím. envío impugnación al reparto — '+nom,'#ea580c');
+      }
       if(tipo==='Tutela'&&tc.remCC)addEv(tc.remCC,'event','Remite Corte C. — '+nom,'#1a5fa8');
       if(tipo==='Desacato'&&tc.remCons)addEv(tc.remCons,'event','Consulta — '+nom,'#1a5fa8');
       if(tc.vce2i)addEv(tc.vce2i,'venc','Vence 2ªI — '+nom,'#c0392b');
@@ -3150,6 +3256,13 @@ window.procesarRecarga=async function(inp,id){
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
     upd.folderName=folderName;upd.filesCount=files.length;
+    // v33.12: si la tutela no tiene enlace válido, generar el link de Rama Judicial
+    if(!t.enlace||!/^https?:\/\//i.test(t.enlace)){
+      const radLimpio=String(t.radicacion||'').replace(/\D/g,'');
+      if(radLimpio.length>=20){
+        upd.enlace=`https://consultaprocesos.ramajudicial.gov.co/Procesos/NumeroRadicacion?radicacion=${radLimpio}`;
+      }
+    }
 
     // ═══ v33.11: APLICACIÓN AUTOMÁTICA DE NULIDAD(ES) — soporta múltiples ═══
     // Sin confirmaciones. Si Gemini detectó N nulidades, se aplican todas
