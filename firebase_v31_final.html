@@ -1523,9 +1523,10 @@ function aDT(id){
             ${optsResponsables(t.responsable)}
           </select>
         </div>
-        <div class="fi full"><label>Enlace OneDrive</label>
-          <input value="${esc(t.enlace)}" placeholder="https://..." onchange="updT('${id}','enlace',this.value)">
+        <div class="fi full"><label>Enlace OneDrive (opcional — pegar URL pública si existe)</label>
+          <input value="${esc(t.enlace)}" placeholder="https://... (déjelo en blanco si no tiene URL pública)" onchange="updT('${id}','enlace',this.value)">
           ${t.enlace?`<a href="${t.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+          ${t.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(t.folderName)}${t.filesCount?' <span style="color:var(--t2)">('+t.filesCount+' archivos)</span>':''}</div>`:''}
         </div>
         <div class="fi full" style="background:#eff6ff;border:.5px solid #bfdbfe;border-radius:8px;padding:10px">
           <div style="font-size:11px;font-weight:700;color:#1d4ed8;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
@@ -2777,51 +2778,187 @@ async function extraerDatosCarpeta(files,folderName){
     fechaImpugnacion:'',juzgado2i:'',fallo2i:'',fechaReparto2i:'',
     fechaRemCC:'',fechaRegresoCC:'',estado:'En término',observaciones:'',esHC:false};
   const apiKey=getApiKey();
-  if(!apiKey) return fb;
+  if(!apiKey){console.warn('extraerDatosCarpeta: sin apiKey'); return fb;}
+
   const allFiles=[...files];
-  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf')).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,5);
-  const docx=allFiles.filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc')).sort((a,b)=>a.name.localeCompare(b.name)).slice(0,4);
-  const pdfParts=[];
-  for(const pdf of pdfs){
-    try{const ab=await pdf.arrayBuffer();if(ab.byteLength<15*1024*1024){const b64=await toB64(pdf);pdfParts.push({inline_data:{mime_type:'application/pdf',data:b64}});}}catch(e){}
+  // Filtrar por tipo y priorizar documentos clave (auto admisorio, soporte reparto, fallo)
+  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf'));
+  const docx=allFiles.filter(f=>f.name.toLowerCase().endsWith('.docx')||f.name.toLowerCase().endsWith('.doc'));
+  // Ordenar PDFs poniendo primero los relevantes para extracción inicial
+  // v33.9: clasificación por CONTENIDO del documento (no por nombre, porque los nombres varían).
+  // Devuelve {prio, tipo} basado en frases típicas del texto del PDF.
+  const clasificar=(nombre,texto)=>{
+    const n=(nombre||'').toLowerCase();
+    const t=(texto||'').toLowerCase();
+    // Función helper: cuenta cuántas frases típicas aparecen en el texto
+    const tiene=(...frases)=>frases.some(f=>t.includes(f));
+    // 1) AUTO DECRETA NULIDAD — el más específico, lo busco primero
+    if(tiene('decretar la nulidad','decreta la nulidad','decreta nulidad','declarar la nulidad','declara la nulidad','decretará la nulidad','nulidad de todo lo actuado','nulidad de la actuación')||(t.includes('nulidad')&&(n.includes('nulidad')||n.includes('avoca'))&&t.length>200))return {prio:7,tipo:'AUTO DECRETA NULIDAD'};
+    // 2) SENTENCIA 2ª INSTANCIA — tiene frases específicas de fallo de alzada
+    if(tiene('juzgado primero penal del circuito','juzgado segundo penal del circuito','juzgado tercero penal del circuito','juzgado cuarto penal del circuito','juzgado quinto penal del circuito','juzgado sexto penal del circuito','juzgado séptimo penal del circuito','juzgado octavo penal del circuito','juzgado noveno penal del circuito','juzgado décimo penal del circuito','penal del circuito','segunda instancia','2a instancia','2ª instancia','confirmar la sentencia','confirmar el fallo','revocar la sentencia','revocar el fallo','modificar la sentencia','adicionar la sentencia')&&tiene('resuelve','dispone','confirma','revoca','modifica','adiciona'))return {prio:6,tipo:'SENTENCIA 2ª INSTANCIA'};
+    // 3) ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA — formato específico de las actas
+    if(tiene('acta individual de reparto','acta de reparto','reparto')&&tiene('tutelas 2a instancia','tutelas 2ª instancia','grupo tutelas 2','penal del circuito','penal circuito'))return {prio:5,tipo:'ACTA REPARTO 2ª INST'};
+    // 4) AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA DE TÉRMINOS
+    if(tiene('concede el recurso','conceder el recurso','conceder la impugnación','concede la impugnación','recurso de alzada','interpuesto impugnación','presentó oportunamente impugnación','notifica concede impugnación'))return {prio:4,tipo:'CONCEDE IMPUGNACIÓN'};
+    // 5) SENTENCIA / FALLO 1ª INSTANCIA — parte resolutiva sin características de 2ª inst
+    if(tiene('declarar improcedente','declarar procedente','tutelar el derecho','amparar el derecho','conceder el amparo','niega el amparo','niega la tutela','carencia actual de objeto','hecho superado')&&tiene('resuelve','primero','segundo'))return {prio:3,tipo:'SENTENCIA 1ª INSTANCIA'};
+    // 6) AUTO ADMISORIO — frase muy típica del decreto 2591
+    if(tiene('se asume la acción de tutela','se asume el conocimiento','admisorio','avoca conocimiento','admite la acción de tutela','admítase la acción','córrasele traslado','correr traslado','asume la presente acción','presunta vulneración'))return {prio:1,tipo:'AUTO ADMISORIO'};
+    // 7) SOPORTE / ACTA DE REPARTO 1ª INSTANCIA — viene del sistema de tutela en línea
+    if(tiene('tutela en línea','generación de tutela en línea','se ha registrado la tutela','oficina judicial','oficina de reparto','reparto aleatorio','reparto')&&!tiene('2a instancia','2ª instancia','penal del circuito'))return {prio:2,tipo:'SOPORTE/ACTA REPARTO 1ª'};
+    // 8) NOTIFICACIONES PURAS (sin contenido decisorio) — baja prioridad
+    if(tiene('notifíquese y cúmplase','de manera respetuosa me permito notificarle','permito notificarle')&&!tiene('se asume','admite la acción','resuelve','dispone'))return {prio:10,tipo:'NOTIFICACIÓN'};
+    // 9) FALLBACK: usar nombres comunes solo como pista débil
+    if(/admisorio|avoca/.test(n)&&!/nulidad/.test(n))return {prio:1,tipo:'AUTO ADMISORIO (por nombre)'};
+    if(/sentencia|fallo/.test(n)&&!/2|seg|segunda/.test(n))return {prio:3,tipo:'SENTENCIA 1ª (por nombre)'};
+    if(/sentencia.*2|seginstancia|segunda/.test(n))return {prio:6,tipo:'SENTENCIA 2ª (por nombre)'};
+    if(/nulidad/.test(n))return {prio:7,tipo:'NULIDAD (por nombre)'};
+    if(/concede.?impug|terminos/i.test(n))return {prio:4,tipo:'CONCEDE IMPUG (por nombre)'};
+    if(/cto|circuito/.test(n))return {prio:5,tipo:'REPARTO 2ª (por nombre)'};
+    if(/reparto|soporte/.test(n))return {prio:2,tipo:'REPARTO 1ª (por nombre)'};
+    return {prio:9,tipo:'OTRO'};
+  };
+  const docxToUse=docx.slice(0,6);
+  const pdfsToScan=pdfs.slice(0,25); // escanear hasta 25 PDFs, luego seleccionamos los 10 mejores por contenido
+
+  // ── CARGAR pdf.js para EXTRAER TEXTO DE PDFs EN EL NAVEGADOR ──
+  if(!window.pdfjsLib){
+    try{
+      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }catch(e){console.warn('pdf.js no se pudo cargar:',e);}
   }
+
+  // ── PASO 1: Extraer texto de TODOS los PDFs (rápido, primeras 6 páginas) ──
+  const docs=[]; // {nombre, texto, prio, tipo}
+  const pdfDiag=[];
+  for(const f of pdfsToScan){
+    try{
+      const ab=await f.arrayBuffer();
+      if(!window.pdfjsLib){pdfDiag.push(f.name+':NO_PDFJS'); continue;}
+      const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
+      let txt='';
+      const maxPages=Math.min(doc.numPages,6);
+      for(let i=1;i<=maxPages;i++){
+        const page=await doc.getPage(i);
+        const cc=await page.getTextContent();
+        txt+=cc.items.map(it=>it.str).join(' ')+'\n';
+      }
+      txt=txt.replace(/\s+/g,' ').trim();
+      if(txt.length>50){
+        const cls=clasificar(f.name,txt);
+        docs.push({nombre:f.name,texto:txt,prio:cls.prio,tipo:cls.tipo});
+        pdfDiag.push(f.name+' → ['+cls.tipo+'] ('+txt.length+'ch)');
+      }else{
+        pdfDiag.push(f.name+':escaneo_o_vacío('+txt.length+'ch)');
+      }
+    }catch(e){
+      pdfDiag.push(f.name+':ERROR_'+e.message);
+      console.warn('PDF '+f.name+':',e);
+    }
+  }
+
+  // ── PASO 2: Ordenar por prioridad (autoridad documental) y tomar los TOP 10 ──
+  docs.sort((a,b)=>a.prio-b.prio||a.nombre.localeCompare(b.nombre));
+  const docsSelectos=docs.slice(0,10);
+
+  // ── PASO 3: Construir pdfTxt en orden de autoridad con etiquetas claras ──
+  let pdfTxt='';
+  for(const d of docsSelectos){
+    pdfTxt+='\n=== ['+d.tipo+'] '+d.nombre+' ===\n'+d.texto.slice(0,5000)+'\n';
+  }
+  console.log('[Extracción] Clasificación por contenido:');
+  pdfDiag.forEach(d=>console.log('  '+d));
+  console.log('[Extracción] Enviados a Gemini (top 10 por autoridad):');
+  docsSelectos.forEach((d,i)=>console.log('  '+(i+1)+'. ['+d.tipo+'] '+d.nombre));
+
+  // ── EXTRAER TEXTO DE DOCX (mammoth.js) ──
   let wTxt='';
-  if(docx.length>0){
+  if(docxToUse.length>0){
     try{
       if(!window.mammoth){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
-      for(const f of docx){try{const ab=await f.arrayBuffer();const r=await window.mammoth.extractRawText({arrayBuffer:ab});if(r.value&&r.value.trim())wTxt+='\n=== '+f.name+' ===\n'+r.value.slice(0,3000);}catch(e){}}
-    }catch(e){}
+      for(const f of docxToUse){
+        try{
+          const ab=await f.arrayBuffer();
+          const r=await window.mammoth.extractRawText({arrayBuffer:ab});
+          if(r.value&&r.value.trim())wTxt+='\n=== '+f.name+' ===\n'+r.value.slice(0,4000)+'\n';
+        }catch(e){console.warn('DOCX '+f.name+':',e);}
+      }
+    }catch(e){console.warn('mammoth:',e);}
   }
-  if(pdfParts.length===0&&!wTxt.trim()) throw new Error('No se encontraron documentos legibles en la carpeta (necesita .docx o .pdf con texto).');
-  const prompt=`Eres un asistente experto en derecho constitucional colombiano (acciones de tutela, Decreto 2591/91). Analiza CUIDADOSAMENTE los documentos adjuntos de una tutela del Juzgado 14 Penal Municipal de Ibague, ano ${anio}. Los PDF son documentos ESCANEADOS (imagenes): leelos con atencion aplicando OCR visual, pagina por pagina.
 
-Carpeta: "${folderName}" | Radicado: "${rH}" | Accionante (tomado del nombre de carpeta): "${aH}"
-${wTxt?'\nTEXTO EXTRAIDO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
+  console.log('[Extracción] PDFs procesados:',pdfDiag);
+  console.log('[Extracción] Texto PDF total:',pdfTxt.length,'chars | DOCX:',wTxt.length,'chars');
 
-DONDE BUSCAR CADA DATO:
-- "accionado": entidad o persona demandada. Aparece en la demanda y en el AUTO ADMISORIO (suele decir "ACCIONADO", "contra" o "en contra de").
-- "vinculados": terceros vinculados al tramite, mencionados en el auto admisorio.
-- "derechoSierju" + "derechos": el DERECHO FUNDAMENTAL invocado. Buscalo en el AUTO ADMISORIO (lo menciona expresamente) y en el escrito de tutela / soporte de reparto. Si no esta literal, INFIERELO del contenido: EPS, medicamentos, cirugia, citas o tratamientos medicos -> "Salud"; pension, semanas cotizadas, mesadas -> "Seguridad Social"; pago de salarios o reintegro laboral -> "Derecho al Trabajo"; falta de respuesta a una peticion u oficio -> "Derecho de Peticion"; cupo o acceso escolar -> "Educacion"; correccion de datos -> "Habeas Data"; subsidio o reubicacion de vivienda -> "Vivienda"; minimo vital, etc.
-- "pretensiones": que solicita concretamente el accionante (en la demanda).
-- "fechaReparto": fecha del acta/soporte de reparto.
-- "fechaAdmision": fecha del AUTO ADMISORIO.
-- "medida": si el auto admisorio decreto alguna medida provisional.
-- "esHC": true SOLO si es Habeas Corpus.
+  if(!pdfTxt.trim()&&!wTxt.trim()){
+    throw new Error('No se pudo extraer texto de ningún archivo de la carpeta. Posibles causas: (1) PDFs son escaneos sin OCR; (2) pdf.js no cargó; (3) carpeta vacía. Diagnóstico: '+pdfDiag.join(' | '));
+  }
+
+  const prompt=`Eres un asistente experto en derecho constitucional colombiano (acciones de tutela, Decreto 2591/91). A continuación tienes el TEXTO COMPLETO de los documentos de una tutela del Juzgado 14 Penal Municipal de Ibagué año ${anio}.
+
+Carpeta: "${folderName}"
+Radicado tomado del nombre de carpeta: "${rH}"
+Accionante tomado del nombre de carpeta: "${aH}"
+
+${pdfTxt?'TEXTO DE ARCHIVOS PDF:\n'+pdfTxt+'\n':''}
+${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
+
+🗺️ MAPA DE FUENTES AUTORITATIVAS — cada dato tiene UN documento que es el más confiable. Ve a la fuente correcta primero:
+
+📌 AUTO ADMISORIO (archivos con "admisorio", "avoca", "avocaibal") — fuente autoritativa para:
+  • accionante: nombre completo
+  • cedula: número de cédula del accionante (incluye puntos como aparece, ej "13.256.690")
+  • accionado: entidad/persona demandada con NIT (frase típica: "en contra de [X] NIT [Y]")
+  • vinculados: terceros (Personería Municipal, Procuraduría, Ministerio Público, otras entidades vinculadas por oficio)
+  • derechoSierju + derechos: derecho fundamental ADMITIDO. Frase típica del juez: "por la presunta vulneración de su derecho fundamental al [X]"
+  • fechaAdmision: fecha del auto (formato AAAA-MM-DD)
+  • medida: si decretó alguna medida provisional
+
+📌 SOPORTE/ACTA DE REPARTO 1ª INSTANCIA (archivos "SoporteLegadaTutela", "001Soporte", "ActaReparto" sin Cto) — fuente para:
+  • fechaReparto: cuándo se radicó/recibió la tutela en el despacho
+
+📌 SENTENCIA 1ª INSTANCIA (archivos con "Sentencia", "Fallo", "Sentencia1aInst") — fuente para:
+  • fechaFallo: fecha del fallo de primera instancia
+  • sentidoFallo: lee la PARTE RESOLUTIVA (PRIMERO, SEGUNDO, etc.) y clasifica:
+    - Si declara IMPROCEDENTE o niega por improcedencia formal → "Niega — improcedente"
+    - Si niega porque ya se cumplió/superó el hecho → "Niega — hecho superado"
+    - Si declara CARENCIA ACTUAL DE OBJETO → "Declara carencia actual de objeto"
+    - Si CONCEDE/AMPARA/TUTELA todos los derechos → "Concede tutela"
+    - Si concede solo algunos → "Concede parcialmente"
+    - Si el accionante desistió → "Desistimiento"
+    - Si se devuelve por competencia → "Devuelta por competencia"
+
+📌 AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA TÉRMINOS (archivos "TerminosConcedeImpugnacion", "ConcedeImpugnacion") — fuente para:
+  • fechaImpugnacion: fecha en que el accionante PRESENTÓ la impugnación (NO la fecha del auto que la concede). Frase típica: "habiendo interpuesto impugnación el pasado [fecha]"
+
+📌 ACTA INDIVIDUAL DE REPARTO 2ª INSTANCIA (archivos "ActaReparto1Cto", "ActaReparto9Cto", reparto a Juzgado del Circuito) — fuente para:
+  • juzgado2i: a qué juzgado le correspondió (ej: "JUZGADO 1 PENAL DEL CIRCUITO IBAGUE", "JUZGADO 9 PENAL DEL CIRCUITO IBAGUE")
+  • fechaReparto2i: fecha del reparto a 2ª instancia
+
+📌 SENTENCIA 2ª INSTANCIA (archivos "Sentencia2aInst", "SegInstancia", "SegInstanciaDecretaNulidad") — fuente para:
+  • fallo2i: lee la parte resolutiva y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Modifica", "Adiciona", "Decreta nulidad"
+
+📌 AUTO DECRETA NULIDAD (archivos "DecretaNulidad", "AvocaNulidad") — si existe, indica:
+  • observaciones: agregar "Nulidad decretada el [fecha] por [Juzgado] - causal: [resumen breve]"
 
 REGLAS ESTRICTAS:
-- Lee TODAS las paginas de TODOS los documentos adjuntos antes de responder.
-- NO dejes vacio un campo si la informacion esta presente en los documentos.
-- "derechoSierju" DEBE ser exactamente uno de: Salud, Seguridad Social, Vida, Minimo Vital, Igualdad, Educacion, Debido Proceso, Derecho de Peticion, Habeas Data, Derecho al Trabajo, Vivienda, Otros.
-- Todas las fechas en formato AAAA-MM-DD. Si una fecha no aparece, dejala como "".
-- Responde UNICAMENTE con el objeto JSON, sin texto antes ni despues, sin markdown, sin explicaciones.
+- USA EL TEXTO QUE TE DI ARRIBA. No inventes datos que no aparezcan.
+- NO dejes vacío un campo si la información ESTÁ en el texto correspondiente.
+- Si hay DOS valores que se contradicen (ej: auto admisorio dice un accionado y soporte de reparto dice otro), CONFÍA EN EL AUTO ADMISORIO.
+- "derechoSierju" DEBE ser EXACTAMENTE uno de: Salud, Seguridad Social, Vida, Mínimo Vital, Igualdad, Educación, Debido Proceso, Derecho de Petición, Habeas Data, Derecho al Trabajo, Vivienda, Otros.
+- Todas las fechas formato AAAA-MM-DD. Convierte "10 de marzo de 2026" → "2026-03-10".
+- Responde ÚNICAMENTE con el objeto JSON, sin texto antes ni después, sin markdown, sin explicaciones.
 
-JSON a devolver:
-{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En termino","observaciones":"","esHC":false}`;
-  const extraParts=pdfParts.length>0?pdfParts:undefined;
-  const parsed=await _llamarGemini(apiKey,prompt,true,extraParts);
-  window._ultimaExtraccion={folder:folderName,pdfs:pdfs.length,docx:docx.length,parsed};
+JSON a devolver (rellena cada campo desde su fuente autoritativa):
+{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaRemCC":"","fechaRegresoCC":"","estado":"En término","observaciones":"","esHC":false}`;
+
+  console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
+  const parsed=await _llamarGemini(apiKey,prompt,false);
+  console.log('[Extracción] Gemini respondió:',parsed);
+  window._ultimaExtraccion={folder:folderName,pdfs:pdfsToUse.length,docx:docxToUse.length,pdfDiag,pdfTxtLen:pdfTxt.length,wTxtLen:wTxt.length,parsed};
   return{...fb,...parsed};
 }
+
 
 const SIERJU_MAP={'salud':'Salud','seguridad social':'Seguridad Social','pension':'Seguridad Social','pensión':'Seguridad Social','vida':'Vida','minimo vital':'Mínimo Vital','mínimo vital':'Mínimo Vital','igualdad':'Igualdad','educacion':'Educación','educación':'Educación','debido proceso':'Debido Proceso','peticion':'Derecho de Petición','petición':'Derecho de Petición','derecho de peticion':'Derecho de Petición','habeas data':'Habeas Data','trabajo':'Derecho al Trabajo','vivienda':'Vivienda','otros':'Otros'};
 const SENTIDO_MAP={'concede tutela':'Concede tutela','concede':'Concede tutela','concede parcialmente':'Concede parcialmente','hecho superado':'Niega — hecho superado','improcedente':'Niega — improcedente','carencia':'Declara carencia actual de objeto','desistimiento':'Desistimiento','competencia':'Devuelta por competencia','niega':'Niega — improcedente'};
@@ -2840,7 +2977,7 @@ window.procesarCarpeta=async function(inp){
     set('f-r',d.radicacion);set('f-a',d.accionante);set('f-c',d.cedula);
     set('f-d',d.accionado);set('f-v',d.vinculados);set('f-de',d.derechos);
     set('f-p',d.pretensiones);set('f-rp',d.fechaReparto);set('f-adm',d.fechaAdmision);
-    set('f-l',folderName);set('f-o',d.observaciones);
+    set('f-l',d.enlace||'');set('f-o',d.observaciones);
     setSelect('f-ds',d.derechoSierju);
     if(d.medida){const fm=document.getElementById('f-m');if(fm){const o=[...fm.options].find(o=>o.text.toLowerCase().includes((d.medida||'').toLowerCase().slice(0,6)));if(o)fm.value=o.value;}}
     if(d.estado){const fe=document.getElementById('f-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
