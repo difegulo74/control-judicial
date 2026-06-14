@@ -746,7 +746,9 @@ function setVersion(v){localStorage.setItem('cj_version',v);}
 function getOneDriveBase(){return localStorage.getItem('cj_onedrive_base')||'';}
 function setOneDriveBase(v){
   v=(v||'').trim();
-  if(v&&!v.endsWith('/'))v+='/';  // asegurar trailing slash
+  // v33.15.1: la URL puede terminar en "/" (formato normal) o "%2F" (URL-encoded
+  // como en el formato "/my?id=..." de SharePoint). Solo agregar "/" si no termina en ninguno.
+  if(v&&!v.endsWith('/')&&!/%2[fF]$/.test(v))v+='/';
   localStorage.setItem('cj_onedrive_base',v);
 }
 function buildOneDriveURL(folderName){
@@ -756,27 +758,37 @@ function buildOneDriveURL(folderName){
   // que la base ya tiene su propio encoding (%20 para espacios).
   return base+encodeURIComponent(folderName);
 }
+// v33.15.2: si la tutela no tiene folderName guardado, construirlo desde
+// radicación + accionante (formato típico del despacho).
+function obtenerFolderName(rec){
+  if(rec.folderName)return rec.folderName;
+  const rad=String(rec.radicacion||'').replace(/\D/g,'');  // solo dígitos
+  const acc=String(rec.accionante||'').trim();
+  if(!rad||!acc)return '';
+  return rad+' '+acc;
+}
 async function regenerarLinksOneDrive(){
   const base=getOneDriveBase();
   if(!base){alert('⚠ Primero configura la URL base de OneDrive en ajustes.');return;}
   if(!fbDb){alert('⚠ Firebase no está conectado.');return;}
-  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Tutelas sin enlace (las que el sistema dejó vacías)\n• Tutelas con link viejo a Rama Judicial (autogenerados por versiones anteriores)\n\nNO toca tutelas con un enlace manual de OneDrive ya pegado.'))return;
+  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Tutelas sin enlace (las que el sistema dejó vacías)\n• Tutelas con link viejo a Rama Judicial (autogenerados por versiones anteriores)\n\nNO toca tutelas con un enlace manual de OneDrive ya pegado.\n\nSi una tutela no tiene "folderName" guardado, el sistema construirá el nombre de carpeta automáticamente desde el radicado + accionante.'))return;
   // Detecta links que son "candidatos a reemplazo": vacíos, inválidos o de Rama Judicial
   const esCandidato=(t)=>{
-    if(!t.folderName)return false;
     if(!t.enlace)return true;
     if(!/^https?:\/\//i.test(t.enlace))return true;
     if(/ramajudicial\.gov\.co|consultaprocesos/i.test(t.enlace))return true; // viejo autogenerado
     return false; // ya tiene un enlace manual válido, no tocar
   };
-  let n=0,err=0;
+  let n=0,err=0,sinDatos=0;
   for(const yr of Object.keys(localDB.tutelas)){
     for(const t of (localDB.tutelas[yr]||[])){
       if(!esCandidato(t))continue;
-      const nuevo=buildOneDriveURL(t.folderName);
+      const folder=obtenerFolderName(t);
+      if(!folder){sinDatos++;continue;}
+      const nuevo=buildOneDriveURL(folder);
       if(!nuevo)continue;
       try{
-        await fbDb.collection('tutelas_'+yr).doc(String(t.id)).set({...t,enlace:nuevo});
+        await fbDb.collection('tutelas_'+yr).doc(String(t.id)).set({...t,folderName:folder,enlace:nuevo});
         n++;
       }catch(e){console.error('Regen link error:',e);err++;}
     }
@@ -784,15 +796,17 @@ async function regenerarLinksOneDrive(){
   for(const yr of Object.keys(localDB.desacatos)){
     for(const d of (localDB.desacatos[yr]||[])){
       if(!esCandidato(d))continue;
-      const nuevo=buildOneDriveURL(d.folderName);
+      const folder=obtenerFolderName(d);
+      if(!folder){sinDatos++;continue;}
+      const nuevo=buildOneDriveURL(folder);
       if(!nuevo)continue;
       try{
-        await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,enlace:nuevo});
+        await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,folderName:folder,enlace:nuevo});
         n++;
       }catch(e){err++;}
     }
   }
-  alert('✓ '+n+' enlace(s) regenerado(s).'+(err>0?'\n⚠ '+err+' error(es).':''));
+  alert('✓ '+n+' enlace(s) regenerado(s).'+(sinDatos>0?'\n• '+sinDatos+' sin radicado o accionante (omitidas).':'')+(err>0?'\n⚠ '+err+' error(es).':''));
 }
 window.regenerarLinksOneDrive=regenerarLinksOneDrive;
 
@@ -1505,6 +1519,14 @@ async function guardarT(){
     if(window._pendingFolder.ciclosAnulados){t.ciclosAnulados=window._pendingFolder.ciclosAnulados;}
     if(window._pendingFolder.nulidades){t.nulidades=window._pendingFolder.nulidades;}
     if(window._pendingFolder.ultimaNulidad){t.ultimaNulidad=window._pendingFolder.ultimaNulidad;}
+  }
+  // v33.15.2: si aún no hay enlace y tampoco _pendingFolder, intentar construir desde rad+accionante
+  if(!t.enlace){
+    const folder=obtenerFolderName(t);
+    if(folder){
+      const auto=buildOneDriveURL(folder);
+      if(auto){t.enlace=auto;if(!t.folderName)t.folderName=folder;}
+    }
   }
   // v33.1: guardado VERIFICADO — guarda y lee de vuelta para confirmar
   if(!fbDb){
