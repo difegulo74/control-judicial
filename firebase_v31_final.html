@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.16';
+var APP_VERSION='33.16.1';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -797,20 +797,30 @@ async function regenerarLinksOneDrive(){
   const baseT=getOneDriveBase('t'),baseD=getOneDriveBase('d');
   if(!baseT&&!baseD){alert('⚠ Primero configura al menos una URL base de OneDrive (tutelas y/o desacatos) en ajustes.');return;}
   if(!fbDb){alert('⚠ Firebase no está conectado.');return;}
-  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Radicaciones sin enlace\n• Radicaciones con link viejo a Rama Judicial\n• Radicaciones con un link de OneDrive mal formado (separador "/" en vez de %2F)\n\nNO toca radicaciones con un enlace manual de OneDrive ya válido.\n\nSi una radicación no tiene "folderName" guardado, se construirá desde el radicado + accionante (recomendable luego actualizarla desde su carpeta para fijar el nombre exacto).'))return;
-  // Candidato a reemplazo: vacío, inválido, de Rama Judicial, o link OneDrive con separador "/" mal formado
-  const esCandidato=(t)=>{
-    if(!t.enlace)return true;
-    if(!/^https?:\/\//i.test(t.enlace))return true;
-    if(/ramajudicial\.gov\.co|consultaprocesos/i.test(t.enlace))return true;
-    // link de SharePoint con id= pero separador "/" literal entre TUTELAS/DESACATOS y la carpeta → mal formado
-    if(/[?&]id=/i.test(t.enlace)&&/%2[fF]/i.test(t.enlace)&&/20\d\d\/\d{15,}/.test(t.enlace))return true;
-    return false;
+  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza CUALQUIER link cuya ruta NO coincida con la URL base configurada — incluyendo:\n• Sin enlace\n• Rama Judicial\n• Cuenta vieja (tutelasj14pmpaliba)\n• Formato /shared/?listurl=\n• Cualquier formato distinto al de la base actual\n\nNO toca enlaces que ya apunten a la URL base configurada.'))return;
+  // v33.16.1: extraer el "fragmento identificador" de la base configurada — la parte
+  // del path que indica la cuenta y carpeta madre (ej: "j14pmpalconiba" + "PROCESOS CONSTITUCIONALES DIEGO").
+  // Cualquier link existente que NO contenga ese fragmento → es candidato a reemplazo.
+  const fragmentoBase=(base)=>{
+    if(!base)return '';
+    // Extraer parte distintiva (todo lo que esté después de "/personal/" o "id=%2Fpersonal%2F")
+    const m=base.match(/(?:personal[/%2]+|id=%2Fpersonal%2F)([^&?]+)/i);
+    return m?m[1].toLowerCase():base.toLowerCase();
+  };
+  const fragT=fragmentoBase(baseT),fragD=fragmentoBase(baseD);
+  const esCandidato=(rec,tipo)=>{
+    const frag=tipo==='d'?fragD:fragT;
+    if(!frag)return false;  // sin base no se puede comparar
+    if(!rec.enlace)return true;
+    if(!/^https?:\/\//i.test(rec.enlace))return true;
+    if(/ramajudicial\.gov\.co|consultaprocesos/i.test(rec.enlace))return true;
+    // Si el link existente NO contiene el fragmento de la base, es de otra cuenta/ruta → reemplazar
+    return !rec.enlace.toLowerCase().includes(frag.split('%2f')[0].toLowerCase().slice(0,20));
   };
   let n=0,err=0,sinDatos=0;
   for(const yr of Object.keys(localDB.tutelas)){
     for(const t of (localDB.tutelas[yr]||[])){
-      if(!esCandidato(t))continue;
+      if(!esCandidato(t,'t'))continue;
       const folder=obtenerFolderName(t);
       if(!folder){sinDatos++;continue;}
       const nuevo=buildOneDriveURL(folder,'t');
@@ -823,7 +833,7 @@ async function regenerarLinksOneDrive(){
   }
   for(const yr of Object.keys(localDB.desacatos)){
     for(const d of (localDB.desacatos[yr]||[])){
-      if(!esCandidato(d))continue;
+      if(!esCandidato(d,'d'))continue;
       const folder=obtenerFolderName(d);
       if(!folder){sinDatos++;continue;}
       const nuevo=buildOneDriveURL(folder,'d');
