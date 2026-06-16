@@ -737,47 +737,75 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.15';
+var APP_VERSION='33.16';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
 function setVersion(v){localStorage.setItem('cj_version',v);}
-// v33.14: URL base de OneDrive/SharePoint del despacho — configurable una sola vez
-function getOneDriveBase(){return localStorage.getItem('cj_onedrive_base')||'';}
-function setOneDriveBase(v){
-  v=(v||'').trim();
-  // v33.15.1: la URL puede terminar en "/" (formato normal) o "%2F" (URL-encoded
-  // como en el formato "/my?id=..." de SharePoint). Solo agregar "/" si no termina en ninguno.
-  if(v&&!v.endsWith('/')&&!/%2[fF]$/.test(v))v+='/';
-  localStorage.setItem('cj_onedrive_base',v);
+// v33.16: URLs base de OneDrive/SharePoint — separadas para TUTELAS y DESACATOS.
+// El usuario configura una sola vez; el sistema agrega el nombre EXACTO de carpeta
+// capturado desde webkitRelativePath al cargar/actualizar (funciona desde cualquier PC).
+function getOneDriveBase(tipo){
+  // tipo: 't' (tutelas) | 'd' (desacatos). Compat: si no se pasa, usa tutelas.
+  if(tipo==='d')return localStorage.getItem('cj_onedrive_base_d')||'';
+  return localStorage.getItem('cj_onedrive_base')||'';
 }
-function buildOneDriveURL(folderName){
-  const base=getOneDriveBase();
+function normalizarBase(v){
+  v=(v||'').trim();
+  if(!v)return '';
+  // Quitar parámetros de "compartido" o "viewid" que rompen el acceso directo.
+  v=v.replace(/&viewid=[^&]*/gi,'').replace(/&csf=[^&]*/gi,'').replace(/&web=[^&]*/gi,'').replace(/&e=[^&]*/gi,'');
+  // Quitar cualquier "/" o "%2F" final — el separador lo agrega buildOneDriveURL
+  // según el formato, para no mezclar "/" literal con un path %2F-encoded.
+  v=v.replace(/(%2[fF]|\/)+$/,'');
+  return v;
+}
+function esBaseEncoded(base){
+  // True si la base usa el formato "/my?id=...%2F..." donde la ruta va URL-encoded.
+  // En ese caso el separador de carpeta debe ser %2F, no "/" literal.
+  return /[?&]id=/i.test(base)&&/%2[fF]/i.test(base);
+}
+function setOneDriveBase(v,tipo){
+  v=normalizarBase(v);
+  if(tipo==='d')localStorage.setItem('cj_onedrive_base_d',v);
+  else localStorage.setItem('cj_onedrive_base',v);
+}
+function buildOneDriveURL(folderName,tipo){
+  const base=getOneDriveBase(tipo);
   if(!base||!folderName)return '';
-  // El folderName ya viene "tal cual" de la carpeta local. Encoderlo respetando
-  // que la base ya tiene su propio encoding (%20 para espacios).
-  return base+encodeURIComponent(folderName);
+  // v33.16 FIX CRÍTICO: el separador depende del formato de la base.
+  // — Base "/my?id=...%2F..." (SharePoint web): TODO el path va URL-encoded,
+  //   entonces separador = %2F y el folderName se encodea con espacios→%20, "/"→(no aplica).
+  // — Base con "/" legible: separador = "/" y folderName con encodeURIComponent.
+  if(esBaseEncoded(base)){
+    // encodeURIComponent del folder: espacios→%20, tildes→%C3.., paréntesis→%28.. etc.
+    // El separador entre la base y el folder es %2F (slash codificado).
+    return base+'%2F'+encodeURIComponent(folderName);
+  }
+  return base+'/'+encodeURIComponent(folderName);
 }
 // v33.15.2: si la tutela no tiene folderName guardado, construirlo desde
-// radicación + accionante (formato típico del despacho).
+// radicación + accionante (fallback para tutelas viejas — puede no coincidir 100%).
 function obtenerFolderName(rec){
   if(rec.folderName)return rec.folderName;
   const rad=String(rec.radicacion||'').replace(/\D/g,'');  // solo dígitos
-  const acc=String(rec.accionante||'').trim();
+  const acc=String(rec.accionante||'').trim().replace(/\s+/g,' ');  // normaliza espacios
   if(!rad||!acc)return '';
   return rad+' '+acc;
 }
 async function regenerarLinksOneDrive(){
-  const base=getOneDriveBase();
-  if(!base){alert('⚠ Primero configura la URL base de OneDrive en ajustes.');return;}
+  const baseT=getOneDriveBase('t'),baseD=getOneDriveBase('d');
+  if(!baseT&&!baseD){alert('⚠ Primero configura al menos una URL base de OneDrive (tutelas y/o desacatos) en ajustes.');return;}
   if(!fbDb){alert('⚠ Firebase no está conectado.');return;}
-  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Tutelas sin enlace (las que el sistema dejó vacías)\n• Tutelas con link viejo a Rama Judicial (autogenerados por versiones anteriores)\n\nNO toca tutelas con un enlace manual de OneDrive ya pegado.\n\nSi una tutela no tiene "folderName" guardado, el sistema construirá el nombre de carpeta automáticamente desde el radicado + accionante.'))return;
-  // Detecta links que son "candidatos a reemplazo": vacíos, inválidos o de Rama Judicial
+  if(!confirm('¿Regenerar enlaces de OneDrive para TODAS las tutelas y desacatos?\n\nReemplaza:\n• Radicaciones sin enlace\n• Radicaciones con link viejo a Rama Judicial\n• Radicaciones con un link de OneDrive mal formado (separador "/" en vez de %2F)\n\nNO toca radicaciones con un enlace manual de OneDrive ya válido.\n\nSi una radicación no tiene "folderName" guardado, se construirá desde el radicado + accionante (recomendable luego actualizarla desde su carpeta para fijar el nombre exacto).'))return;
+  // Candidato a reemplazo: vacío, inválido, de Rama Judicial, o link OneDrive con separador "/" mal formado
   const esCandidato=(t)=>{
     if(!t.enlace)return true;
     if(!/^https?:\/\//i.test(t.enlace))return true;
-    if(/ramajudicial\.gov\.co|consultaprocesos/i.test(t.enlace))return true; // viejo autogenerado
-    return false; // ya tiene un enlace manual válido, no tocar
+    if(/ramajudicial\.gov\.co|consultaprocesos/i.test(t.enlace))return true;
+    // link de SharePoint con id= pero separador "/" literal entre TUTELAS/DESACATOS y la carpeta → mal formado
+    if(/[?&]id=/i.test(t.enlace)&&/%2[fF]/i.test(t.enlace)&&/20\d\d\/\d{15,}/.test(t.enlace))return true;
+    return false;
   };
   let n=0,err=0,sinDatos=0;
   for(const yr of Object.keys(localDB.tutelas)){
@@ -785,7 +813,7 @@ async function regenerarLinksOneDrive(){
       if(!esCandidato(t))continue;
       const folder=obtenerFolderName(t);
       if(!folder){sinDatos++;continue;}
-      const nuevo=buildOneDriveURL(folder);
+      const nuevo=buildOneDriveURL(folder,'t');
       if(!nuevo)continue;
       try{
         await fbDb.collection('tutelas_'+yr).doc(String(t.id)).set({...t,folderName:folder,enlace:nuevo});
@@ -798,7 +826,7 @@ async function regenerarLinksOneDrive(){
       if(!esCandidato(d))continue;
       const folder=obtenerFolderName(d);
       if(!folder){sinDatos++;continue;}
-      const nuevo=buildOneDriveURL(folder);
+      const nuevo=buildOneDriveURL(folder,'d');
       if(!nuevo)continue;
       try{
         await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,folderName:folder,enlace:nuevo});
@@ -1510,9 +1538,9 @@ async function guardarT(){
   if(window._pendingFolder){
     t.folderName=window._pendingFolder.folderName;
     t.filesCount=window._pendingFolder.filesCount;
-    // v33.14: si hay URL base de OneDrive configurada y no hay enlace manual, construir automáticamente
+    // v33.16: link OneDrive desde el folderName EXACTO capturado (tipo tutela)
     if(!t.enlace&&t.folderName){
-      const auto=buildOneDriveURL(t.folderName);
+      const auto=buildOneDriveURL(t.folderName,'t');
       if(auto)t.enlace=auto;
     }
     // v33.11: si se detectó nulidad automáticamente, aplicar historial
@@ -1520,11 +1548,11 @@ async function guardarT(){
     if(window._pendingFolder.nulidades){t.nulidades=window._pendingFolder.nulidades;}
     if(window._pendingFolder.ultimaNulidad){t.ultimaNulidad=window._pendingFolder.ultimaNulidad;}
   }
-  // v33.15.2: si aún no hay enlace y tampoco _pendingFolder, intentar construir desde rad+accionante
+  // v33.15.2: si aún no hay enlace y tampoco _pendingFolder, construir desde rad+accionante
   if(!t.enlace){
     const folder=obtenerFolderName(t);
     if(folder){
-      const auto=buildOneDriveURL(folder);
+      const auto=buildOneDriveURL(folder,'t');
       if(auto){t.enlace=auto;if(!t.folderName)t.folderName=folder;}
     }
   }
@@ -2184,7 +2212,7 @@ function abrirConfig(){
 }
 function _mostrarConfig(){
   (()=>{
-    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base del año activo</label>\n    <input id="cfg-od" placeholder="https://etbcsj-my.sharepoint.com/.../TUTELAS%202026/" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de OneDrive del año. El sistema agregará automáticamente el nombre de cada carpeta y construirá el enlace ↗ para cada tutela.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URL base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
+    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base — TUTELAS del año</label>\n    <input id="cfg-od" placeholder="Pega la URL de la carpeta TUTELAS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px">\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin:8px 0 3px">URL base — DESACATOS del año</label>\n    <input id="cfg-od-d" placeholder="Pega la URL de la carpeta DESACATOS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de cada carpeta madre. Pega la URL tal cual aparece en tu navegador al abrir la carpeta en OneDrive web; el sistema limpia parámetros sobrantes. Funciona desde cualquier PC.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URLs base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
     // Agregar sección IA al final del panel
     const iaDiv=document.createElement('div');
@@ -2222,16 +2250,23 @@ function _mostrarConfig(){
     const vl2=document.getElementById('ver-lbl2');
     if(vl)vl.textContent='v'+v;
     if(vl2)vl2.textContent='v'+v;
-    // v33.14: precargar URL base OneDrive
+    // v33.16: precargar ambas URLs base OneDrive
     const elOd=document.getElementById('cfg-od');
-    if(elOd)elOd.value=getOneDriveBase();
+    if(elOd)elOd.value=getOneDriveBase('t');
+    const elOdD=document.getElementById('cfg-od-d');
+    if(elOdD)elOdD.value=getOneDriveBase('d');
     document.getElementById('mcfg').classList.add('o');setTimeout(_actualizarEstadoNotif,100);
   })();
 }
 function guardarOneDriveBase(){
-  const v=(document.getElementById('cfg-od').value||'').trim();
-  setOneDriveBase(v);
-  alert('✓ URL base de OneDrive guardada.\n\nPara aplicarla a tutelas ya creadas con folderName, usa "🔄 Regenerar enlaces".');
+  const vt=(document.getElementById('cfg-od')||{}).value||'';
+  const vd=(document.getElementById('cfg-od-d')||{}).value||'';
+  setOneDriveBase(vt,'t');
+  setOneDriveBase(vd,'d');
+  // Releer normalizado para mostrar al usuario lo que quedó guardado
+  const elOd=document.getElementById('cfg-od');if(elOd)elOd.value=getOneDriveBase('t');
+  const elOdD=document.getElementById('cfg-od-d');if(elOdD)elOdD.value=getOneDriveBase('d');
+  alert('✓ URLs base guardadas.\n\nAhora usa "🔄 Regenerar enlaces" para aplicarlas a las radicaciones existentes.\n\nLas radicaciones nuevas (y las que actualices desde carpeta) tomarán el enlace automáticamente.');
 }
 window.guardarOneDriveBase=guardarOneDriveBase;
 function _renderResponsables(){
@@ -3363,9 +3398,12 @@ window.procesarRecarga=async function(inp,id){
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
     upd.folderName=folderName;upd.filesCount=files.length;
-    // v33.14: si hay URL base de OneDrive configurada y la tutela no tiene enlace válido, generar
-    if(!t.enlace||!/^https?:\/\//i.test(t.enlace)){
-      const auto=buildOneDriveURL(folderName);
+    // v33.16: el folderName recién capturado es la fuente MÁS confiable.
+    // Regeneramos el enlace SIEMPRE salvo que el usuario tenga un enlace manual
+    // que NO sea de OneDrive autogenerado ni de Rama Judicial.
+    const enlaceEsAuto=!t.enlace||!/^https?:\/\//i.test(t.enlace)||/ramajudicial|consultaprocesos|sharepoint/i.test(t.enlace||'');
+    if(enlaceEsAuto){
+      const auto=buildOneDriveURL(folderName,'t');
       if(auto)upd.enlace=auto;
     }
 
