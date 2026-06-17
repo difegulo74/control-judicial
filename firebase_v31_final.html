@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.18';
+var APP_VERSION='33.21';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1108,13 +1108,35 @@ function getResponsables(){
 function setResponsables(arr){
   localStorage.setItem('cj_responsables',JSON.stringify(arr));
 }
+// v33.19: limpieza one-time del selector — al cargar la app, eliminar nombres
+// que probablemente fueron auto-agregados por error (versiones <33.19 agregaban
+// el accionante u otros nombres del expediente). Solo se ejecuta UNA VEZ por instalación.
+function limpiarResponsablesUnaVez(){
+  if(localStorage.getItem('cj_resp_clean_v3319'))return;  // ya se hizo
+  const validos=['DIEGO','ERIKA','MILENA','ANA','DESPACHO'];
+  const actual=getResponsables();
+  const limpios=actual.filter(r=>validos.includes(String(r).toUpperCase()));
+  // Si la limpieza dejó vacío, restaurar los 5 base
+  const final=limpios.length?limpios:validos;
+  setResponsables(final);
+  const eliminados=actual.filter(r=>!validos.includes(String(r).toUpperCase()));
+  if(eliminados.length){
+    console.log('[Responsables v33.19] Eliminados del selector (auto-agregados por error):',eliminados);
+  }
+  localStorage.setItem('cj_resp_clean_v3319','1');
+}
+limpiarResponsablesUnaVez();
 function optsResponsables(sel){
   return '<option value="">—</option>'+getResponsables().map(r=>`<option${sel===r?' selected':''}>${r}</option>`).join('');
 }
-// v33.17: normaliza el responsable detectado por Gemini, agrega al selector si es nuevo.
+// v33.17: normaliza el responsable detectado por Gemini.
 // Devuelve el valor canónico (en mayúsculas) o cadena vacía si no es válido.
 // v33.18: DESPACHO NO se auto-asigna (solo lo asigna el usuario manualmente cuando
 // no hay responsable concreto). La auto-detección solo asigna nombres reales de personas.
+// v33.19: NUNCA auto-agrega nombres nuevos al selector — esto evita contaminar la lista
+// con accionantes o nombres ajenos al juzgado. Si Gemini detecta un nombre que NO está
+// en la lista de responsables (DIEGO, ERIKA, MILENA, ANA), se devuelve vacío y el
+// usuario decide manualmente si agregarlo al selector desde Settings.
 function normalizarResponsableDetectado(detectado){
   if(!detectado||typeof detectado!=='string')return '';
   // Extraer solo el primer nombre/palabra alfabética y normalizar
@@ -1123,14 +1145,14 @@ function normalizarResponsableDetectado(detectado){
   // v33.18: bloquear "DESPACHO" — solo se asigna manualmente
   if(primerNombre==='DESPACHO')return '';
   const lista=getResponsables();
-  // Match case-insensitive contra la lista actual
+  // v33.19: SOLO devolver match si ya existe en la lista. Cero auto-agregar.
   const existente=lista.find(r=>r.toUpperCase()===primerNombre);
-  if(existente)return existente;
-  // No existe: agregarlo a la lista (auto-add) y devolverlo
-  const nuevaLista=[...lista,primerNombre];
-  setResponsables(nuevaLista);
-  console.log('[Responsable] Nuevo agregado al selector:',primerNombre);
-  return primerNombre;
+  if(existente){
+    console.log('[Responsable] Match con responsable existente:',existente);
+    return existente;
+  }
+  console.log('[Responsable] Gemini devolvió "'+primerNombre+'" pero NO está en el selector — se ignora (probablemente confundió con accionante u otro nombre del expediente)');
+  return '';
 }
 
 // ═══════════════════════════════════════════════════════
@@ -3114,6 +3136,32 @@ async function extraerDatosCarpeta(files,folderName){
     const t=(texto||'').toLowerCase();
     // Función helper: cuenta cuántas frases típicas aparecen en el texto
     const tiene=(...frases)=>frases.some(f=>t.includes(f));
+
+    // ═══ v33.21 — PASO 0: NOMBRES DE ARCHIVO INEQUÍVOCOS ═══
+    // El nombre tiene prioridad sobre el contenido cuando es muy específico.
+    // Estos archivos se marcan ANTES de revisar el texto para evitar falsos positivos
+    // (un Traslado MENCIONA partes de la sentencia pero NO es sentencia).
+    if(/notifica.*(sentencia|fallo|admisorio|tutela)|oficio.*notifi/i.test(n))return {prio:10,tipo:'NOTIFICACIÓN OFICIO'};
+    if(/^0?\d*\s*traslad/i.test(n)||/\btraslado\b/i.test(n))return {prio:8,tipo:'TRASLADO'};
+    if(/contestaci[oó]n|respuesta(?!.*admisorio)/i.test(n))return {prio:9,tipo:'CONTESTACIÓN'};
+    if(/cumplimientofallo|cumplimiento.*fallo|cumplimiento.*sentencia/i.test(n))return {prio:8,tipo:'CUMPLIMIENTO FALLO'};
+    if(/memorial(?!.*impugn)/i.test(n))return {prio:8,tipo:'MEMORIAL'};
+    if(/requerimiento(?!.*impugn)/i.test(n))return {prio:8,tipo:'REQUERIMIENTO'};
+    // Auto que vincula a un tercero — NO es admisorio
+    if(/autovinculacion|vincula(?!.*nulidad)/i.test(n))return {prio:8,tipo:'AUTO VINCULA'};
+    // Soporte/Constancia de entrega — no es admisorio ni sentencia
+    if(/soporteentreg|constancia/i.test(n)&&!/admis/i.test(n))return {prio:8,tipo:'SOPORTE/CONSTANCIA'};
+
+    // ═══ PASO 1: SENTENCIA y AUTO ADMISORIO por nombre PRIMERO (cuando es claro) ═══
+    // SentenciaTutela.pdf / FalloTutela.pdf → SIEMPRE sentencia 1ª (a menos que diga 2ª)
+    if(/sentencia(?!.*notifi)|^0?\d*\s*fallo/i.test(n)&&!/notifi|2[aª]|segunda|circuito/i.test(n))return {prio:3,tipo:'SENTENCIA 1ª (por nombre)'};
+    if(/sentencia.*2|seginstancia|segunda.*inst|sentencia2|circuito/i.test(n))return {prio:6,tipo:'SENTENCIA 2ª (por nombre)'};
+    // Admisorio claro por nombre
+    if(/(^|[^a-z])admisorio|^0?\d*\s*avoca|^0?\d*\s*auto.*(asume|admit)/i.test(n)&&!/nulidad|niega/i.test(n))return {prio:1,tipo:'AUTO ADMISORIO (por nombre)'};
+    // Admisorio que niega medida previa → sigue siendo admisorio
+    if(/admis.*niega|niega.*medida.*previa/i.test(n))return {prio:1,tipo:'AUTO ADMISORIO NIEGA MP'};
+
+    // ═══ PASO 2: Reglas por contenido (más conservadoras) ═══
     // 1) AUTO DECRETA NULIDAD — el más específico, lo busco primero
     if(tiene('decretar la nulidad','decreta la nulidad','decreta nulidad','declarar la nulidad','declara la nulidad','decretará la nulidad','nulidad de todo lo actuado','nulidad de la actuación')||(t.includes('nulidad')&&(n.includes('nulidad')||n.includes('avoca'))&&t.length>200))return {prio:7,tipo:'AUTO DECRETA NULIDAD'};
     // 2) SENTENCIA 2ª INSTANCIA — tiene frases específicas de fallo de alzada
@@ -3123,22 +3171,20 @@ async function extraerDatosCarpeta(files,folderName){
     // 4) AUTO CONCEDE IMPUGNACIÓN / CONSTANCIA DE TÉRMINOS / MEMORIAL DE IMPUGNACIÓN
     if(tiene('concede el recurso','conceder el recurso','conceder la impugnación','concede la impugnación','recurso de alzada','interpuesto impugnación','presentó oportunamente impugnación','notifica concede impugnación','interpongo el recurso','interpongo recurso','impugno la sentencia','impugno el fallo','presento impugnación','presento recurso de impugnación','manifiesto que impugno'))return {prio:4,tipo:'IMPUGNACIÓN'};
     // 5) SENTENCIA / FALLO 1ª INSTANCIA — parte resolutiva sin características de 2ª inst
-    if(tiene('declarar improcedente','declarar procedente','tutelar el derecho','amparar el derecho','conceder el amparo','niega el amparo','niega la tutela','carencia actual de objeto','hecho superado')&&tiene('resuelve','primero','segundo'))return {prio:3,tipo:'SENTENCIA 1ª INSTANCIA'};
+    // v33.21: requerir frases MÁS específicas para evitar falsos positivos (un traslado puede citar la sentencia)
+    if(tiene('declarar improcedente','declarar procedente','tutelar el derecho','amparar el derecho','conceder el amparo','niega el amparo','niega la tutela','carencia actual de objeto','hecho superado')&&tiene('parte resolutiva','en mérito','administrando justicia','resuelve:'))return {prio:3,tipo:'SENTENCIA 1ª INSTANCIA'};
     // 6) AUTO ADMISORIO — frase muy típica del decreto 2591
     if(tiene('se asume la acción de tutela','se asume el conocimiento','admisorio','avoca conocimiento','admite la acción de tutela','admítase la acción','córrasele traslado','correr traslado','asume la presente acción','presunta vulneración'))return {prio:1,tipo:'AUTO ADMISORIO'};
     // 7) SOPORTE / ACTA DE REPARTO 1ª INSTANCIA — viene del sistema de tutela en línea
     if(tiene('tutela en línea','generación de tutela en línea','se ha registrado la tutela','oficina judicial','oficina de reparto','reparto aleatorio','reparto')&&!tiene('2a instancia','2ª instancia','penal del circuito'))return {prio:2,tipo:'SOPORTE/ACTA REPARTO 1ª'};
     // 8) NOTIFICACIONES PURAS (sin contenido decisorio) — baja prioridad
     if(tiene('notifíquese y cúmplase','de manera respetuosa me permito notificarle','permito notificarle')&&!tiene('se asume','admite la acción','resuelve','dispone'))return {prio:10,tipo:'NOTIFICACIÓN'};
-    // 9) FALLBACK: usar nombres comunes solo como pista débil
-    if(/admisorio|avoca/.test(n)&&!/nulidad/.test(n))return {prio:1,tipo:'AUTO ADMISORIO (por nombre)'};
-    if(/sentencia|fallo/.test(n)&&!/2|seg|segunda/.test(n))return {prio:3,tipo:'SENTENCIA 1ª (por nombre)'};
-    if(/sentencia.*2|seginstancia|segunda/.test(n))return {prio:6,tipo:'SENTENCIA 2ª (por nombre)'};
-    if(/nulidad/.test(n))return {prio:7,tipo:'NULIDAD (por nombre)'};
+    // 9) FALLBACK por nombre (versión legacy, solo si no se clasificó arriba)
     if(/concede.?impug|terminos|términos/i.test(n))return {prio:4,tipo:'CONCEDE IMPUG (por nombre)'};
     if(/impugn/i.test(n))return {prio:4,tipo:'IMPUGNACIÓN MEMORIAL (por nombre)'};
-    if(/cto|circuito/.test(n))return {prio:5,tipo:'REPARTO 2ª (por nombre)'};
-    if(/reparto|soporte/.test(n))return {prio:2,tipo:'REPARTO 1ª (por nombre)'};
+    if(/cto|circuito/i.test(n))return {prio:5,tipo:'REPARTO 2ª (por nombre)'};
+    if(/reparto|soporte/i.test(n))return {prio:2,tipo:'REPARTO 1ª (por nombre)'};
+    if(/nulidad/i.test(n))return {prio:7,tipo:'NULIDAD (por nombre)'};
     return {prio:9,tipo:'OTRO'};
   };
   const docxToUse=docx.slice(0,6);
@@ -3275,27 +3321,22 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
 📌 AUTO DECRETA NULIDAD (archivos "DecretaNulidad", "AvocaNulidad") — si existe, indica:
   • observaciones: agregar "Nulidad decretada el [fecha] por [Juzgado] - causal: [resumen breve]"
 
-📌 RESPONSABLE DEL EXPEDIENTE — CAMPO OBLIGATORIO si hay oficio firmado en la carpeta:
-  Busca en TODOS los archivos cuyo nombre contenga: "NotificaSentencia", "NotificaAdmisorio", "NotificaTutela", "OficioNotificacion", "001Soporte", "Notifica" (cualquier oficio de notificación). También revisa los archivos sin prefijo numérico que parezcan oficios (encabezado "Juzgado 14 Penal Municipal", saludo formal, cuerpo de notificación).
+📌 RESPONSABLE DEL EXPEDIENTE — busca en TODOS los archivos cuyo nombre contenga "Notifica" (NotificaSentencia, NotificaAdmisorio, NotificaTutela, OficioNotificacion, etc.), también archivos "Soporte" iniciales.
 
-  Busca al FINAL del documento (últimas 10 líneas) el nombre de quien FIRMA. Patrones típicos:
-        "Atentamente,
-         [NOMBRE APELLIDO]
-         Oficial Mayor / Secretaria / Sustanciador / Asistente Judicial"
+  Busca al FINAL del documento (últimas 10 líneas) el nombre de quien FIRMA el oficio. Aparece típicamente:
+  • Bajo "Atentamente," / "Cordialmente," / "Proyectó:" / "Elaboró:"
+  • Asociado a un cargo: Oficial Mayor, Sustanciador, Secretario, Asistente Judicial, Escribiente
+  • Con el sello/encabezado "Juzgado 14 Penal Municipal de Ibagué"
 
-        "Cordialmente,
-         [NOMBRE APELLIDO]
-         [Cargo]
-         Juzgado 14 Penal Municipal Conocimiento de Ibagué"
+  Devuelve SOLO el primer nombre en MAYÚSCULAS (ej: "ERIKA", "DIEGO", "MILENA", "ANA", "CARLOS", "LUIS"). Lo que sea, devuélvelo. El sistema validará después si corresponde a alguien del despacho.
 
-  REGLA CRÍTICA: devuelve SOLO el PRIMER NOMBRE en mayúsculas (ej: "ERIKA", "DIEGO", "MILENA", "ANA"). NUNCA devuelvas apellidos.
+  ⚠️ EXCLUSIONES (devuelve "" en estos casos):
+  • El accionante (quien presenta la tutela) — JAMÁS es el responsable
+  • El accionado (la entidad demandada) — JAMÁS es el responsable
+  • Palabras genéricas: "DESPACHO", "JUZGADO", "SECRETARÍA", "TRIBUNAL"
+  • Si no encuentras una firma legible al pie de un oficio del juzgado
 
-  Lista actual de responsables válidos: DIEGO, ERIKA, MILENA, ANA. Prioriza match con uno de estos.
-  Si la firma es de una persona nueva (ej: "CARLOS"), devuelve igualmente el primer nombre en mayúsculas y el sistema lo agregará.
-
-  ⚠ NUNCA devuelvas "DESPACHO", "JUZGADO", "SECRETARÍA", "TRIBUNAL" ni nombres genéricos de oficina — esos NO son personas. Si no encuentras un nombre concreto de persona, devuelve "" (cadena vacía).
-
-  Si NO hay oficio firmado en la carpeta o no se ve la firma, devuelve "".
+  Si la firma del oficio del juzgado dice "ERIKA PÉREZ MARTÍNEZ", devuelve "ERIKA". Si dice "Luis Hernández", devuelve "LUIS". Si no encuentras nada, devuelve "".
 
 ═══════════════════════════════════════════════════════
 🚨 PASO ESPECIAL — DETECCIÓN AUTOMÁTICA DE NULIDAD(ES):
@@ -3461,19 +3502,21 @@ window.procesarRecarga=async function(inp,id){
     act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
-    // v33.18: responsable — Gemini es fuente autoritativa. Si detectó un nombre válido
-    // (no DESPACHO, no vacío), lo asignamos SIEMPRE, incluso reemplazando uno previo.
-    // El usuario puede sobrescribir manualmente después si lo desea.
+    // v33.19/20: responsable — log detallado para debug.
+    // - Si Gemini devuelve un nombre que match con DIEGO/ERIKA/MILENA/ANA → asignar.
+    // - Si Gemini devuelve "" o no devuelve → mantener el actual (no tocar).
+    // - Caso especial: si el actual era DESPACHO y Gemini detecta un válido → reemplazar (DESPACHO era el fallback genérico, un nombre concreto es mejor).
     if(d.responsable){
+      console.log('[procesarRecarga] Gemini detectó responsable:',d.responsable,'(crudo)');
       const respCanonico=normalizarResponsableDetectado(d.responsable);
       if(respCanonico){
-        upd.responsable=respCanonico;  // sobreescribe sin importar valor previo
-        console.log('[procesarRecarga] Responsable detectado y aplicado:',respCanonico,'(antes:',t.responsable||'vacío',')');
+        upd.responsable=respCanonico;
+        console.log('[procesarRecarga] ✓ Responsable APLICADO:',respCanonico,'(antes era:',t.responsable||'vacío',')');
       }else{
-        console.log('[procesarRecarga] Gemini devolvió responsable inválido o DESPACHO, no se cambió:',d.responsable);
+        console.log('[procesarRecarga] ⚠ Gemini devolvió "'+d.responsable+'" pero no coincide con DIEGO/ERIKA/MILENA/ANA — no se asigna (puede agregarlo manualmente en Settings si corresponde)');
       }
     }else{
-      console.log('[procesarRecarga] Gemini no detectó responsable en esta carpeta');
+      console.log('[procesarRecarga] ℹ Gemini no devolvió campo responsable en esta carpeta (probable: no hay oficio NotificaSentencia legible)');
     }
     upd.folderName=folderName;upd.filesCount=files.length;
     // v33.16: el folderName recién capturado es la fuente MÁS confiable.
