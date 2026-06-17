@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.21';
+var APP_VERSION='33.22';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3383,6 +3383,15 @@ REGLAS ESTRICTAS:
 - Responde ÚNICAMENTE con el objeto JSON, sin texto antes ni después, sin markdown, sin explicaciones.
 
 JSON a devolver (rellena cada campo desde su fuente autoritativa):
+
+⚠️ RECORDATORIO CRÍTICO ANTES DE GENERAR EL JSON:
+1. El campo "responsable" es OBLIGATORIO. Debes incluirlo SIEMPRE en tu respuesta JSON, aunque sea vacío "".
+2. Para llenarlo, busca AHORA mismo en los archivos cuyo nombre contenga "Notifica" (NotificaAdmisorio, NotificaSentencia, OficioNotificacion). Lee las ÚLTIMAS líneas de esos archivos. Busca patrón "Cordialmente," o "Atentamente," seguido de un nombre en mayúsculas como "DIEGO FERNANDO GUZMÁN LOZANO" o "ERIKA PÉREZ MARTÍNEZ". Devuelve SOLO el primer nombre en MAYÚSCULAS.
+3. Si encuentras "DIEGO FERNANDO GUZMÁN LOZANO" → responsable: "DIEGO"
+4. Si encuentras "ERIKA RODRÍGUEZ" → responsable: "ERIKA"
+5. Si no encuentras nombre claro → responsable: ""
+6. NUNCA omitas el campo responsable del JSON.
+
 {"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","responsable":"","estado":"En término","observaciones":"","esHC":false,"nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
 
   console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
