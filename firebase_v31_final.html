@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.17';
+var APP_VERSION='33.18';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1113,11 +1113,15 @@ function optsResponsables(sel){
 }
 // v33.17: normaliza el responsable detectado por Gemini, agrega al selector si es nuevo.
 // Devuelve el valor canónico (en mayúsculas) o cadena vacía si no es válido.
+// v33.18: DESPACHO NO se auto-asigna (solo lo asigna el usuario manualmente cuando
+// no hay responsable concreto). La auto-detección solo asigna nombres reales de personas.
 function normalizarResponsableDetectado(detectado){
   if(!detectado||typeof detectado!=='string')return '';
   // Extraer solo el primer nombre/palabra alfabética y normalizar
   const primerNombre=String(detectado).trim().split(/\s+/)[0].toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/gi,'');
   if(!primerNombre||primerNombre.length<2)return '';
+  // v33.18: bloquear "DESPACHO" — solo se asigna manualmente
+  if(primerNombre==='DESPACHO')return '';
   const lista=getResponsables();
   // Match case-insensitive contra la lista actual
   const existente=lista.find(r=>r.toUpperCase()===primerNombre);
@@ -3271,13 +3275,27 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
 📌 AUTO DECRETA NULIDAD (archivos "DecretaNulidad", "AvocaNulidad") — si existe, indica:
   • observaciones: agregar "Nulidad decretada el [fecha] por [Juzgado] - causal: [resumen breve]"
 
-📌 RESPONSABLE DEL EXPEDIENTE (archivos "NotificaSentencia", "NotificaAdmisorio", "OficioNotificacion", "001Soporte", o cualquier oficio de notificación firmado) — fuente para:
-  • responsable: nombre de la persona que FIRMA el oficio que notifica el auto admisorio de la tutela. Suele aparecer al final del documento, después de frases como "Atentamente,", "Cordialmente,", o sobre una línea de firma. Patrón típico:
-        "[Nombre Apellido]
-         Oficial Mayor / Secretaria / Sustanciador
-         Juzgado 14 Penal Municipal..."
-    Devuelve SOLO el primer nombre en mayúsculas (ej: "ERIKA", "DIEGO", "MILENA", "ANA"). Si el oficio dice "DESPACHO" o no tienes claro el nombre, devuelve "".
-    Lista actual de responsables conocidos: DIEGO, ERIKA, MILENA, ANA, DESPACHO. Prioriza que el valor coincida con uno de estos. Si detectas un nombre nuevo (ej: "CARLOS"), devuélvelo igual en mayúsculas — el sistema lo agregará al selector.
+📌 RESPONSABLE DEL EXPEDIENTE — CAMPO OBLIGATORIO si hay oficio firmado en la carpeta:
+  Busca en TODOS los archivos cuyo nombre contenga: "NotificaSentencia", "NotificaAdmisorio", "NotificaTutela", "OficioNotificacion", "001Soporte", "Notifica" (cualquier oficio de notificación). También revisa los archivos sin prefijo numérico que parezcan oficios (encabezado "Juzgado 14 Penal Municipal", saludo formal, cuerpo de notificación).
+
+  Busca al FINAL del documento (últimas 10 líneas) el nombre de quien FIRMA. Patrones típicos:
+        "Atentamente,
+         [NOMBRE APELLIDO]
+         Oficial Mayor / Secretaria / Sustanciador / Asistente Judicial"
+
+        "Cordialmente,
+         [NOMBRE APELLIDO]
+         [Cargo]
+         Juzgado 14 Penal Municipal Conocimiento de Ibagué"
+
+  REGLA CRÍTICA: devuelve SOLO el PRIMER NOMBRE en mayúsculas (ej: "ERIKA", "DIEGO", "MILENA", "ANA"). NUNCA devuelvas apellidos.
+
+  Lista actual de responsables válidos: DIEGO, ERIKA, MILENA, ANA. Prioriza match con uno de estos.
+  Si la firma es de una persona nueva (ej: "CARLOS"), devuelve igualmente el primer nombre en mayúsculas y el sistema lo agregará.
+
+  ⚠ NUNCA devuelvas "DESPACHO", "JUZGADO", "SECRETARÍA", "TRIBUNAL" ni nombres genéricos de oficina — esos NO son personas. Si no encuentras un nombre concreto de persona, devuelve "" (cadena vacía).
+
+  Si NO hay oficio firmado en la carpeta o no se ve la firma, devuelve "".
 
 ═══════════════════════════════════════════════════════
 🚨 PASO ESPECIAL — DETECCIÓN AUTOMÁTICA DE NULIDAD(ES):
@@ -3443,10 +3461,19 @@ window.procesarRecarga=async function(inp,id){
     act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
-    // v33.17: aplicar responsable detectado por Gemini (auto-agregar si es nuevo)
+    // v33.18: responsable — Gemini es fuente autoritativa. Si detectó un nombre válido
+    // (no DESPACHO, no vacío), lo asignamos SIEMPRE, incluso reemplazando uno previo.
+    // El usuario puede sobrescribir manualmente después si lo desea.
     if(d.responsable){
       const respCanonico=normalizarResponsableDetectado(d.responsable);
-      if(respCanonico)act('responsable',respCanonico);
+      if(respCanonico){
+        upd.responsable=respCanonico;  // sobreescribe sin importar valor previo
+        console.log('[procesarRecarga] Responsable detectado y aplicado:',respCanonico,'(antes:',t.responsable||'vacío',')');
+      }else{
+        console.log('[procesarRecarga] Gemini devolvió responsable inválido o DESPACHO, no se cambió:',d.responsable);
+      }
+    }else{
+      console.log('[procesarRecarga] Gemini no detectó responsable en esta carpeta');
     }
     upd.folderName=folderName;upd.filesCount=files.length;
     // v33.16: el folderName recién capturado es la fuente MÁS confiable.
