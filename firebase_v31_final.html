@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.22';
+var APP_VERSION='33.24';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3293,15 +3293,27 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
   • fechaReparto: cuándo se radicó/recibió la tutela en el despacho POR PRIMERA VEZ (NO cambia tras nulidades)
 
 📌 SENTENCIA 1ª INSTANCIA (archivos con "Sentencia", "Fallo", "Sentencia1aInst") — fuente para:
-  • fechaFallo: fecha del fallo de primera instancia
-  • sentidoFallo: lee la PARTE RESOLUTIVA (PRIMERO, SEGUNDO, etc.) y clasifica:
-    - Si declara IMPROCEDENTE o niega por improcedencia formal → "Niega — improcedente"
-    - Si niega porque ya se cumplió/superó el hecho → "Niega — hecho superado"
-    - Si declara CARENCIA ACTUAL DE OBJETO → "Declara carencia actual de objeto"
-    - Si CONCEDE/AMPARA/TUTELA todos los derechos → "Concede tutela"
-    - Si concede solo algunos → "Concede parcialmente"
-    - Si el accionante desistió → "Desistimiento"
-    - Si se devuelve por competencia → "Devuelta por competencia"
+  • fechaFallo: fecha del fallo de primera instancia (la del encabezado del documento o la fecha de proferimiento)
+  • sentidoFallo: REGLA ABSOLUTA — NO INTERPRETAR, SOLO LITERAL.
+  
+    ⚠️ Lee la PARTE RESOLUTIVA del fallo (los numerales PRIMERO, SEGUNDO, TERCERO...).
+    SOLO asigna un valor si la frase CLAVE aparece TEXTUALMENTE en alguno de esos numerales.
+    Está PROHIBIDO inferir, deducir o interpretar.
+    
+    Mapeo literal → valor del selector:
+    - Si dice literalmente "CONCEDE PARCIALMENTE" o "TUTELA PARCIALMENTE" o "AMPARA PARCIALMENTE" → "Concede parcialmente"
+    - Si NO aparece la palabra "PARCIAL" pero dice "TUTELAR", "AMPARAR", "CONCEDER el amparo", "CONCEDER la tutela" sin restricción → "Concede tutela"
+    - Si dice "NIEGA", "DENIEGA" o "NO TUTELA" sin más → "Niega — improcedente"
+    - Si dice "IMPROCEDENTE" o "DECLARA IMPROCEDENTE" → "Niega — improcedente"
+    - Si dice "HECHO SUPERADO" → "Niega — hecho superado"
+    - Si dice "CARENCIA ACTUAL DE OBJETO" → "Declara carencia actual de objeto"
+    - Si dice "DESISTIMIENTO" o "ACEPTAR EL DESISTIMIENTO" → "Desistimiento"
+    - Si dice "DEVOLVER POR COMPETENCIA" o "FALTA DE COMPETENCIA" → "Devuelta por competencia"
+    
+    ❌ PROHIBIDO: si el fallo CONCEDE algunos numerales y NIEGA otros pero NO dice literal "PARCIAL", devuelve "Concede tutela" o "" (vacío) según corresponda — NUNCA "Concede parcialmente" sin la palabra parcial textual.
+    ❌ PROHIBIDO: si no encuentras ninguna de las frases anteriores literalmente, devuelve "" (cadena vacía). Es preferible vacío que inventado.
+    
+    Esto es CRÍTICO: el sistema judicial requiere exactitud textual. Una clasificación inventada puede llevar a errores procesales.
 
 📌 IMPUGNACIÓN — fuente para fechaImpugnacion. PUEDE provenir de TRES tipos de archivos (revisa los tres):
   (a) MEMORIAL DEL ACCIONANTE (archivo con nombre "Impugnacion[fecha]", "Impugnación", "RecursoImpugnacion") — el escrito mismo. Contiene frases como "interpongo el recurso de impugnación", "impugno la sentencia", "presento impugnación contra el fallo". La fechaImpugnacion = fecha del escrito.
@@ -3397,8 +3409,88 @@ JSON a devolver (rellena cada campo desde su fuente autoritativa):
   console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
   const parsed=await _llamarGemini(apiKey,prompt,false);
   console.log('[Extracción] Gemini respondió:',parsed);
-  window._ultimaExtraccion={folder:folderName,pdfs:docsSelectos.length,pdfsTotal:docs.length,docx:docxToUse.length,pdfDiag,pdfTxtLen:pdfTxt.length,wTxtLen:wTxt.length,parsed};
+  // v33.24: guardar TODOS los textos extraídos (no solo NOTIFICACIÓN) — el regex
+  // del responsable buscará firma en cualquier oficio del juzgado.
+  const todosLosTextos=docs.map(d=>({nombre:d.nombre,texto:d.texto,tipo:d.tipo}));
+  window._ultimaExtraccion={folder:folderName,pdfs:docsSelectos.length,pdfsTotal:docs.length,docx:docxToUse.length,pdfDiag,pdfTxtLen:pdfTxt.length,wTxtLen:wTxt.length,parsed,todosLosTextos};
+  // v33.24: VALIDACIÓN ANTI-ALUCINACIÓN del sentido del fallo
+  // Si Gemini devuelve "Concede parcialmente" pero ningún texto contiene la palabra
+  // "parcial", lo descartamos (es invento). Misma lógica para otros valores.
+  if(parsed.sentidoFallo){
+    const sentidoLower=String(parsed.sentidoFallo).toLowerCase();
+    const todoElTexto=todosLosTextos.map(t=>String(t.texto||'').toLowerCase()).join(' ');
+    const validacion=[
+      {valor:'parcial',palabraRequerida:'parcial'},  // "Concede parcialmente" requiere palabra "parcial"
+      {valor:'hecho superado',palabraRequerida:'hecho superado'},
+      {valor:'carencia',palabraRequerida:'carencia'},
+      {valor:'desistimiento',palabraRequerida:'desist'},
+      {valor:'competencia',palabraRequerida:'competencia'},
+    ];
+    for(const v of validacion){
+      if(sentidoLower.includes(v.valor)&&!todoElTexto.includes(v.palabraRequerida)){
+        console.log('[Anti-alucinación] Gemini devolvió "'+parsed.sentidoFallo+'" pero la palabra "'+v.palabraRequerida+'" NO aparece en los textos extraídos. Se descarta para evitar invento.');
+        parsed.sentidoFallo='';
+        break;
+      }
+    }
+  }
+  // v33.24: SIEMPRE ejecutar fallback regex para responsable
+  const respFallback=detectarResponsablePorRegex(todosLosTextos);
+  if(respFallback){
+    if(parsed.responsable&&parsed.responsable!==respFallback){
+      console.log('[Fallback regex] Gemini dijo "'+parsed.responsable+'" pero el texto dice "'+respFallback+'" — uso el regex (más confiable)');
+    }else{
+      console.log('[Fallback regex] Responsable detectado por regex:',respFallback);
+    }
+    parsed.responsable=respFallback;
+  }else if(!parsed.responsable){
+    console.log('[Fallback regex] No se detectó responsable ni por Gemini ni por regex — quedará vacío');
+  }
   return{...fb,...parsed};
+}
+// v33.23: detector de responsable por regex como fallback cuando Gemini falla.
+// Busca patrones de firma "Cordialmente/Atentamente, [NOMBRE]" en los textos
+// extraídos de archivos NOTIFICACIÓN. Solo devuelve match con la lista válida.
+function detectarResponsablePorRegex(textosNotificacion){
+  if(!textosNotificacion||!textosNotificacion.length)return '';
+  const validos=['DIEGO','ERIKA','MILENA','ANA'];
+  for(const arch of textosNotificacion){
+    const txt=String(arch.texto||'');
+    if(!txt)continue;
+    // Estrategia 1: buscar patrón "Cordialmente,\n[NOMBRE]" o "Atentamente,\n[NOMBRE]" (insensitive)
+    const patrones=[
+      /(?:cordialmente|atentamente|respetuosamente|proyect[oó]:?|elabor[oó]:?)\s*[,.\n\r]+\s*([A-ZÁÉÍÓÚÑa-záéíóúñ]+)/g,
+      // Estrategia 2: buscar firma común al final con cargo "Secretario/Oficial/Sustanciador"
+      /([A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ\s]{3,40})\s*\n?\s*(?:secretario|oficial mayor|sustanciador|asistente judicial|escribiente)/gi,
+    ];
+    for(const re of patrones){
+      let m;
+      while((m=re.exec(txt))!==null){
+        // El nombre puede ser "DIEGO" o "DIEGO FERNANDO GUZMAN" - tomar el primer nombre
+        const primerNombre=String(m[1]||'').trim().split(/\s+/)[0].toUpperCase().replace(/[^A-ZÁÉÍÓÚÑ]/gi,'');
+        if(validos.includes(primerNombre)){
+          console.log('[Fallback regex] Match encontrado en "'+arch.nombre+'": "'+m[0].substring(0,80)+'..." → '+primerNombre);
+          return primerNombre;
+        }
+      }
+    }
+    // Estrategia 3: búsqueda directa de cada nombre válido seguido de apellido común
+    for(const valido of validos){
+      // Buscar el nombre seguido de palabras que parecen apellido (en mayúsculas)
+      const re=new RegExp('\\b'+valido+'\\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]+\\s+[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]+','i');
+      if(re.test(txt)){
+        // Verificar contexto: que NO sea el accionante (debería estar al inicio del doc, no al final)
+        const idx=txt.search(re);
+        const longTxt=txt.length;
+        // Si aparece en el último 40% del documento, es probable que sea la firma
+        if(idx>longTxt*0.5){
+          console.log('[Fallback regex] Nombre "'+valido+'" encontrado al final de "'+arch.nombre+'"');
+          return valido;
+        }
+      }
+    }
+  }
+  return '';
 }
 
 
