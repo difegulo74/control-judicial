@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.29';
+var APP_VERSION='33.32';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1316,8 +1316,11 @@ function actualizarBanner(){
   const ndAct=dA().filter(hasNulActiva);
   const totNul=conNul.length+ndAct.length;
   // === CASILLA 2: IMPUGNACIONES POR ENVIAR AL REPARTO ===
-  // Criterio: hay impugnación presentada, NO hay reparto 2ª aún
-  const impPend=arr.filter(t=>t.fechaImpugnacion&&!t.fechaReparto2i&&t.fechaFallo);
+  // v33.31: también incluir tutelas donde observaciones menciona impugnación pero fechaImpugnacion está vacío
+  // v33.31: aceptar estado=Fallada como proxy de fechaFallo cuando este campo está vacío
+  const tieneImpugnacion=t=>t.fechaImpugnacion||(t.observaciones&&/impugn/i.test(t.observaciones)&&!t.juzgado2i);
+  const tieneFallo=t=>t.fechaFallo||(t.estado==='Fallada'||t.estado==='fallada');
+  const impPend=arr.filter(t=>tieneImpugnacion(t)&&!t.fechaReparto2i&&tieneFallo(t));
   // ── Llenar casilla nulidades ──
   const boxNul=document.getElementById('alert-nul');
   if(totNul>0){
@@ -1342,9 +1345,12 @@ function actualizarBanner(){
     const items=impPend.map(t=>{
       const tc=termT(t);const dv=diff(tc.limImpugnacion);
       const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=2?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
+      // v33.30: si fechaImpugnacion está vacío, extraer fecha de observaciones o mostrar nota
+      const fechaImpugMostrar=t.fechaImpugnacion||'(ver observaciones)';
+      const notaObs=!t.fechaImpugnacion?'<span style="color:#c2410c;font-size:9px"> ⚠ Registra fechaImpugnacion en el formulario</span>':'';
       return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
         <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
-        <br><span style="color:#64748b">Impug.: ${fmt(t.fechaImpugnacion)} · Lím. envío reparto: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.limImpugnacion)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
+        <br><span style="color:#64748b">Impug.: ${fechaImpugMostrar}${notaObs} · Lím. envío reparto: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.limImpugnacion)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
       </div>`;
     }).join('');
     document.getElementById('alert-imp-list').innerHTML=items||'<i>—</i>';
@@ -1595,6 +1601,18 @@ async function guardarT(){
   if(window._pendingFolder){
     t.folderName=window._pendingFolder.folderName;
     t.filesCount=window._pendingFolder.filesCount;
+    // v33.30: aplicar TODOS los datos que Gemini extrajo (incluye decisorio: fallo, impugnación, etc.)
+    const gd=window._pendingFolder.geminiData||{};
+    const camposDecisorio=['fechaFallo','sentidoFallo','fechaImpugnacion','juzgado2i','fallo2i',
+      'fechaReparto2i','fechaFallo2i','fechaRemCC','fechaRegresoCC','estado','observaciones'];
+    camposDecisorio.forEach(campo=>{
+      if(gd[campo]&&!t[campo])t[campo]=gd[campo];
+    });
+    // Aplicar estado si Gemini lo detectó
+    if(gd.estado&&gd.estado!=='En término'){
+      const selEst=document.getElementById('f-est');
+      if(selEst){const o=[...selEst.options].find(o=>o.text===gd.estado);if(o)t.estado=gd.estado;}
+    }
     // v33.16: link OneDrive desde el folderName EXACTO capturado (tipo tutela)
     if(!t.enlace&&t.folderName){
       const auto=buildOneDriveURL(t.folderName,'t');
@@ -2180,6 +2198,8 @@ async function updD(id,campo,val){
 // ELIMINAR (solo admin)
 // ═══════════════════════════════════════════════════════
 function pedirAdmin(cb){
+  // v33.30: si ya está autenticado como admin, ejecutar directo sin pedir contraseña de nuevo
+  if(isAdmin){cb();return;}
   secCb=cb;
   document.getElementById('sec-pwd').value='';
   document.getElementById('sec-err').textContent='';
@@ -3691,7 +3711,7 @@ window.procesarCarpeta=async function(inp){
     }
     if(document.getElementById('f-hc'))document.getElementById('f-hc').checked=!!d.esHC;
     if(d.fechaAdmision&&typeof pvT==='function')pvT();
-    window._pendingFolder={folderName,filesCount:files.length};
+    window._pendingFolder={folderName,filesCount:files.length,geminiData:d};
 
     // ═══ v33.11: DETECCIÓN AUTOMÁTICA DE NULIDAD(ES) ═══
     // Sin confirmaciones. Si hay N nulidades, se aplican TODAS al guardar.
