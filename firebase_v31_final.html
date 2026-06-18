@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.27';
+var APP_VERSION='33.28';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3489,9 +3489,72 @@ JSON a devolver (rellena cada campo desde su fuente autoritativa):
 
 {"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","responsable":"","estado":"En término","observaciones":"","esHC":false,"nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
 
-  console.log('[Extracción] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
-  const parsed=await _llamarGemini(apiKey,prompt,false);
-  console.log('[Extracción] Gemini respondió:',parsed);
+  console.log('[Extracción] Enviando 2 prompts paralelos a Gemini, tamaño total:',prompt.length,'chars');
+
+  // v33.28: dividir en 2 llamadas paralelas para garantizar 100% de datos en 1 solo paso.
+  // Llamada A: identificación (quién, qué, cuándo se radicó)
+  // Llamada B: decisorio (fallo, impugnación, Corte, responsable, nulidades)
+  const promptBase=`Eres un asistente experto en derecho constitucional colombiano (acciones de tutela, Decreto 2591/91). A continuación tienes el TEXTO COMPLETO de los documentos de una tutela del Juzgado 14 Penal Municipal de Ibagué año ${anio}.\n\nCarpeta: "${folderName}"\nRadicado tomado del nombre de carpeta: "${rH}"\nAccionante tomado del nombre de carpeta: "${aH}"\n\n📁 LISTA COMPLETA DE ARCHIVOS:\n${listaArchivos}\n\n📄 TEXTOS EXTRAÍDOS:\n${pdfTxt}\n\n${wTxt?'📝 DOCUMENTO WORD:\n'+wTxt+'\n\n':''}`;
+
+  const promptA=promptBase+`TAREA A — IDENTIFICACIÓN DEL EXPEDIENTE
+Extrae SOLO los siguientes campos del expediente. Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código.
+
+Campos a extraer:
+- radicacion: número completo del radicado (ya conocido: "${rH}")
+- accionante: nombre completo del accionante/agenciado (ya conocido: "${aH}")
+- cedula: número de cédula del accionante
+- accionado: entidad(es) accionada(s) con NIT si aparece
+- vinculados: terceros vinculados al proceso
+- derechoSierju: derecho principal SIERJU (Salud, Debido Proceso, Petición, Vivienda, Trabajo, Educación, Seguridad Social, Mínimo Vital y Protección, Otro)
+- derechos: descripción de los derechos invocados
+- medida: medida provisional (exactamente: "Sin medida previa", "Con medida previa" o "Con medida previa cumplida")
+- pretensiones: texto de las pretensiones del accionante
+- fechaReparto: fecha de reparto en formato YYYY-MM-DD
+- fechaAdmision: fecha de admisión en formato YYYY-MM-DD
+- esHC: true si es Hábeas Corpus, false si es tutela ordinaria
+- estado: estado procesal actual ("En término", "Fallada", "En Corte Constitucional", "Vencida", "Próxima")
+
+Responde SOLO con este JSON (sin explicaciones):
+{"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","esHC":false,"estado":"En término"}`;
+
+  const promptB=promptBase+`TAREA B — DECISORIO Y CONTROL DEL EXPEDIENTE
+Extrae SOLO los siguientes campos del expediente. Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código.
+
+⚠️ RECORDATORIO CRÍTICO ANTES DE GENERAR EL JSON:
+1. El campo "responsable" es OBLIGATORIO — inclúyelo siempre aunque sea vacío "".
+2. Busca al FINAL de archivos "Notifica..." las últimas líneas. Patrón: "Cordialmente," o "Atentamente," + nombre en mayúsculas + cargo (Secretario, Oficial Mayor). Devuelve SOLO el primer nombre en MAYÚSCULAS (ej: "DIEGO", "ERIKA"). Si no encuentras → "".
+3. sentidoFallo: SOLO LITERAL desde la PARTE RESOLUTIVA. Si dice "CONCEDE PARCIALMENTE" → "Concede parcialmente". Si NO aparece la palabra "PARCIAL" → NUNCA devuelvas "Concede parcialmente". Preferible "" que inventado.
+
+Campos a extraer:
+- fechaFallo: fecha del fallo 1ª instancia en formato YYYY-MM-DD
+- sentidoFallo: exactamente uno de: "Concede tutela", "Concede parcialmente", "Niega — improcedente", "Niega — hecho superado", "Declara carencia actual de objeto", "Desistimiento", "Devuelta por competencia", o "" si no hay fallo aún
+- fechaImpugnacion: fecha de impugnación en formato YYYY-MM-DD
+- juzgado2i: nombre del juzgado de 2ª instancia
+- fallo2i: fallo de 2ª instancia (texto libre)
+- fechaReparto2i: fecha de reparto en 2ª instancia YYYY-MM-DD
+- fechaFallo2i: fecha del fallo de 2ª instancia YYYY-MM-DD
+- fechaRemCC: fecha de remisión a Corte Constitucional YYYY-MM-DD
+- fechaRegresoCC: fecha de regreso de Corte Constitucional YYYY-MM-DD
+- responsable: primer nombre en MAYÚSCULAS de quien firma los oficios del juzgado (ver instrucción arriba)
+- observaciones: observaciones relevantes del expediente
+- nulidadDetectada: true si hay auto que decreta nulidad, false en caso contrario
+- ciclosAnulados: array de radicados/fechas de actuaciones anuladas
+- nulidades: array de descripciones de nulidades
+
+Responde SOLO con este JSON (sin explicaciones):
+{"fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","responsable":"","observaciones":"","nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
+
+  // Ejecutar ambas llamadas en paralelo
+  const [parsedA, parsedB] = await Promise.all([
+    _llamarGemini(apiKey, promptA, false),
+    _llamarGemini(apiKey, promptB, false)
+  ]);
+  console.log('[Extracción] Gemini A respondió:', parsedA);
+  console.log('[Extracción] Gemini B respondió:', parsedB);
+
+  // Fusionar resultados (B tiene prioridad sobre A en campos compartidos)
+  const parsed = {...parsedA, ...parsedB};
+  console.log('[Extracción] Resultado fusionado:', parsed);
   // v33.24: guardar TODOS los textos extraídos (no solo NOTIFICACIÓN) — el regex
   // del responsable buscará firma en cualquier oficio del juzgado.
   const todosLosTextos=docs.map(d=>({nombre:d.nombre,texto:d.texto,tipo:d.tipo}));
