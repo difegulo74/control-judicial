@@ -519,7 +519,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
 <!-- MODALES -->
 <div class="mbg" id="mf"><div class="modal" id="mfi"></div></div>
 <div class="mbg" id="md2"><div class="modal" id="mdi"></div></div>
-<div class="mbg" id="msec">
+<div class="mbg" id="msec" style="z-index:99999">
   <div class="modal" style="max-width:340px">
     <div class="mhdr">
       <div class="mico nu">🔒</div>
@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.28';
+var APP_VERSION='33.29';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1039,8 +1039,7 @@ function cargarJSON(e){
 }
 
 var secCb=null;
-function pedirAdmin(cb){secCb=cb;document.getElementById('sec-pwd').value='';document.getElementById('sec-err').textContent='';document.getElementById('msec').classList.add('o');}
-function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb=null;}
+// pedirAdmin y cerrarSec definidas más abajo (sección ELIMINAR)
 function cerrarCfg(){document.getElementById('mcfg').classList.remove('o');}
 function guardarCfg(){
   const u=document.getElementById('cfg-u').value,a=document.getElementById('cfg-a').value,a2=document.getElementById('cfg-a2').value;
