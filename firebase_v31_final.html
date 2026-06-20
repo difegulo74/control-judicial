@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.32';
+var APP_VERSION='33.33';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -2211,71 +2211,81 @@ function verifySec(){
   else{document.getElementById('sec-err').textContent='Contraseña incorrecta';document.getElementById('sec-pwd').value='';}
 }
 function cerrarSec(){document.getElementById('msec').classList.remove('o');secCb=null;}
+// v33.33: modal de confirmación propio (reemplaza confirm() que Chrome bloquea silenciosamente)
+function confirmarEliminar(msg, onSi){
+  const mid='modal-confirm-elim';
+  document.getElementById(mid)?.remove();
+  const el=document.createElement('div');
+  el.id=mid;
+  el.style.cssText='position:fixed;inset:0;background:rgba(10,18,35,.7);z-index:999999;display:flex;align-items:center;justify-content:center;padding:20px';
+  el.innerHTML=`<div style="background:var(--bg);border-radius:10px;padding:24px;max-width:380px;width:100%;box-shadow:0 8px 32px rgba(0,0,0,.3)">
+    <div style="font-size:15px;font-weight:700;color:var(--t);margin-bottom:8px">⚠️ Confirmar eliminación</div>
+    <div style="font-size:13px;color:var(--t2);margin-bottom:20px;line-height:1.5">${msg}</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button onclick="document.getElementById('${mid}').remove()" style="padding:8px 18px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);cursor:pointer;font-size:13px">Cancelar</button>
+      <button id="btn-confirm-elim" style="padding:8px 18px;border:none;border-radius:6px;background:#dc2626;color:#fff;cursor:pointer;font-size:13px;font-weight:700">🗑 Eliminar definitivamente</button>
+    </div>
+  </div>`;
+  document.body.appendChild(el);
+  document.getElementById('btn-confirm-elim').onclick=()=>{el.remove();onSi();};
+}
 function confElimT(id){
-  pedirAdmin(async()=>{
-    if(!confirm('¿ELIMINAR definitivamente esta radicación? No se puede deshacer.'))return;
-    if(!fbDb){alert('⚠ Firebase no está conectado. Recarga con Ctrl+F5.');return;}
-    const col=`tutelas_${anio}`;
-    setSS('s','Eliminando...');
-    try{
-      // v33.12: agregar a lista negra ANTES de eliminar para que el listener
-      // no rescate el registro desde PRELOADED_DB.
-      const sid=String(id);
-      const del=JSON.parse(localStorage.getItem('cj_deleted_t')||'[]');
-      if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_t',JSON.stringify(del));}
-      await fbDb.collection(col).doc(sid).delete();
-      // v33.11: VERIFICACIÓN post-eliminación
-      const check=await fbDb.collection(col).doc(sid).get();
-      if(check&&check.exists){
-        alert('⚠ La eliminación NO se verificó.\n\nLa tutela sigue en Firebase. Posibles causas:\n• Permisos insuficientes en las reglas Firestore\n• El registro tiene un ID distinto al esperado\n\nIntenta de nuevo o revisa la consola (F12).');
-        setSS('e','No verificada');
-        return;
+  pedirAdmin(()=>{
+    confirmarEliminar('¿Eliminar definitivamente la tutela <b>'+id+'</b>?<br><br>Esta acción <b>NO se puede deshacer</b>.', async()=>{
+      if(!fbDb){alert('⚠ Firebase no conectado. Recarga con Ctrl+F5.');return;}
+      const col=`tutelas_${anio}`;
+      setSS('s','Eliminando...');
+      try{
+        const sid=String(id);
+        const del=JSON.parse(localStorage.getItem('cj_deleted_t')||'[]');
+        if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_t',JSON.stringify(del));}
+        await fbDb.collection(col).doc(sid).delete();
+        const check=await fbDb.collection(col).doc(sid).get();
+        if(check&&check.exists){
+          alert('⚠ La eliminación NO se verificó.\n\nPosible causa: permisos insuficientes en Firestore.\nRevisa las reglas de la base de datos.');
+          setSS('e','No verificada');return;
+        }
+        Object.keys(localDB.tutelas).forEach(yr=>{localDB.tutelas[yr]=(localDB.tutelas[yr]||[]).filter(t=>String(t.id)!==sid);});
+        setSS('ok','✓ Eliminada');rT();
+        cerrar2&&cerrar2();
+        alert('✓ Tutela eliminada correctamente.');
+      }catch(e){
+        console.error('confElimT ERROR:',e);
+        let hint='';
+        if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 Las reglas de Firestore bloquean la eliminación. Contacta al administrador.';
+        else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 Sin conexión. Intenta de nuevo.';
+        alert('⚠ ERROR al eliminar:\n'+e.message+hint);
+        setSS('e','Error');
       }
-      // También limpiar del array local por si el listener no se actualiza inmediatamente
-      Object.keys(localDB.tutelas).forEach(yr=>{
-        localDB.tutelas[yr]=(localDB.tutelas[yr]||[]).filter(t=>String(t.id)!==sid);
-      });
-      setSS('ok','✓ Eliminada y verificada');
-      rT();
-      alert('✓ Tutela eliminada y VERIFICADA en Firebase.');
-    }catch(e){
-      console.error('confElimT ERROR:',e);
-      let hint='';
-      if(/permission|insufficient/i.test(e.message))hint='\n\n🔧 Las reglas de Firestore bloquean la eliminación.';
-      else if(/network|unavailable|offline/i.test(e.message))hint='\n\n🔧 Problema de red.';
-      alert('⚠ ERROR al eliminar:\n'+e.message+hint);
-      setSS('e','Error');
-    }
+    });
   });
 }
 function confElimD(id){
-  pedirAdmin(async()=>{
-    if(!confirm('¿ELIMINAR definitivamente este incidente? No se puede deshacer.'))return;
-    if(!fbDb){alert('⚠ Firebase no está conectado. Recarga con Ctrl+F5.');return;}
-    const col=`desacatos_${anio}`;
-    setSS('s','Eliminando...');
-    try{
-      const sid=String(id);
-      const del=JSON.parse(localStorage.getItem('cj_deleted_d')||'[]');
-      if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_d',JSON.stringify(del));}
-      await fbDb.collection(col).doc(sid).delete();
-      const check=await fbDb.collection(col).doc(sid).get();
-      if(check&&check.exists){
-        alert('⚠ La eliminación NO se verificó. El desacato sigue en Firebase.');
-        setSS('e','No verificada');
-        return;
+  pedirAdmin(()=>{
+    confirmarEliminar('¿Eliminar definitivamente el desacato <b>'+id+'</b>?<br><br>Esta acción <b>NO se puede deshacer</b>.', async()=>{
+      if(!fbDb){alert('⚠ Firebase no conectado. Recarga con Ctrl+F5.');return;}
+      const col=`desacatos_${anio}`;
+      setSS('s','Eliminando...');
+      try{
+        const sid=String(id);
+        const del=JSON.parse(localStorage.getItem('cj_deleted_d')||'[]');
+        if(!del.includes(sid)){del.push(sid);localStorage.setItem('cj_deleted_d',JSON.stringify(del));}
+        await fbDb.collection(col).doc(sid).delete();
+        const check=await fbDb.collection(col).doc(sid).get();
+        if(check&&check.exists){
+          alert('⚠ La eliminación NO se verificó.\n\nPosible causa: permisos insuficientes en Firestore.');
+          setSS('e','No verificada');return;
+        }
+        Object.keys(localDB.desacatos).forEach(yr=>{localDB.desacatos[yr]=(localDB.desacatos[yr]||[]).filter(d=>String(d.id)!==sid);});
+        setSS('ok','✓ Eliminada');rD();
+        cerrar2&&cerrar2();
+        alert('✓ Desacato eliminado correctamente.');
+      }catch(e){
+        console.error('confElimD ERROR:',e);
+        alert('⚠ ERROR al eliminar:\n'+e.message);
+        setSS('e','Error');
       }
-      Object.keys(localDB.desacatos).forEach(yr=>{
-        localDB.desacatos[yr]=(localDB.desacatos[yr]||[]).filter(d=>String(d.id)!==sid);
-      });
-      setSS('ok','✓ Eliminada y verificada');
-      rD();
-      alert('✓ Desacato eliminado y VERIFICADO en Firebase.');
-    }catch(e){
-      console.error('confElimD ERROR:',e);
-      alert('⚠ ERROR al eliminar:\n'+e.message);
-      setSS('e','Error');
-    }
+    });
   });
 }
 
