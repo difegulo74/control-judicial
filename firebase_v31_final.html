@@ -501,15 +501,11 @@ tr.has-nul td{background:var(--nu-bg)!important}
 <div id="pc" class="panel">
   <div class="cal-hdr">
     <span style="font-size:13px;font-weight:700;color:var(--n2)">Calendario Judicial</span>
-    <div class="cal-view-toggle" style="display:inline-flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;margin-left:6px">
-      <button id="cal-vm" class="cal-vb act" onclick="setCalView('m')" style="background:#dc2626;color:#fff;border:none;font-size:11px;padding:4px 10px;cursor:pointer;font-weight:700">📅 Mes</button>
-      <button id="cal-va" class="cal-vb" onclick="setCalView('a')" style="background:#fff;color:#1f2937;border:none;font-size:11px;padding:4px 10px;cursor:pointer">🗓 Año</button>
-    </div>
     <div id="cal-nav-mes" style="display:inline-flex;align-items:center;gap:4px;margin-left:6px">
-      <button onclick="navMes(-1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700;color:#dc2626">‹</button>
-      <span id="cal-mes-lbl" style="font-size:13px;font-weight:700;color:#dc2626;min-width:120px;text-align:center"></span>
-      <button onclick="navMes(1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700;color:#dc2626">›</button>
-      <button onclick="navHoy()" style="border:1px solid #cbd5e1;background:#fef3c7;border-radius:6px;font-size:10px;padding:4px 8px;cursor:pointer;font-weight:700;color:#92400e">Hoy</button>
+      <button onclick="navMes(-1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700;color:#dc2626">‹</button>
+      <span id="cal-mes-lbl" style="font-size:13px;font-weight:700;color:#dc2626;min-width:130px;text-align:center"></span>
+      <button onclick="navMes(1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:30px;height:30px;cursor:pointer;font-size:16px;font-weight:700;color:#dc2626">›</button>
+      <button onclick="navHoy()" style="border:1px solid #cbd5e1;background:#fef3c7;border-radius:6px;font-size:10px;padding:4px 10px;cursor:pointer;font-weight:700;color:#92400e">Hoy</button>
     </div>
     <select id="cal-sel" class="cal-yr-sel" onchange="rCal()"></select>
     <button class="btn btn-sm" onclick="abrirEvento()" style="background:var(--gr);color:#fff;border-color:var(--gr)">+ Agregar evento</button>
@@ -838,7 +834,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.40';
+var APP_VERSION='33.41';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -2973,8 +2969,8 @@ function editarEvento(idx, iso){
   },150);
 }
 
-// v33.39: estado del calendario — vista (mes/año) y mes actual visible
-var _calView=localStorage.getItem('cj_cal_view')||'m';
+// v33.41: una sola vista del calendario (mensual grande estilo Calendario Colombia).
+// Antes había toggle entre vista mensual y anual; se eliminó porque Diego prefirió solo la grande.
 var _calMes=(new Date()).getMonth(); // 0-11
 
 // v33.39: dibuja la vista mensual grande tipo "Calendario Colombia"
@@ -3065,24 +3061,6 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
   grid.appendChild(wrap);
 }
 
-function setCalView(v){
-  _calView=v;
-  localStorage.setItem('cj_cal_view',v);
-  // Actualizar botones
-  const bm=document.getElementById('cal-vm'),ba=document.getElementById('cal-va');
-  if(bm&&ba){
-    bm.classList.toggle('act',v==='m');
-    ba.classList.toggle('act',v==='a');
-    bm.style.background=v==='m'?'#dc2626':'#fff';
-    bm.style.color=v==='m'?'#fff':'#1f2937';
-    ba.style.background=v==='a'?'#dc2626':'#fff';
-    ba.style.color=v==='a'?'#fff':'#1f2937';
-  }
-  // Mostrar/ocultar navegación de mes
-  const nm=document.getElementById('cal-nav-mes');
-  if(nm)nm.style.display=v==='m'?'inline-flex':'none';
-  rCal();
-}
 function navMes(delta){
   _calMes+=delta;
   const sel=document.getElementById('cal-sel');
@@ -3173,22 +3151,10 @@ function rCal(){
   // v33.39: actualizar etiqueta de mes/año y visibilidad de navegación
   const lblMes=document.getElementById('cal-mes-lbl');
   if(lblMes)lblMes.textContent=meses[_calMes]+' '+y;
-  const nm=document.getElementById('cal-nav-mes');
-  if(nm)nm.style.display=_calView==='m'?'inline-flex':'none';
-  // Sincronizar estado visual de botones (por si la primera renderización fue antes de setCalView)
-  const bm=document.getElementById('cal-vm'),ba=document.getElementById('cal-va');
-  if(bm&&ba){
-    bm.style.background=_calView==='m'?'#dc2626':'#fff';
-    bm.style.color=_calView==='m'?'#fff':'#1f2937';
-    ba.style.background=_calView==='a'?'#dc2626':'#fff';
-    ba.style.color=_calView==='a'?'#fff':'#1f2937';
-  }
-  // ─── VISTA MENSUAL GRANDE (estilo Calendario Colombia) ───
-  if(_calView==='m'){
-    _renderCalMensual(grid,y,_calMes,evMap,todayISO,meses);
-    return;
-  }
-  // ─── VISTA ANUAL (12 mini-meses) ───
+  // v33.41: una sola vista (mensual grande estilo Calendario Colombia).
+  _renderCalMensual(grid,y,_calMes,evMap,todayISO,meses);
+  return;
+  // (código de vista anual mantenido inerte por si en el futuro se quiere reactivar)
   for(let m=0;m<12;m++){
     const div=document.createElement('div');div.className='cal-month';
     const hdr=document.createElement('div');hdr.className='cal-mhdr';hdr.textContent=`${meses[m]} ${y}`;div.appendChild(hdr);
