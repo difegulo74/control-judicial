@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.33';
+var APP_VERSION='33.34';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1535,7 +1535,7 @@ function aFT(){
         </select>
       </div>
       <div class="fi"><label>Estado</label>
-        <select id="f-est"><option>En término</option><option>Pendiente admisión</option></select>
+        <select id="f-est"><option>En término</option><option>Fallada</option><option>Impugnada</option><option>En Corte Constitucional</option><option>Archivada</option><option>Devuelta por competencia</option><option>Desistimiento</option><option>Pendiente admisión</option></select>
       </div>
       <div class="fi full"><label>Enlace carpeta OneDrive / SharePoint</label><input id="f-l" placeholder="https://..."></div>
       <div class="fi full"><label>Observaciones</label><textarea id="f-o" placeholder="Notas relevantes del expediente"></textarea></div>
@@ -3536,12 +3536,12 @@ Campos a extraer:
 - vinculados: terceros vinculados al proceso
 - derechoSierju: derecho principal SIERJU (Salud, Debido Proceso, Petición, Vivienda, Trabajo, Educación, Seguridad Social, Mínimo Vital y Protección, Otro)
 - derechos: descripción de los derechos invocados
-- medida: medida provisional (exactamente: "Sin medida previa", "Con medida previa" o "Con medida previa cumplida")
+- medida: medida provisional — EXACTAMENTE uno de estos valores literales: "Sin medida previa", "Con medida — concede", "Con medida — niega", "Medida previa — salud", "Medida previa — suministro medicamento", "Medida previa — habeas corpus", "Medida previa — otra"
 - pretensiones: texto de las pretensiones del accionante
 - fechaReparto: fecha de reparto en formato YYYY-MM-DD
 - fechaAdmision: fecha de admisión en formato YYYY-MM-DD
 - esHC: true si es Hábeas Corpus, false si es tutela ordinaria
-- estado: estado procesal actual ("En término", "Fallada", "En Corte Constitucional", "Vencida", "Próxima")
+- estado: estado procesal actual — EXACTAMENTE uno de estos valores literales: "En término", "Fallada", "Impugnada", "En Corte Constitucional", "Archivada", "Devuelta por competencia", "Desistimiento". (NO uses "Vencida" ni "Próxima" — esos son calculados automáticamente por el sistema según fechas, no se capturan manualmente). Si hay impugnación presentada y aún no hay fallo de 2ª instancia → "Impugnada". Si hay fallo de 1ª instancia y NO hay impugnación ni fallo de 2ª → "Fallada".
 
 Responde SOLO con este JSON (sin explicaciones):
 {"radicacion":"${rH}","accionante":"${aH}","cedula":"","accionado":"","vinculados":"","derechoSierju":"","derechos":"","medida":"Sin medida previa","pretensiones":"","fechaReparto":"","fechaAdmision":"","esHC":false,"estado":"En término"}`;
@@ -3706,7 +3706,7 @@ window.procesarCarpeta=async function(inp){
     set('f-p',d.pretensiones);set('f-rp',d.fechaReparto);set('f-adm',d.fechaAdmision);
     set('f-l',(d.enlace&&/^https?:\/\//i.test(d.enlace))?d.enlace:'');set('f-o',d.observaciones);
     setSelect('f-ds',d.derechoSierju);
-    if(d.medida){const fm=document.getElementById('f-m');if(fm){const o=[...fm.options].find(o=>o.text.toLowerCase().includes((d.medida||'').toLowerCase().slice(0,6)));if(o)fm.value=o.value;}}
+    if(d.medida){const fm=document.getElementById('f-m');if(fm){let o=[...fm.options].find(o=>o.text===d.medida);if(!o)o=[...fm.options].find(o=>o.text.toLowerCase().includes((d.medida||'').toLowerCase().slice(0,6)));if(o)fm.value=o.value;}}
     if(d.estado){const fe=document.getElementById('f-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
     // v33.17: aplicar responsable detectado por Gemini al selector del formulario nuevo
     if(d.responsable){
