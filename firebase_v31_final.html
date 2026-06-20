@@ -664,17 +664,20 @@ function getAlertaDiasTutela(t){return getAlertaDias(t);}
 function termT(t){
   const base=t.ultimaNulidad||t.fechaAdmision;
   if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:'',ejecutoria:'',limImpugnacion:''};
-  // v33.13: vencimiento (día 10) y día N de alerta cuentan la admisión como día 1.
-  const vce=addHabIncl(base,10);              // día 10 hábil = vencimiento TEÓRICO del fallo
+  // v33.38: REGLA DE CÓMPUTO CORREGIDA — Art. 29 Decreto 2591/91: "Dentro de los diez
+  // días SIGUIENTES a la presentación de la solicitud el juez dictará el fallo".
+  // "Siguientes" = la fecha de admisión NO se cuenta como día 1. La cuenta comienza
+  // el día hábil SIGUIENTE a la admisión. Reemplaza la regla v33.13 que contaba la
+  // admisión como día 1 (interpretación incorrecta confirmada en la práctica diaria
+  // del despacho — Diego, junio 2026).
+  // Ejemplo: admisión mar 02/06/2026 → día 1 = mié 03/06, día 10 = jue 18/06/2026.
+  const vce=addHab(base,10);                  // día 10 hábil = vencimiento del fallo
   const dias=getAlertaDias(t);
-  const dia9=addHabIncl(base,dias);           // día N hábil de alerta
-  // v33.36: FIX CRÍTICO — el ancla real para correo/ejecutoria/Corte/impugnación
-  // es la fecha REAL de notificación del fallo (o la fecha real del fallo si no se
-  // registró notificación distinta). Antes el sistema usaba SIEMPRE la fecha TEÓRICA
-  // de vencimiento (admisión + 10 hábiles), ignorando la fecha real, lo cual producía
-  // fechas erróneas en todos los casos donde el fallo no coincide exactamente con el
-  // día calculado. Solo se usa la proyección teórica (vce) cuando AÚN no hay fallo real
-  // (para mostrar fechas estimadas mientras el proceso está en término).
+  const dia9=addHab(base,dias);               // día N hábil de alerta
+  // v33.36: el ancla real para correo/ejecutoria/Corte/impugnación es la fecha
+  // REAL de notificación del fallo (o la fecha real del fallo si no se registró
+  // notificación distinta). Solo se usa la proyección teórica (vce) cuando AÚN
+  // no hay fallo real.
   const anclaCorreo=t.fechaNotificacionFallo||t.fechaFallo||vce;
   const cor2=addHab(anclaCorreo,2);           // 2 días hábiles DESPUÉS de la notificación real
   const eje3=addHab(cor2,3);                  // 3 días hábiles DESPUÉS del correo
@@ -686,10 +689,12 @@ function termT(t){
 function termD(d){
   const base=d.ultimaNulidad||d.fechaSolicitud;
   if(!base)return{req:'',aper:'',dia9:'',vce:'',remCons:'',resCons:'',ofic:''};
-  // v33.13: vencimiento y día N con la misma regla que tutelas (base = día 1, hábiles).
-  const vce=addHabIncl(base,10);
+  // v33.38: mismo criterio que tutelas — Art. 52 Decreto 2591/91 / lectura uniforme
+  // del cómputo de términos: la fecha base (solicitud/ultima nulidad) NO se cuenta
+  // como día 1. La cuenta comienza el día hábil siguiente.
+  const vce=addHab(base,10);
   const dias=getAlertaDias(d);
-  const dia9=addHabIncl(base,dias);
+  const dia9=addHab(base,dias);
   return{
     req:addFin(base,1),aper:addFin(base,2),dia9,vce,
     remCons:addD(vce,1),
@@ -751,7 +756,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.37';
+var APP_VERSION='33.38';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
