@@ -266,28 +266,36 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .ev-dot{width:4px;height:4px;border-radius:50%;margin:1px auto 0}
 .cal-tip{display:none;position:fixed;background:#0f172a;color:#fff;font-size:10px;padding:8px 10px;border-radius:6px;white-space:normal;word-break:break-word;max-width:260px;min-width:180px;z-index:9999;text-align:left;line-height:1.45;box-shadow:0 4px 12px rgba(0,0,0,0.35)}
 /* v33.39: vista mensual grande tipo "Calendario Colombia" */
-.calM{max-width:980px;margin:10px auto;border:3px solid #dc2626;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
-.calM-hdr{background:#fef3c7;color:#dc2626;font-size:22px;font-weight:800;text-align:center;padding:10px;border-bottom:3px solid #dc2626;text-transform:capitalize}
-.calM-dhdr{display:grid;grid-template-columns:repeat(7,1fr);background:#dc2626;color:#fff}
+.calM{max-width:1100px;margin:10px auto;border:3px solid #dc2626;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.calM-hdr{background:#fef3c7;color:#dc2626;font-size:24px;font-weight:800;text-align:center;padding:12px;border-bottom:3px solid #dc2626;text-transform:capitalize;letter-spacing:.02em}
+.calM-dhdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626;color:#fff}
 .calM-dh{font-size:14px;font-weight:700;text-align:center;padding:8px 0;border-right:1px solid #b91c1c}
 .calM-dh:last-child{border-right:none}
-.calM-days{display:grid;grid-template-columns:repeat(7,1fr)}
-.calM-day{min-height:74px;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:6px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
-.calM-day:hover{background:#fef3c7}
+.calM-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+/* v33.40: min-width:0 + overflow:hidden es CRÍTICO — sin esto el contenido largo de
+   un día invade visualmente la celda del día siguiente (problema reportado: parecía
+   que sábado tenía términos cuando en realidad era el viernes desbordándose). */
+.calM-day{min-height:88px;min-width:0;overflow:hidden;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:5px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
+.calM-day:hover{background:#fef9c3}
 .calM-day:nth-child(7n){border-right:none}
 .calM-day.empty{background:#fafafa;cursor:default}
 .calM-day.empty:hover{background:#fafafa}
 .calM-num{font-size:18px;font-weight:700;color:#1f2937;line-height:1}
 .calM-day.sab .calM-num,.calM-day.dom .calM-num{color:#dc2626}
-.calM-day.fest{background:#fff}
-.calM-day.fest .calM-num{color:#dc2626;font-weight:800}
-.calM-day.ss{background:#fff}
-.calM-day.ss .calM-num{color:#92400e;font-weight:700}
+/* v33.40: festivos MUCHO más llamativos — fondo de rayas rojas + borde grueso + número grande.
+   Diego pidió que se distingan claramente de los días con eventos. */
+.calM-day.fest{background:repeating-linear-gradient(45deg,#fef2f2,#fef2f2 10px,#fecaca 10px,#fecaca 20px)!important;box-shadow:inset 0 0 0 2px #dc2626;cursor:default}
+.calM-day.fest:hover{background:repeating-linear-gradient(45deg,#fee2e2,#fee2e2 10px,#fca5a5 10px,#fca5a5 20px)!important}
+.calM-day.fest .calM-num{color:#991b1b;font-weight:900;font-size:22px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
+.calM-day.ss{background:repeating-linear-gradient(45deg,#fefbed,#fefbed 10px,#fde68a 10px,#fde68a 20px)!important;box-shadow:inset 0 0 0 2px #d97706;cursor:default}
+.calM-day.ss:hover{background:repeating-linear-gradient(45deg,#fef3c7,#fef3c7 10px,#fcd34d 10px,#fcd34d 20px)!important}
+.calM-day.ss .calM-num{color:#92400e;font-weight:900;font-size:22px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
 .calM-day.hoy{background:#fef3c7!important;outline:3px solid #dc2626;outline-offset:-3px}
 .calM-day.hoy .calM-num{color:#92400e;font-weight:800;font-size:20px}
-.calM-fest-ico{position:absolute;left:6px;bottom:6px;font-size:16px;opacity:.7}
-.calM-evs{margin-top:4px;display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1}
-.calM-ev{font-size:9px;line-height:1.2;padding:1px 4px;border-radius:3px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.calM-fest-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:36px;opacity:.35;pointer-events:none;z-index:0}
+.calM-num,.calM-evs{position:relative;z-index:1}
+.calM-evs{margin-top:4px;display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;min-width:0}
+.calM-ev{font-size:9px;line-height:1.25;padding:1px 4px;border-radius:3px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;min-width:0;max-width:100%}
 .calM-ev.venc{background:#dc2626}
 .calM-ev.alert{background:#ea580c}
 .calM-ev.event{background:#1a5fa8}
@@ -830,7 +838,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.39';
+var APP_VERSION='33.40';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1765,6 +1773,9 @@ async function guardarT(){
     camposDecisorio.forEach(campo=>{
       if(gd[campo]&&!t[campo])t[campo]=gd[campo];
     });
+    // v33.40: normalizar valores de selects para que coincidan con las opciones reales
+    if(t.sentidoFallo)t.sentidoFallo=mapV(t.sentidoFallo,SENTIDO_MAP)||t.sentidoFallo;
+    if(t.fallo2i)t.fallo2i=mapV(t.fallo2i,FALLO2I_MAP)||t.fallo2i;
     // Aplicar estado si Gemini lo detectó
     if(gd.estado&&gd.estado!=='En término'){
       const selEst=document.getElementById('f-est');
@@ -2357,7 +2368,7 @@ function aDD(id){
       <div class="fsec">Resultado</div>
       <div class="fi"><label>Estado</label>
         <select onchange="updD('${id}','estado',this.value)">
-          ${['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Archivado'].map(o=>`<option${d.estado===o?' selected':''}>${o}</option>`).join('')}
+          ${['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Retiro voluntario','Anulado','Archivado'].map(o=>`<option${d.estado===o?' selected':''}>${o}</option>`).join('')}
         </select>
       </div>
       <div class="fi"><label>Resultado consulta</label>
@@ -3001,8 +3012,12 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
     const num=document.createElement('div');num.className='calM-num';num.textContent=d;cell.appendChild(num);
     // Icono de festivo si aplica
     if(fest||ss){const ico=document.createElement('div');ico.className='calM-fest-ico';ico.textContent='⛪';cell.appendChild(ico);}
-    // Eventos visibles (hasta 3 por celda)
-    const evs=evMap[iso]||[];
+    // Eventos visibles (hasta 3 por celda).
+    // v33.40: en festivos/Semana Santa NO se muestran eventos automáticos
+    // (los términos no corren en festivo; si llega alguno es un error de cálculo
+    // o un evento manual del usuario). Mantenemos los manuales (tipo 'user').
+    let evs=evMap[iso]||[];
+    if(fest||ss)evs=evs.filter(e=>e.tipo==='user');
     if(evs.length){
       const evsBox=document.createElement('div');evsBox.className='calM-evs';
       evs.slice(0,3).forEach(e=>{
@@ -3101,7 +3116,11 @@ function rCal(){
     localDB.eventos=_evManuales;
   }catch(e){}
   const sel=document.getElementById('cal-sel');
-  const opts=[...new Set([...anios,2024,2025,2026,2027,2028,2029,2030])].sort();
+  // v33.40: rango amplio para que la navegación con flechas siempre encuentre años disponibles
+  const yNow=(new Date()).getFullYear();
+  const rango=[];
+  for(let i=yNow-5;i<=yNow+10;i++)rango.push(i);
+  const opts=[...new Set([...anios,...rango,parseInt(sel.value)||yNow])].filter(Boolean).sort();
   const curVal=parseInt(sel.value)||anio;
   sel.innerHTML=opts.map(a=>`<option value="${a}"${a===curVal?' selected':''}>${a}</option>`).join('');
   const y=parseInt(sel.value)||anio;
@@ -3282,8 +3301,11 @@ function rStat(){
   const desc=dA();
 
   // ── TABLA TUTELAS ──
-  // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Otras salidas
-  // Filas: por derecho SIERJU (solo las que tienen datos)
+  // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Retiro vol. | Anulada | Otras salidas
+  // v33.40: agregadas "Retiro voluntario" (desistimiento) y "Anulada" (nulidad activa).
+  // Las anuladas se cuentan APARTE y NO se suman a las demás categorías para evitar
+  // doble conteo (una tutela anulada no se cuenta como Concede/Niega aunque tuviera
+  // fallo en el ciclo anterior).
   const stTable=document.getElementById('st-table');
   let tHead=`<thead><tr>
     <th>Derecho / Tipo</th>
@@ -3291,50 +3313,64 @@ function rStat(){
     <th style="text-align:center">Concede</th>
     <th style="text-align:center">Niega<br><small>Hecho Superado</small></th>
     <th style="text-align:center">Niega<br><small>Improcedente</small></th>
+    <th style="text-align:center">Retiro<br><small>voluntario</small></th>
+    <th style="text-align:center">Anulada<br><small>(en curso)</small></th>
     <th style="text-align:center">Otras<br><small>salidas</small></th>
   </tr></thead>`;
   let tBody='<tbody>';
-  let totIng=0,totConc=0,totNHS=0,totNimp=0,totOtras=0;
+  let totIng=0,totConc=0,totNHS=0,totNimp=0,totRet=0,totAnu=0,totOtras=0;
 
   DERECHOS_SIERJU.forEach(der=>{
     const tt=tuts.filter(t=>enPer(t.fechaAdmision,p)&&t.derechoSierju===der);
     if(tt.length===0)return;
     const ing=tt.length;
-    const conc=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('concede')).length;
-    const nhs=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('hecho superado')).length;
-    const nimp=tt.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('improcedente')||(t.sentidoFallo||'').toLowerCase().includes('carencia')).length;
-    const otras=tt.filter(t=>t.fechaFallo&&!conc&&!nhs&&!nimp).length;
-    totIng+=ing;totConc+=conc;totNHS+=nhs;totNimp+=nimp;totOtras+=otras;
-    tBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(conc)}</td><td style="text-align:center">${numCell(nhs)}</td><td style="text-align:center">${numCell(nimp)}</td><td style="text-align:center">${numCell(otras)}</td></tr>`;
+    // Anuladas se cuentan primero y se EXCLUYEN del resto
+    const anu=tt.filter(t=>hasNulActiva(t)).length;
+    const noAnu=tt.filter(t=>!hasNulActiva(t));
+    const conc=noAnu.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('concede')).length;
+    const nhs=noAnu.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('hecho superado')).length;
+    const nimp=noAnu.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('improcedente')||(t.sentidoFallo||'').toLowerCase().includes('carencia')).length;
+    const ret=noAnu.filter(t=>(t.sentidoFallo||'').toLowerCase().includes('desist')).length;
+    // Otras = falladas que no entran en ninguna categoría anterior (ej. competencia)
+    const otras=noAnu.filter(t=>t.fechaFallo).length-(conc+nhs+nimp+ret);
+    totIng+=ing;totConc+=conc;totNHS+=nhs;totNimp+=nimp;totRet+=ret;totAnu+=anu;totOtras+=Math.max(0,otras);
+    tBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(conc)}</td><td style="text-align:center">${numCell(nhs)}</td><td style="text-align:center">${numCell(nimp)}</td><td style="text-align:center">${numCell(ret)}</td><td style="text-align:center">${numCell(anu)}</td><td style="text-align:center">${numCell(Math.max(0,otras))}</td></tr>`;
   });
-  tBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${totIng}</td><td style="text-align:center">${totConc}</td><td style="text-align:center">${totNHS}</td><td style="text-align:center">${totNimp}</td><td style="text-align:center">${totOtras}</td></tr>`;
+  tBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${totIng}</td><td style="text-align:center">${totConc}</td><td style="text-align:center">${totNHS}</td><td style="text-align:center">${totNimp}</td><td style="text-align:center">${totRet}</td><td style="text-align:center">${totAnu}</td><td style="text-align:center">${totOtras}</td></tr>`;
   tBody+='</tbody>';
   stTable.innerHTML=tHead+tBody;
 
   // ── TABLA DESACATOS ──
-  // Columnas: Ingresados | Sanciona | No sanciona | Archivado
+  // Columnas: Ingresados | Sanciona | No sanciona | Retiro vol. | Anulado | Archivado
+  // v33.40: agregadas "Retiro voluntario" y "Anulado" como factores de salida.
   const sdTable=document.getElementById('sd-table');
   let dHead=`<thead><tr>
     <th>Derecho / Tipo</th>
     <th style="text-align:center">Ingresados</th>
     <th style="text-align:center">Sanciona</th>
     <th style="text-align:center">No sanciona</th>
+    <th style="text-align:center">Retiro<br><small>voluntario</small></th>
+    <th style="text-align:center">Anulado<br><small>(en curso)</small></th>
     <th style="text-align:center">Archivado</th>
   </tr></thead>`;
   let dBody='<tbody>';
-  let dTotIng=0,dTotSanc=0,dTotNoSanc=0,dTotArch=0;
+  let dTotIng=0,dTotSanc=0,dTotNoSanc=0,dTotRet=0,dTotAnu=0,dTotArch=0;
 
   DERECHOS_SIERJU.forEach(der=>{
     const dd=desc.filter(d=>enPer(d.fechaSolicitud,p)&&d.derechoSierju===der);
     if(dd.length===0)return;
     const ing=dd.length;
-    const sanc=dd.filter(d=>d.estado==='Sanciona').length;
-    const noSanc=dd.filter(d=>d.estado==='No sanciona').length;
-    const arch=dd.filter(d=>d.estado==='Archivado').length;
-    dTotIng+=ing;dTotSanc+=sanc;dTotNoSanc+=noSanc;dTotArch+=arch;
-    dBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(sanc)}</td><td style="text-align:center">${numCell(noSanc)}</td><td style="text-align:center">${numCell(arch)}</td></tr>`;
+    // Anulados se cuentan aparte (no se solapan con sanciona/no sanciona/etc.)
+    const anu=dd.filter(d=>hasNulActiva(d)||d.estado==='Anulado').length;
+    const noAnu=dd.filter(d=>!(hasNulActiva(d)||d.estado==='Anulado'));
+    const sanc=noAnu.filter(d=>d.estado==='Sanciona').length;
+    const noSanc=noAnu.filter(d=>d.estado==='No sanciona').length;
+    const ret=noAnu.filter(d=>d.estado==='Retiro voluntario').length;
+    const arch=noAnu.filter(d=>d.estado==='Archivado').length;
+    dTotIng+=ing;dTotSanc+=sanc;dTotNoSanc+=noSanc;dTotRet+=ret;dTotAnu+=anu;dTotArch+=arch;
+    dBody+=`<tr><td>${der}</td><td style="text-align:center">${numCell(ing)}</td><td style="text-align:center">${numCell(sanc)}</td><td style="text-align:center">${numCell(noSanc)}</td><td style="text-align:center">${numCell(ret)}</td><td style="text-align:center">${numCell(anu)}</td><td style="text-align:center">${numCell(arch)}</td></tr>`;
   });
-  dBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${dTotIng}</td><td style="text-align:center">${dTotSanc}</td><td style="text-align:center">${dTotNoSanc}</td><td style="text-align:center">${dTotArch}</td></tr>`;
+  dBody+=`<tr class="total-row"><td>TOTAL</td><td style="text-align:center">${dTotIng}</td><td style="text-align:center">${dTotSanc}</td><td style="text-align:center">${dTotNoSanc}</td><td style="text-align:center">${dTotRet}</td><td style="text-align:center">${dTotAnu}</td><td style="text-align:center">${dTotArch}</td></tr>`;
   dBody+='</tbody>';
   sdTable.innerHTML=dHead+dBody;
 
@@ -4082,6 +4118,10 @@ function detectarResponsablePorRegex(textosNotificacion){
 
 const SIERJU_MAP={'salud':'Salud','seguridad social':'Seguridad Social','pension':'Seguridad Social','pensión':'Seguridad Social','vida':'Vida','minimo vital':'Mínimo Vital','mínimo vital':'Mínimo Vital','igualdad':'Igualdad','educacion':'Educación','educación':'Educación','debido proceso':'Debido Proceso','peticion':'Derecho de Petición','petición':'Derecho de Petición','derecho de peticion':'Derecho de Petición','habeas data':'Habeas Data','trabajo':'Derecho al Trabajo','vivienda':'Vivienda','otros':'Otros'};
 const SENTIDO_MAP={'concede tutela':'Concede tutela','concede':'Concede tutela','concede parcialmente':'Concede parcialmente','hecho superado':'Niega — hecho superado','improcedente':'Niega — improcedente','carencia':'Declara carencia actual de objeto','desistimiento':'Desistimiento','competencia':'Devuelta por competencia','niega':'Niega — improcedente'};
+// v33.40: mapeo del sentido del fallo de 2ª instancia — normaliza lo que devuelve Gemini
+// a los valores EXACTOS del selector. Si Gemini devuelve "confirma" minúscula, "CONFIRMA"
+// mayúscula, "Confirmar" infinitivo, etc., todos quedan como "Confirma".
+const FALLO2I_MAP={'confirma':'Confirma','confirmar':'Confirma','confirm':'Confirma','revoca parcialmente':'Revoca parcialmente','revocar parcialmente':'Revoca parcialmente','revoca en parte':'Revoca parcialmente','revoca y adiciona':'Revoca y adiciona','revocar y adicionar':'Revoca y adiciona','revoca':'Revoca','revocar':'Revoca','modifica':'Modifica','modificar':'Modifica','adiciona':'Adiciona','adicionar':'Adiciona','decreta nulidad':'Decreta nulidad','decretar nulidad':'Decreta nulidad','nulidad':'Decreta nulidad','anula':'Decreta nulidad','anular':'Decreta nulidad'};
 function mapV(val,map){if(!val)return '';const k=val.toLowerCase().trim();if(map[k])return map[k];for(const[ky,v] of Object.entries(map)){if(k.includes(ky)||ky.includes(k))return v;}return val;}
 function setSelect(id,val){if(!val)return;const s=document.getElementById(id);if(!s)return;const mv=mapV(val,id.includes('ds')||id.includes('derecho')?SIERJU_MAP:SENTIDO_MAP);const o=[...s.options].find(o=>o.text===mv||o.value===mv||o.text.toLowerCase().includes(mv.toLowerCase().split(' ')[0]));if(o)s.value=o.value||o.text;}
 
@@ -4187,7 +4227,7 @@ window.procesarRecarga=async function(inp,id){
     solo('fechaReparto',d.fechaReparto);solo('fechaAdmision',d.fechaAdmision);
     act('fechaFallo',d.fechaFallo);act('fechaNotificacionFallo',d.fechaNotificacionFallo);act('sentidoFallo',mapV(d.sentidoFallo,SENTIDO_MAP)||d.sentidoFallo);
     act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
-    act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
+    act('fallo2i',mapV(d.fallo2i,FALLO2I_MAP)||d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
     // v33.19/20: responsable — log detallado para debug.
     // - Si Gemini devuelve un nombre que match con DIEGO/ERIKA/MILENA/ANA → asignar.
