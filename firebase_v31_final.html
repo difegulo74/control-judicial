@@ -264,7 +264,36 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .cal-day.ev-event{background:#e8f0ff}
 .cal-day.ev-user{background:#e8f8e8}
 .ev-dot{width:4px;height:4px;border-radius:50%;margin:1px auto 0}
-.cal-tip{display:none;position:fixed;background:var(--n);color:#fff;font-size:8px;padding:4px 8px;border-radius:5px;white-space:normal;word-break:break-word;max-width:180px;min-width:80px;z-index:9999;text-align:center;line-height:1.4}
+.cal-tip{display:none;position:fixed;background:#0f172a;color:#fff;font-size:10px;padding:8px 10px;border-radius:6px;white-space:normal;word-break:break-word;max-width:260px;min-width:180px;z-index:9999;text-align:left;line-height:1.45;box-shadow:0 4px 12px rgba(0,0,0,0.35)}
+/* v33.39: vista mensual grande tipo "Calendario Colombia" */
+.calM{max-width:980px;margin:10px auto;border:3px solid #dc2626;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+.calM-hdr{background:#fef3c7;color:#dc2626;font-size:22px;font-weight:800;text-align:center;padding:10px;border-bottom:3px solid #dc2626;text-transform:capitalize}
+.calM-dhdr{display:grid;grid-template-columns:repeat(7,1fr);background:#dc2626;color:#fff}
+.calM-dh{font-size:14px;font-weight:700;text-align:center;padding:8px 0;border-right:1px solid #b91c1c}
+.calM-dh:last-child{border-right:none}
+.calM-days{display:grid;grid-template-columns:repeat(7,1fr)}
+.calM-day{min-height:74px;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:6px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
+.calM-day:hover{background:#fef3c7}
+.calM-day:nth-child(7n){border-right:none}
+.calM-day.empty{background:#fafafa;cursor:default}
+.calM-day.empty:hover{background:#fafafa}
+.calM-num{font-size:18px;font-weight:700;color:#1f2937;line-height:1}
+.calM-day.sab .calM-num,.calM-day.dom .calM-num{color:#dc2626}
+.calM-day.fest{background:#fff}
+.calM-day.fest .calM-num{color:#dc2626;font-weight:800}
+.calM-day.ss{background:#fff}
+.calM-day.ss .calM-num{color:#92400e;font-weight:700}
+.calM-day.hoy{background:#fef3c7!important;outline:3px solid #dc2626;outline-offset:-3px}
+.calM-day.hoy .calM-num{color:#92400e;font-weight:800;font-size:20px}
+.calM-fest-ico{position:absolute;left:6px;bottom:6px;font-size:16px;opacity:.7}
+.calM-evs{margin-top:4px;display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1}
+.calM-ev{font-size:9px;line-height:1.2;padding:1px 4px;border-radius:3px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.calM-ev.venc{background:#dc2626}
+.calM-ev.alert{background:#ea580c}
+.calM-ev.event{background:#1a5fa8}
+.calM-ev.user{background:#16a34a}
+.calM-more{font-size:8px;color:#64748b;font-style:italic;text-align:center;margin-top:2px}
+.cal-vb.act{background:#dc2626!important;color:#fff!important}
 .cal-day:hover .cal-tip{display:block!important}
 .cal-day:hover{background:var(--bg)}
 .cal-day.fest:hover{background:#fbc8c4}
@@ -464,6 +493,16 @@ tr.has-nul td{background:var(--nu-bg)!important}
 <div id="pc" class="panel">
   <div class="cal-hdr">
     <span style="font-size:13px;font-weight:700;color:var(--n2)">Calendario Judicial</span>
+    <div class="cal-view-toggle" style="display:inline-flex;border:1px solid #cbd5e1;border-radius:6px;overflow:hidden;margin-left:6px">
+      <button id="cal-vm" class="cal-vb act" onclick="setCalView('m')" style="background:#dc2626;color:#fff;border:none;font-size:11px;padding:4px 10px;cursor:pointer;font-weight:700">📅 Mes</button>
+      <button id="cal-va" class="cal-vb" onclick="setCalView('a')" style="background:#fff;color:#1f2937;border:none;font-size:11px;padding:4px 10px;cursor:pointer">🗓 Año</button>
+    </div>
+    <div id="cal-nav-mes" style="display:inline-flex;align-items:center;gap:4px;margin-left:6px">
+      <button onclick="navMes(-1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700;color:#dc2626">‹</button>
+      <span id="cal-mes-lbl" style="font-size:13px;font-weight:700;color:#dc2626;min-width:120px;text-align:center"></span>
+      <button onclick="navMes(1)" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;width:28px;height:28px;cursor:pointer;font-size:14px;font-weight:700;color:#dc2626">›</button>
+      <button onclick="navHoy()" style="border:1px solid #cbd5e1;background:#fef3c7;border-radius:6px;font-size:10px;padding:4px 8px;cursor:pointer;font-weight:700;color:#92400e">Hoy</button>
+    </div>
     <select id="cal-sel" class="cal-yr-sel" onchange="rCal()"></select>
     <button class="btn btn-sm" onclick="abrirEvento()" style="background:var(--gr);color:#fff;border-color:var(--gr)">+ Agregar evento</button>
   </div>
@@ -654,10 +693,43 @@ function diff(ds){if(!ds)return null;return Math.ceil((new Date(ds+'T12:00:00')-
 // TÉRMINOS PROCESALES
 // ═══════════════════════════════════════════════════════
 
-function abrevRad(rad){
+// v33.39: cuenta cuántos eventos de 2ª instancia ha tenido un expediente
+// (cada ciclo anulado que pasó por 2ª + el ciclo vigente si pasó por 2ª).
+// Se usa para sufijar la radicación visualmente: 1er evento → -01, 2º → -02, etc.
+function contarEventos2i(t){
+  if(!t)return 0;
+  let n=0;
+  if(Array.isArray(t.ciclosAnulados)){
+    n+=t.ciclosAnulados.filter(c=>c&&(c.reparto2i||c.fechaFallo2i||c.fallo2i)).length;
+  }
+  if(t.fechaReparto2i||t.fechaFallo2i||t.fallo2i)n++;
+  return n;
+}
+
+function abrevRad(rad,nivel2i){
   if(!rad)return '';
-  var p=rad.split('-');
-  return p.length>=3?p.slice(-3).join('-'):rad;
+  const raw=String(rad);
+  const digits=raw.replace(/\D/g,'');
+  let out;
+  if(digits.length===23){
+    // v33.39: las radicaciones reales NO tienen guiones (23 dígitos seguidos):
+    // AAAAA(5) BB(2) CC(2) DDD(3) YYYY(4) NNNNN(5) SS(2). Antes esta función
+    // solo sabía abreviar si YA tenía guiones, así que nunca abreviaba nada.
+    out=digits.slice(12,16)+'-'+digits.slice(16,21)+'-'+digits.slice(21,23);
+  }else{
+    const p=raw.split('-');
+    out=p.length>=3?p.slice(-3).join('-'):raw;
+  }
+  // v33.39: sufijo del cuaderno de 2ª instancia. Convención del despacho:
+  // 1ª sentencia de 2ª inst. → "-01", 2ª (tras nulidad + nuevo ciclo) → "-02", etc.
+  // Solo afecta la VISUALIZACIÓN abreviada (calendario y mensajes emergentes);
+  // la radicación guardada en Firestore no cambia.
+  const n=typeof nivel2i==='number'?nivel2i:(nivel2i?1:0);
+  if(n>=1){
+    const parts=out.split('-');
+    if(parts.length===3)out=parts[0]+'-'+parts[1]+'-'+String(n).padStart(2,'0');
+  }
+  return out;
 }
 function getAlertaDias(t){const v=parseInt(t.alertaDias);return (v>=1&&v<=10)?v:9;}
 function getAlertaDiasTutela(t){return getAlertaDias(t);}
@@ -671,9 +743,11 @@ function termT(t){
   // admisión como día 1 (interpretación incorrecta confirmada en la práctica diaria
   // del despacho — Diego, junio 2026).
   // Ejemplo: admisión mar 02/06/2026 → día 1 = mié 03/06, día 10 = jue 18/06/2026.
-  const vce=addHab(base,10);                  // día 10 hábil = vencimiento del fallo
+  // v33.39: admite CORRECCIÓN MANUAL (t.vceManual / t.dia9Manual) — botón ✏️ en el
+  // formulario, para los casos donde el despacho necesite ajustar el cálculo a mano.
+  const vce=t.vceManual||addHab(base,10);     // día 10 hábil = vencimiento del fallo
   const dias=getAlertaDias(t);
-  const dia9=addHab(base,dias);               // día N hábil de alerta
+  const dia9=t.dia9Manual||addHab(base,dias); // día N hábil de alerta
   // v33.36: el ancla real para correo/ejecutoria/Corte/impugnación es la fecha
   // REAL de notificación del fallo (o la fecha real del fallo si no se registró
   // notificación distinta). Solo se usa la proyección teórica (vce) cuando AÚN
@@ -756,7 +830,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.38';
+var APP_VERSION='33.39';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1382,7 +1456,7 @@ function actualizarBanner(){
       const tc=termT(t);const dv=diff(tc.vce);
       const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=3?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
       return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
-        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <b style="color:#1f2937">${esc(t.radicacion||"")}</b> · ${esc((t.accionante||'').slice(0,28))}
         <br><span style="color:#64748b">Nulidad: ${fmt(ult)} · Vence nuevo fallo: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.vce)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
       </div>`;
     }).join('');
@@ -1400,7 +1474,7 @@ function actualizarBanner(){
       const fechaImpugMostrar=t.fechaImpugnacion||'(ver observaciones)';
       const notaObs=!t.fechaImpugnacion?'<span style="color:#c2410c;font-size:9px"> ⚠ Registra fechaImpugnacion en el formulario</span>':'';
       return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
-        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <b style="color:#1f2937">${esc(t.radicacion||"")}</b> · ${esc((t.accionante||'').slice(0,28))}
         <br><span style="color:#64748b">Impug.: ${fechaImpugMostrar}${notaObs} · Lím. envío reparto: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.limImpugnacion)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
       </div>`;
     }).join('');
@@ -1415,7 +1489,7 @@ function actualizarBanner(){
       const tc=termT(t);const dv=diff(tc.remCC);
       const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=2?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
       return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
-        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <b style="color:#1f2937">${esc(t.radicacion||"")}</b> · ${esc((t.accionante||'').slice(0,28))}
         <br><span style="color:#64748b">Ejecutoria: ${fmt(tc.ejecutoria)} · Envío Corte: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.remCC)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
       </div>`;
     }).join('');
@@ -1431,7 +1505,7 @@ function actualizarBanner(){
       const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=3?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
       const juzg=t.juzgado2i?' · '+esc(t.juzgado2i.slice(0,22)):'';
       return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
-        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}${juzg}
+        <b style="color:#1f2937">${esc(t.radicacion||"")}</b> · ${esc((t.accionante||'').slice(0,28))}${juzg}
         <br><span style="color:#64748b">Reparto 2ª: ${fmt(t.fechaReparto2i)} · Lím. sentencia 2ª (20 háb.): <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.vce2i)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
       </div>`;
     }).join('');
@@ -1834,8 +1908,18 @@ function aDT(id){
             ${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}"${getAlertaDias(t)===n?' selected':''}>Día ${n}</option>`).join('')}
           </select>
         </div>
-        <div class="fi"><label>Día de alerta — calculado</label><input value="${fmt(tc.dia9)}" readonly style="background:#fff7ed"></div>
-        <div class="fi"><label>Vencimiento fallo (10 días hábiles)</label><input value="${fmt(tc.vce)}" readonly style="background:#fef2f2;font-weight:600"></div>
+        <div class="fi"><label>Día de alerta — calculado${t.dia9Manual?' <span style="color:#b45309;font-weight:700">(corregido a mano)</span>':''}</label>
+          <div style="display:flex;gap:4px">
+            <input value="${fmt(tc.dia9)}" readonly style="background:#fff7ed;flex:1">
+            <button type="button" title="Corregir manualmente" onclick="corregirFechaT('${id}','dia9Manual','Día de alerta')" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:0 8px;cursor:pointer">✏️</button>
+          </div>
+        </div>
+        <div class="fi"><label>Vencimiento fallo (10 días hábiles)${t.vceManual?' <span style="color:#b45309;font-weight:700">(corregido a mano)</span>':''}</label>
+          <div style="display:flex;gap:4px">
+            <input value="${fmt(tc.vce)}" readonly style="background:#fef2f2;font-weight:600;flex:1">
+            <button type="button" title="Corregir manualmente" onclick="corregirFechaT('${id}','vceManual','Vencimiento del fallo')" style="border:1px solid #cbd5e1;background:#fff;border-radius:6px;padding:0 8px;cursor:pointer">✏️</button>
+          </div>
+        </div>
         <div class="fi"><label>Fecha del fallo</label><input type="date" value="${t.fechaFallo||''}" onchange="updT('${id}','fechaFallo',this.value);rT();aDT('${id}')"></div>
         <div class="fi"><label>Fecha notificación del fallo</label><input type="date" value="${t.fechaNotificacionFallo||''}" onchange="updT('${id}','fechaNotificacionFallo',this.value);rT();aDT('${id}')"></div>
         <div class="fi"><label>Sentido del fallo</label>
@@ -1944,6 +2028,28 @@ function aDT(id){
 }
 
 // v33.36: edición del N° de radicación — caso especial porque hay que prevenir duplicados
+// v33.39: corrección manual de fechas calculadas (día 9 alerta / vencimiento)
+// para los casos donde el cálculo automático no coincida con el criterio del despacho
+// en una tutela específica. Guarda en t.dia9Manual / t.vceManual; vaciar = restaurar automático.
+async function corregirFechaT(id,campo,nombreLegible){
+  const t=tA().find(x=>String(x.id)===String(id));
+  if(!t)return;
+  const actual=t[campo]||'';
+  const msg='Corrección manual de "'+nombreLegible+'"\n\n'+
+    'Formato: AAAA-MM-DD (ej. 2026-06-18)\n'+
+    'Valor actual: '+(actual||'(automático)')+'\n\n'+
+    'Deja vacío y acepta para RESTAURAR el cálculo automático.';
+  const val=prompt(msg,actual);
+  if(val===null)return; // canceló
+  const limpio=(val||'').trim();
+  if(limpio&&!/^\d{4}-\d{2}-\d{2}$/.test(limpio)){
+    alert('⚠ Formato inválido. Debe ser AAAA-MM-DD (ej. 2026-06-18).');
+    return;
+  }
+  await updT(id,campo,limpio);
+  rT();aDT(id);
+}
+
 async function updTRadicacion(id,val){
   val=(val||'').trim();
   if(!val){alert('⚠ La radicación no puede quedar vacía.');aDT(id);return;}
@@ -2633,7 +2739,7 @@ function agregarEventosCalendario(r,tipo){
     if(!eventos.find(e=>e.fecha===fecha&&e.radicacion===r.radicacion&&e.lbl===lbl))
       eventos.push({id:Date.now()+Math.random(),fecha,lbl,radicacion:r.radicacion,color,auto:true});
   };
-  var rad=abrevRad(r.radicacion);
+  var rad=abrevRad(r.radicacion,contarEventos2i(r));
   var tipoLbl=tipo==='T'?'Tutela':'Desacato';
   addEv(tc.dia9,'Fallo - Día '+(r.alertaDias||9)+' '+tipoLbl+': '+rad,'#d4770a');
   addEv(tc.vce,'Vence '+tipoLbl+': '+rad,'#c0392b');
@@ -2856,6 +2962,137 @@ function editarEvento(idx, iso){
   },150);
 }
 
+// v33.39: estado del calendario — vista (mes/año) y mes actual visible
+var _calView=localStorage.getItem('cj_cal_view')||'m';
+var _calMes=(new Date()).getMonth(); // 0-11
+
+// v33.39: dibuja la vista mensual grande tipo "Calendario Colombia"
+function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
+  const mesNombre=meses[m];
+  const wrap=document.createElement('div');wrap.className='calM';
+  // Cabecera grande estilo "Junio, 2026"
+  const hdr=document.createElement('div');hdr.className='calM-hdr';
+  hdr.textContent=mesNombre+', '+y;
+  wrap.appendChild(hdr);
+  // Cabecera de días
+  const dhdr=document.createElement('div');dhdr.className='calM-dhdr';
+  ['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].forEach(d=>{
+    const s=document.createElement('div');s.className='calM-dh';s.textContent=d;dhdr.appendChild(s);
+  });
+  wrap.appendChild(dhdr);
+  // Grilla de días
+  const days=document.createElement('div');days.className='calM-days';
+  const first=new Date(y,m,1).getDay();
+  const firstDow=(first+6)%7;
+  const dim=new Date(y,m+1,0).getDate();
+  for(let i=0;i<firstDow;i++){const e=document.createElement('div');e.className='calM-day empty';days.appendChild(e);}
+  for(let d=1;d<=dim;d++){
+    const iso=`${y}-${String(m+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const dow=new Date(iso+'T12:00:00').getDay();
+    const cell=document.createElement('div');cell.className='calM-day';
+    const fest=esFest(iso),ss=esSS(iso);
+    const isSab=dow===6,isDom=dow===0;
+    if(fest)cell.classList.add('fest');
+    else if(ss)cell.classList.add('ss');
+    if(isSab)cell.classList.add('sab');
+    if(isDom)cell.classList.add('dom');
+    if(iso===todayISO)cell.classList.add('hoy');
+    // Número del día arriba
+    const num=document.createElement('div');num.className='calM-num';num.textContent=d;cell.appendChild(num);
+    // Icono de festivo si aplica
+    if(fest||ss){const ico=document.createElement('div');ico.className='calM-fest-ico';ico.textContent='⛪';cell.appendChild(ico);}
+    // Eventos visibles (hasta 3 por celda)
+    const evs=evMap[iso]||[];
+    if(evs.length){
+      const evsBox=document.createElement('div');evsBox.className='calM-evs';
+      evs.slice(0,3).forEach(e=>{
+        const el=document.createElement('div');
+        el.className='calM-ev '+(e.tipo||'event');
+        el.textContent=e.lbl||'';
+        el.title=e.lbl||'';
+        evsBox.appendChild(el);
+      });
+      if(evs.length>3){const m=document.createElement('div');m.className='calM-more';m.textContent='+'+(evs.length-3)+' más';evsBox.appendChild(m);}
+      cell.appendChild(evsBox);
+    }
+    // Tooltip al hover (mismo formato de la vista anual)
+    const lineas=[];
+    const fechaLegible=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][((dow+6)%7)]+' '+String(d).padStart(2,'0')+'/'+String(m+1).padStart(2,'0')+'/'+y;
+    lineas.push('<div style="font-weight:700;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:3px;margin-bottom:4px">'+fechaLegible+'</div>');
+    if(CAL_LBL[iso])lineas.push('<div style="color:#fbbf24">⛪ '+esc(CAL_LBL[iso])+'</div>');
+    else if(fest)lineas.push('<div style="color:#fbbf24">🚫 Festivo</div>');
+    else if(ss)lineas.push('<div style="color:#fbbf24">⛪ Semana Santa (no hábil)</div>');
+    else if(isSab||isDom)lineas.push('<div style="color:#cbd5e1">Fin de semana</div>');
+    evs.forEach(e=>{lineas.push('<div>• '+esc(e.lbl||'')+'</div>');});
+    const tipHTML=lineas.join('');
+    if(tipHTML){
+      const tipEl=document.createElement('span');tipEl.className='cal-tip';tipEl.innerHTML=tipHTML;cell.appendChild(tipEl);
+      cell.addEventListener('mouseenter',function(){
+        const r=cell.getBoundingClientRect();
+        const tw=280;
+        let left=r.left+r.width/2-tw/2;
+        if(left<6)left=6;
+        if(left+tw>window.innerWidth-6)left=window.innerWidth-tw-6;
+        tipEl.style.display='block';
+        tipEl.style.left=left+'px';
+        tipEl.style.top=(r.top-8)+'px';
+        tipEl.style.transform='translateY(-100%)';
+        tipEl.style.width=tw+'px';
+      });
+      cell.addEventListener('mouseleave',function(){tipEl.style.display='none';});
+    }
+    if(!fest&&!ss){
+      cell.addEventListener('click',(ev)=>{ev.stopPropagation();abrirDia(iso,evs);});
+    }
+    days.appendChild(cell);
+  }
+  wrap.appendChild(days);
+  grid.appendChild(wrap);
+}
+
+function setCalView(v){
+  _calView=v;
+  localStorage.setItem('cj_cal_view',v);
+  // Actualizar botones
+  const bm=document.getElementById('cal-vm'),ba=document.getElementById('cal-va');
+  if(bm&&ba){
+    bm.classList.toggle('act',v==='m');
+    ba.classList.toggle('act',v==='a');
+    bm.style.background=v==='m'?'#dc2626':'#fff';
+    bm.style.color=v==='m'?'#fff':'#1f2937';
+    ba.style.background=v==='a'?'#dc2626':'#fff';
+    ba.style.color=v==='a'?'#fff':'#1f2937';
+  }
+  // Mostrar/ocultar navegación de mes
+  const nm=document.getElementById('cal-nav-mes');
+  if(nm)nm.style.display=v==='m'?'inline-flex':'none';
+  rCal();
+}
+function navMes(delta){
+  _calMes+=delta;
+  const sel=document.getElementById('cal-sel');
+  let y=parseInt(sel.value)||anio;
+  while(_calMes<0){_calMes+=12;y--;}
+  while(_calMes>11){_calMes-=12;y++;}
+  // Asegurar opción de año
+  if(![...sel.options].some(o=>parseInt(o.value)===y)){
+    const opt=document.createElement('option');opt.value=y;opt.text=y;sel.appendChild(opt);
+  }
+  sel.value=y;
+  rCal();
+}
+function navHoy(){
+  const now=new Date();
+  _calMes=now.getMonth();
+  const y=now.getFullYear();
+  const sel=document.getElementById('cal-sel');
+  if(![...sel.options].some(o=>parseInt(o.value)===y)){
+    const opt=document.createElement('option');opt.value=y;opt.text=y;sel.appendChild(opt);
+  }
+  sel.value=y;
+  rCal();
+}
+
 function rCal(){
   // Solo cargar eventos MANUALES del usuario (no los automáticos del sistema)
   try{
@@ -2882,7 +3119,7 @@ function rCal(){
   // Automatic events from tutelas/desacatos
   [...tA(),...dA()].forEach(r=>{
     const tipo=r.fechaSolicitud?'Desacato':'Tutela';
-    var nom=abrevRad(r.radicacion);
+    var nom=abrevRad(r.radicacion,contarEventos2i(r));
     try{
       const tc=r.fechaSolicitud?termD(r):termT(r);
       const esNulActiva=hasNulActiva(r);
@@ -2914,6 +3151,25 @@ function rCal(){
   });
 
   const grid=document.getElementById('cal-grid');grid.innerHTML='';
+  // v33.39: actualizar etiqueta de mes/año y visibilidad de navegación
+  const lblMes=document.getElementById('cal-mes-lbl');
+  if(lblMes)lblMes.textContent=meses[_calMes]+' '+y;
+  const nm=document.getElementById('cal-nav-mes');
+  if(nm)nm.style.display=_calView==='m'?'inline-flex':'none';
+  // Sincronizar estado visual de botones (por si la primera renderización fue antes de setCalView)
+  const bm=document.getElementById('cal-vm'),ba=document.getElementById('cal-va');
+  if(bm&&ba){
+    bm.style.background=_calView==='m'?'#dc2626':'#fff';
+    bm.style.color=_calView==='m'?'#fff':'#1f2937';
+    ba.style.background=_calView==='a'?'#dc2626':'#fff';
+    ba.style.color=_calView==='a'?'#fff':'#1f2937';
+  }
+  // ─── VISTA MENSUAL GRANDE (estilo Calendario Colombia) ───
+  if(_calView==='m'){
+    _renderCalMensual(grid,y,_calMes,evMap,todayISO,meses);
+    return;
+  }
+  // ─── VISTA ANUAL (12 mini-meses) ───
   for(let m=0;m<12;m++){
     const div=document.createElement('div');div.className='cal-month';
     const hdr=document.createElement('div');hdr.className='cal-mhdr';hdr.textContent=`${meses[m]} ${y}`;div.appendChild(hdr);
@@ -2948,10 +3204,19 @@ function rCal(){
         else if(hasUser)cell.classList.add('ev-user');
         else cell.classList.add('ev-event');
       }
-      let tip=CAL_LBL[iso]||'';
-      if(evs.length){const lbls=evs.slice(0,3).map(e=>e.lbl||'');if(evs.length>3)lbls.push('+'+(evs.length-3)+' más');tip=(tip?tip+' | ':'')+lbls.join(' · ');}
+      // v33.39: tooltip rediseñado — multilínea, HTML escapado, sin cortes arbitrarios
+      const lineas=[];
+      const fechaLegible=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][((dow+6)%7)]+' '+String(d).padStart(2,'0')+'/'+String(m+1).padStart(2,'0')+'/'+y;
+      lineas.push('<div style="font-weight:700;border-bottom:1px solid rgba(255,255,255,0.3);padding-bottom:3px;margin-bottom:4px">'+fechaLegible+'</div>');
+      if(CAL_LBL[iso])lineas.push('<div style="color:#fbbf24">⛪ '+esc(CAL_LBL[iso])+'</div>');
+      else if(fest)lineas.push('<div style="color:#fbbf24">🚫 Festivo</div>');
+      else if(ss)lineas.push('<div style="color:#fbbf24">⛪ Semana Santa (no hábil)</div>');
+      else if(isSab||isDom)lineas.push('<div style="color:#cbd5e1">Fin de semana</div>');
+      evs.slice(0,5).forEach(e=>{lineas.push('<div>• '+esc(e.lbl||'')+'</div>');});
+      if(evs.length>5)lineas.push('<div style="color:#cbd5e1;font-style:italic">+'+(evs.length-5)+' eventos más (clic para ver todos)</div>');
+      const tip=lineas.join('');
       const dot=evs.length?`<div class="ev-dot" style="background:${evs[0].color||'#1a5fa8'}"></div>`:'';
-      cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip.substring(0,120)}</span>`:''}`;
+      cell.innerHTML=`<span>${d}</span>${dot}${tip?`<span class="cal-tip">${tip}</span>`:''}`;
       // Click en día: mostrar eventos del día y opción de agregar
       if(!fest&&!ss){
         cell.addEventListener('click',(ev)=>{
@@ -2964,7 +3229,7 @@ function rCal(){
       if(tipEl){
         cell.addEventListener('mouseenter',function(){
           const r=cell.getBoundingClientRect();
-          const tw=200;
+          const tw=260;
           let left=r.left+r.width/2-tw/2;
           if(left<6)left=6;
           if(left+tw>window.innerWidth-6)left=window.innerWidth-tw-6;
@@ -3162,7 +3427,7 @@ function solicitarNotificaciones(){
   todos.forEach(function(r){
     var tipo=r.fechaSolicitud?'Desacato':'Tutela';
     var tc=r.fechaSolicitud?termD(r):termT(r);
-    var rad=abrevRad(r.radicacion);
+    var rad=abrevRad(r.radicacion,contarEventos2i(r));
     if(tc.dia9===hoyISO) alertas.push('⚠ Fallo Día '+(r.alertaDias||9)+' HOY — '+tipo+': '+rad);
     if(tc.vce===hoyISO) alertas.push('🔴 VENCE HOY — '+tipo+': '+rad);
     if(tc.remCC===hoyISO) alertas.push('📬 Remite Corte C. HOY — '+rad);
@@ -3920,7 +4185,7 @@ window.procesarRecarga=async function(inp,id){
     act('vinculados',d.vinculados);act('derechoSierju',mapV(d.derechoSierju,SIERJU_MAP)||d.derechoSierju);
     act('derechos',d.derechos);act('medida',d.medida);act('pretensiones',d.pretensiones);
     solo('fechaReparto',d.fechaReparto);solo('fechaAdmision',d.fechaAdmision);
-    act('fechaFallo',d.fechaFallo);act('sentidoFallo',mapV(d.sentidoFallo,SENTIDO_MAP)||d.sentidoFallo);
+    act('fechaFallo',d.fechaFallo);act('fechaNotificacionFallo',d.fechaNotificacionFallo);act('sentidoFallo',mapV(d.sentidoFallo,SENTIDO_MAP)||d.sentidoFallo);
     act('fechaImpugnacion',d.fechaImpugnacion);act('juzgado2i',d.juzgado2i);
     act('fallo2i',d.fallo2i);act('fechaReparto2i',d.fechaReparto2i);act('fechaFallo2i',d.fechaFallo2i);
     act('fechaRemCC',d.fechaRemCC);act('fechaRegresoCC',d.fechaRegresoCC);
