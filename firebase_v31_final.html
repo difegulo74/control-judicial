@@ -737,7 +737,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.34';
+var APP_VERSION='33.35';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1318,7 +1318,21 @@ function actualizarBanner(){
   // === CASILLA 2: IMPUGNACIONES POR ENVIAR AL REPARTO ===
   // v33.31: también incluir tutelas donde observaciones menciona impugnación pero fechaImpugnacion está vacío
   // v33.31: aceptar estado=Fallada como proxy de fechaFallo cuando este campo está vacío
-  const tieneImpugnacion=t=>t.fechaImpugnacion||(t.observaciones&&/impugn/i.test(t.observaciones)&&!t.juzgado2i);
+  // v33.34: FIX CRÍTICO — el regex /impugn/i anterior marcaba como impugnación
+  // pendiente cualquier mención de la palabra, incluso NEGADA (ej. "NINGUNA de las
+  // partes presentó recurso de impugnación", "constancia de no impugnación").
+  // Ahora se exige mención LITERAL y NO NEGADA: se revisa oración por oración
+  // (separadas por punto/punto y coma) y se descarta cualquier oración que
+  // contenga una palabra de negación cerca de "impugn".
+  function _hayImpugnacionTextual(texto){
+    if(!texto)return false;
+    const t=String(texto);
+    if(!/impugn/i.test(t))return false;
+    const negacion=/\b(no|ninguna|ningún|ningun|sin|tampoco)\b/i;
+    const oraciones=t.split(/[.;]/);
+    return oraciones.some(o=>/impugn/i.test(o)&&!negacion.test(o));
+  }
+  const tieneImpugnacion=t=>t.fechaImpugnacion||(_hayImpugnacionTextual(t.observaciones)&&!t.juzgado2i);
   const tieneFallo=t=>t.fechaFallo||(t.estado==='Fallada'||t.estado==='fallada');
   const impPend=arr.filter(t=>tieneImpugnacion(t)&&!t.fechaReparto2i&&tieneFallo(t));
   // ── Llenar casilla nulidades ──
