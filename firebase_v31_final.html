@@ -349,7 +349,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
   <div class="ystats" id="ystats"></div>
 </div>
 <div class="alert-panel" id="alert-panel" style="display:none;background:#fff;border-bottom:2px solid #cbd5e1;padding:10px 14px;box-shadow:0 2px 4px rgba(0,0,0,0.05)">
-  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:1800px;margin:0 auto">
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;max-width:1800px;margin:0 auto">
     <div id="alert-nul" class="alert-box" style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:10px 12px;display:none">
       <div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px;display:flex;align-items:center;gap:6px">🚨 NULIDADES ACTIVAS — requieren nuevo fallo <span id="alert-nul-count" style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
       <div id="alert-nul-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
@@ -357,6 +357,10 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <div id="alert-imp" class="alert-box" style="background:#fff7ed;border:2px solid #ea580c;border-radius:8px;padding:10px 12px;display:none">
       <div style="font-size:11px;font-weight:800;color:#c2410c;margin-bottom:6px;display:flex;align-items:center;gap:6px">📤 IMPUGNACIONES POR ENVIAR AL REPARTO <span id="alert-imp-count" style="background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
       <div id="alert-imp-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
+    </div>
+    <div id="alert-2i" class="alert-box" style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:8px;padding:10px 12px;display:none">
+      <div style="font-size:11px;font-weight:800;color:#6d28d9;margin-bottom:6px;display:flex;align-items:center;gap:6px">⚖️ PENDIENTES DE SENTENCIA 2ª INSTANCIA <span id="alert-2i-count" style="background:#7c3aed;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
+      <div id="alert-2i-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
     </div>
     <div id="alert-cc" class="alert-box" style="background:#eff6ff;border:2px solid #1a5fa8;border-radius:8px;padding:10px 12px;display:none">
       <div style="font-size:11px;font-weight:800;color:#1a5fa8;margin-bottom:6px;display:flex;align-items:center;gap:6px">📬 PENDIENTES DE ENVÍO A CORTE CONSTITUCIONAL <span id="alert-cc-count" style="background:#1a5fa8;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
@@ -747,7 +751,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.36';
+var APP_VERSION='33.37';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1358,6 +1362,11 @@ function actualizarBanner(){
     const tc=termT(t);
     return !!tc.remCC;
   });
+  // === CASILLA 4: PENDIENTES DE SENTENCIA DE 2ª INSTANCIA (v33.37) ===
+  // Tutela enviada al circuito en impugnación (fechaReparto2i lleno) pero aún sin
+  // sentencia de 2ª. Cuando se registre el fallo (fechaFallo2i o fallo2i) desaparece
+  // automáticamente. Plazo del circuito: 20 días hábiles desde el reparto en 2ª.
+  const pend2i=arr.filter(t=>t.fechaReparto2i&&!t.fallo2i&&!t.fechaFallo2i);
   // ── Llenar casilla nulidades ──
   const boxNul=document.getElementById('alert-nul');
   if(totNul>0){
@@ -1407,8 +1416,24 @@ function actualizarBanner(){
     }).join('');
     document.getElementById('alert-cc-list').innerHTML=items||'<i>—</i>';
   }else{boxCC.style.display='none';}
+  // ── Llenar casilla pendientes de sentencia 2ª instancia ──
+  const box2i=document.getElementById('alert-2i');
+  if(pend2i.length>0){
+    box2i.style.display='block';
+    document.getElementById('alert-2i-count').textContent=pend2i.length;
+    const items=pend2i.map(t=>{
+      const tc=termT(t);const dv=diff(tc.vce2i);
+      const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=3?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
+      const juzg=t.juzgado2i?' · '+esc(t.juzgado2i.slice(0,22)):'';
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
+        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}${juzg}
+        <br><span style="color:#64748b">Reparto 2ª: ${fmt(t.fechaReparto2i)} · Lím. sentencia 2ª (20 háb.): <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.vce2i)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-2i-list').innerHTML=items||'<i>—</i>';
+  }else{box2i.style.display='none';}
   // Mostrar el panel si hay al menos una alerta
-  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0||ccPend.length>0)?'block':'none';
+  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0||ccPend.length>0||pend2i.length>0)?'block':'none';
   // === Mantener el banner simple del top (compat con código existente) ===
   const ban=document.getElementById('nul-banner');if(ban)ban.classList.toggle('show',false);
   // === Contadores en tarjetas (sin cambios) ===
@@ -1844,13 +1869,13 @@ function aDT(id){
         <div class="fsec">Impugnación y 2ª instancia${(t.ciclosAnulados&&t.ciclosAnulados.length)?' <span style="font-size:10px;font-weight:400;color:#475569">(nuevo ciclo)</span>':''}</div>
         <div class="fi"><label>Fecha impugnación</label><input type="date" value="${t.fechaImpugnacion||''}" onchange="updT('${id}','fechaImpugnacion',this.value)"></div>
         <div class="fi"><label>Juzgado 2ª instancia</label><input value="${esc(t.juzgado2i)}" onchange="updT('${id}','juzgado2i',this.value)"></div>
-        <div class="fi"><label>Fecha reparto 2ª instancia</label><input type="date" value="${t.fechaReparto2i||''}" onchange="updT('${id}','fechaReparto2i',this.value)"></div>
+        <div class="fi"><label>Fecha reparto 2ª instancia</label><input type="date" value="${t.fechaReparto2i||''}" onchange="updT('${id}','fechaReparto2i',this.value);rT();actualizarBanner()"></div>
         <div class="fi"><label>Vencimiento 2ª inst. (20 días hábiles)</label><input value="${fmt(tc.vce2i)}" readonly></div>
-        <div class="fi"><label>Fecha fallo 2ª instancia</label><input type="date" value="${t.fechaFallo2i||''}" onchange="updT('${id}','fechaFallo2i',this.value)"></div>
+        <div class="fi"><label>Fecha fallo 2ª instancia</label><input type="date" value="${t.fechaFallo2i||''}" onchange="updT('${id}','fechaFallo2i',this.value);rT();actualizarBanner()"></div>
         <div class="fi"><label>Sentido fallo 2ª instancia</label>
-          <select onchange="updT('${id}','fallo2i',this.value)">
+          <select onchange="updT('${id}','fallo2i',this.value);actualizarBanner()">
             <option value="">Seleccionar...</option>
-            ${['Confirma','Revoca','Modifica','Adiciona','Decreta nulidad'].map(o=>`<option${t.fallo2i===o?' selected':''}>${o}</option>`).join('')}
+            ${['Confirma','Revoca','Revoca parcialmente','Revoca y adiciona','Modifica','Adiciona','Decreta nulidad'].map(o=>`<option${t.fallo2i===o?' selected':''}>${o}</option>`).join('')}
           </select>
         </div>
         <div class="fsec">Corte Constitucional</div>
@@ -3536,7 +3561,7 @@ ${wTxt?'TEXTO DE ARCHIVOS WORD:\n'+wTxt+'\n':''}
   • fechaReparto2i: fecha del reparto MÁS RECIENTE a 2ª instancia.
 
 📌 SENTENCIA 2ª INSTANCIA (archivos "Sentencia2aInst", "SegInstancia", "SegInstanciaDecretaNulidad") — fuente para:
-  • fallo2i: lee la parte resolutiva de la sentencia MÁS RECIENTE y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Modifica", "Adiciona", "Decreta nulidad". Si la más reciente decretó nulidad pero ya hay un ciclo posterior (caso típico al cargar una carpeta de NULIDADES), entonces fallo2i del ciclo vigente queda VACÍO (porque el ciclo vigente aún no tiene sentencia 2ª).
+  • fallo2i: lee la parte resolutiva de la sentencia MÁS RECIENTE y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Revoca parcialmente", "Revoca y adiciona", "Modifica", "Adiciona", "Decreta nulidad". Distingue: "Revoca" cuando revoca toda la sentencia de 1ª; "Revoca parcialmente" cuando revoca SOLO algunos numerales; "Revoca y adiciona" cuando además agrega disposiciones nuevas. Si la más reciente decretó nulidad pero ya hay un ciclo posterior (caso típico al cargar una carpeta de NULIDADES), entonces fallo2i del ciclo vigente queda VACÍO (porque el ciclo vigente aún no tiene sentencia 2ª).
   • fechaFallo2i: fecha de la sentencia 2ª MÁS RECIENTE (NO confundir con fecha de reparto). Si el ciclo vigente aún no tiene sentencia 2ª, dejar vacío.
 
 📌 AUTO DECRETA NULIDAD (archivos "DecretaNulidad", "AvocaNulidad") — si existe, indica:
@@ -3657,7 +3682,7 @@ Campos a extraer:
 - sentidoFallo: exactamente uno de: "Concede tutela", "Concede parcialmente", "Niega — improcedente", "Niega — hecho superado", "Declara carencia actual de objeto", "Desistimiento", "Devuelta por competencia", o "" si no hay fallo aún
 - fechaImpugnacion: fecha de impugnación en formato YYYY-MM-DD
 - juzgado2i: nombre del juzgado de 2ª instancia
-- fallo2i: fallo de 2ª instancia (texto libre)
+- fallo2i: lee la parte resolutiva de la sentencia de 2ª instancia y clasifica EXACTAMENTE en uno de: "Confirma", "Revoca", "Revoca parcialmente", "Revoca y adiciona", "Modifica", "Adiciona", "Decreta nulidad". Distingue: "Revoca" cuando revoca toda la sentencia de 1ª instancia; "Revoca parcialmente" cuando revoca SOLO algunos numerales; "Revoca y adiciona" cuando además agrega disposiciones nuevas. Si no hay sentencia de 2ª aún, deja vacío.
 - fechaReparto2i: fecha de reparto en 2ª instancia YYYY-MM-DD
 - fechaFallo2i: fecha del fallo de 2ª instancia YYYY-MM-DD
 - fechaRemCC: fecha de remisión a Corte Constitucional YYYY-MM-DD
