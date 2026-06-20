@@ -349,7 +349,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
   <div class="ystats" id="ystats"></div>
 </div>
 <div class="alert-panel" id="alert-panel" style="display:none;background:#fff;border-bottom:2px solid #cbd5e1;padding:10px 14px;box-shadow:0 2px 4px rgba(0,0,0,0.05)">
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;max-width:1400px;margin:0 auto">
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;max-width:1800px;margin:0 auto">
     <div id="alert-nul" class="alert-box" style="background:#fef2f2;border:2px solid #dc2626;border-radius:8px;padding:10px 12px;display:none">
       <div style="font-size:11px;font-weight:800;color:#dc2626;margin-bottom:6px;display:flex;align-items:center;gap:6px">🚨 NULIDADES ACTIVAS — requieren nuevo fallo <span id="alert-nul-count" style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
       <div id="alert-nul-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
@@ -357,6 +357,10 @@ tr.has-nul td{background:var(--nu-bg)!important}
     <div id="alert-imp" class="alert-box" style="background:#fff7ed;border:2px solid #ea580c;border-radius:8px;padding:10px 12px;display:none">
       <div style="font-size:11px;font-weight:800;color:#c2410c;margin-bottom:6px;display:flex;align-items:center;gap:6px">📤 IMPUGNACIONES POR ENVIAR AL REPARTO <span id="alert-imp-count" style="background:#ea580c;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
       <div id="alert-imp-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
+    </div>
+    <div id="alert-cc" class="alert-box" style="background:#eff6ff;border:2px solid #1a5fa8;border-radius:8px;padding:10px 12px;display:none">
+      <div style="font-size:11px;font-weight:800;color:#1a5fa8;margin-bottom:6px;display:flex;align-items:center;gap:6px">📬 PENDIENTES DE ENVÍO A CORTE CONSTITUCIONAL <span id="alert-cc-count" style="background:#1a5fa8;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">0</span></div>
+      <div id="alert-cc-list" style="font-size:10px;line-height:1.6;max-height:120px;overflow-y:auto"></div>
     </div>
   </div>
 </div>
@@ -466,9 +470,9 @@ tr.has-nul td{background:var(--nu-bg)!important}
   <div class="cal-legend">
     <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid #f5c6c2"></div>Festivo oficial</div>
     <div class="leg"><div class="leg-dot" style="background:#fff3cd;border:1px solid #f0d080"></div>Semana Santa L-M-X (no hábil conocimiento)</div>
-    <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid var(--rd)"></div>Vencimiento</div>
+    <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid var(--rd)"></div>Vencimiento / Nulidad / Lím. impugnación (rojo)</div>
     <div class="leg"><div class="leg-dot" style="background:#fff3e0;border:1px solid var(--or)"></div>Alerta día 9</div>
-    <div class="leg"><div class="leg-dot" style="background:#e8f0ff;border:1px solid var(--bl)"></div>Evento procesal</div>
+    <div class="leg"><div class="leg-dot" style="background:#e8f0ff;border:1px solid var(--bl)"></div>Envío Corte Constitucional</div>
     <div class="leg"><div class="leg-dot" style="background:#e8f8e8;border:1px solid var(--gr)"></div>Evento manual</div>
   </div>
   <div class="cal-grid" id="cal-grid"></div>
@@ -657,12 +661,18 @@ function termT(t){
   const base=t.ultimaNulidad||t.fechaAdmision;
   if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:'',ejecutoria:'',limImpugnacion:''};
   // v33.13: vencimiento (día 10) y día N de alerta cuentan la admisión como día 1.
-  // Términos post-vencimiento (correo, ejecutoria, lím impugnación) cuentan
-  // desde el día SIGUIENTE al vencimiento (excluyente), según práctica del despacho.
-  const vce=addHabIncl(base,10);              // día 10 hábil = vencimiento del fallo
+  const vce=addHabIncl(base,10);              // día 10 hábil = vencimiento TEÓRICO del fallo
   const dias=getAlertaDias(t);
   const dia9=addHabIncl(base,dias);           // día N hábil de alerta
-  const cor2=addHab(vce,2);                   // 2 días hábiles DESPUÉS del vencimiento
+  // v33.36: FIX CRÍTICO — el ancla real para correo/ejecutoria/Corte/impugnación
+  // es la fecha REAL de notificación del fallo (o la fecha real del fallo si no se
+  // registró notificación distinta). Antes el sistema usaba SIEMPRE la fecha TEÓRICA
+  // de vencimiento (admisión + 10 hábiles), ignorando la fecha real, lo cual producía
+  // fechas erróneas en todos los casos donde el fallo no coincide exactamente con el
+  // día calculado. Solo se usa la proyección teórica (vce) cuando AÚN no hay fallo real
+  // (para mostrar fechas estimadas mientras el proceso está en término).
+  const anclaCorreo=t.fechaNotificacionFallo||t.fechaFallo||vce;
+  const cor2=addHab(anclaCorreo,2);           // 2 días hábiles DESPUÉS de la notificación real
   const eje3=addHab(cor2,3);                  // 3 días hábiles DESPUÉS del correo
   const limImpugnacion=addHab(eje3,2);        // 2 días hábiles DESPUÉS de ejecutoria
   let remCC=addD(eje3,1);while(remCC&&!esHabil(remCC))remCC=addD(remCC,1);
@@ -737,7 +747,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.35';
+var APP_VERSION='33.36';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1335,6 +1345,19 @@ function actualizarBanner(){
   const tieneImpugnacion=t=>t.fechaImpugnacion||(_hayImpugnacionTextual(t.observaciones)&&!t.juzgado2i);
   const tieneFallo=t=>t.fechaFallo||(t.estado==='Fallada'||t.estado==='fallada');
   const impPend=arr.filter(t=>tieneImpugnacion(t)&&!t.fechaReparto2i&&tieneFallo(t));
+  // === CASILLA 3: PENDIENTES DE ENVÍO A CORTE CONSTITUCIONAL (v33.36) ===
+  // Solo cuenta cuando hay fallo/notificación REAL (no proyección teórica), no se ha
+  // marcado como ya remitida (fechaRemCC vacío), no tiene nulidad activa, y no está
+  // en medio de un trámite de impugnación pendiente de reparto (esa ya se alerta en CASILLA 2).
+  const tieneFalloReal=t=>!!(t.fechaNotificacionFallo||t.fechaFallo);
+  const ccPend=arr.filter(t=>{
+    if(!tieneFalloReal(t))return false;
+    if(t.fechaRemCC)return false;
+    if(hasNulActiva(t))return false;
+    if(tieneImpugnacion(t)&&!t.fechaReparto2i)return false;
+    const tc=termT(t);
+    return !!tc.remCC;
+  });
   // ── Llenar casilla nulidades ──
   const boxNul=document.getElementById('alert-nul');
   if(totNul>0){
@@ -1369,8 +1392,23 @@ function actualizarBanner(){
     }).join('');
     document.getElementById('alert-imp-list').innerHTML=items||'<i>—</i>';
   }else{boxImp.style.display='none';}
+  // ── Llenar casilla Corte Constitucional ──
+  const boxCC=document.getElementById('alert-cc');
+  if(ccPend.length>0){
+    boxCC.style.display='block';
+    document.getElementById('alert-cc-count').textContent=ccPend.length;
+    const items=ccPend.map(t=>{
+      const tc=termT(t);const dv=diff(tc.remCC);
+      const urg=dv<=0?'background:#fee2e2;border-left:3px solid #dc2626':(dv<=2?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #94a3b8');
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
+        <b style="color:#1f2937">${abrevRad(t.radicacion)}</b> · ${esc((t.accionante||'').slice(0,28))}
+        <br><span style="color:#64748b">Ejecutoria: ${fmt(tc.ejecutoria)} · Envío Corte: <b style="color:${dv<=0?'#dc2626':'#1f2937'}">${fmt(tc.remCC)}</b> ${dv<=0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':'('+dv+'d)'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-cc-list').innerHTML=items||'<i>—</i>';
+  }else{boxCC.style.display='none';}
   // Mostrar el panel si hay al menos una alerta
-  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0)?'block':'none';
+  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0||ccPend.length>0)?'block':'none';
   // === Mantener el banner simple del top (compat con código existente) ===
   const ban=document.getElementById('nul-banner');if(ban)ban.classList.toggle('show',false);
   // === Contadores en tarjetas (sin cambios) ===
@@ -1570,13 +1608,14 @@ function pvT(){
   box.style.display='block';
   box.innerHTML=`<div class="tbox bl">
     <h4>⏰ Términos — festivos Colombia verificados (días hábiles)</h4>
+    <p style="font-size:9px;color:var(--t2);margin:0 0 6px">Proyección teórica asumiendo que el fallo se profiere y notifica el día 10. Al registrar la fecha REAL del fallo/notificación, estos términos se recalculan con esa fecha.</p>
     ${trows([
       ['Día 9 — alerta',tc.dia9,'wa'],
       ['Día 10 — vencimiento del fallo',tc.vce,'al'],
-      ['+ 2 hábiles — fin correo',tc.cor2,''],
-      ['+ 3 hábiles — ejecutoria',tc.ejecutoria,''],
+      ['+ 2 hábiles — fin correo (proyectado)',tc.cor2,''],
+      ['+ 3 hábiles — ejecutoria (proyectado)',tc.ejecutoria,''],
       ['+ 2 hábiles — lím. envío impugnación al reparto',tc.limImpugnacion,'wa'],
-      ['Remite Corte C. (post-ejecutoria)',tc.remCC,'']
+      ['Envío Corte C. (post-ejecutoria)',tc.remCC,'']
     ])}
   </div>`;
 }
@@ -1607,7 +1646,7 @@ async function guardarT(){
     estado:document.getElementById('f-est').value,
     enlace:document.getElementById('f-l').value.trim(),
     observaciones:document.getElementById('f-o').value.trim(),
-    fechaFallo:'',sentidoFallo:'',fechaImpugnacion:'',
+    fechaFallo:'',fechaNotificacionFallo:'',sentidoFallo:'',fechaImpugnacion:'',
     juzgado2i:'',fallo2i:'',fechaReparto2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',
     alertaDias:9,
@@ -1617,7 +1656,7 @@ async function guardarT(){
     t.filesCount=window._pendingFolder.filesCount;
     // v33.30: aplicar TODOS los datos que Gemini extrajo (incluye decisorio: fallo, impugnación, etc.)
     const gd=window._pendingFolder.geminiData||{};
-    const camposDecisorio=['fechaFallo','sentidoFallo','fechaImpugnacion','juzgado2i','fallo2i',
+    const camposDecisorio=['fechaFallo','fechaNotificacionFallo','sentidoFallo','fechaImpugnacion','juzgado2i','fallo2i',
       'fechaReparto2i','fechaFallo2i','fechaRemCC','fechaRegresoCC','estado','observaciones'];
     camposDecisorio.forEach(campo=>{
       if(gd[campo]&&!t[campo])t[campo]=gd[campo];
@@ -1726,6 +1765,7 @@ function aDT(id){
         <p style="font-size:10px;color:#059669;margin:0 0 10px;line-height:1.4">Tras la nulidad se reanuda el trámite en primera instancia. Al registrar el nuevo fallo esta alerta desaparece, el estado pasa a <b>Fallada</b> y el proceso continúa: podrá registrar una nueva impugnación → 2ª instancia → Corte si aplica. El historial de nulidades se conserva y el ciclo de impugnación anterior (contra el fallo anulado) se limpia.</p>
         <div class="fg">
           <div class="fi"><label>Fecha del nuevo fallo ★</label><input type="date" id="rnf-fecha" value="${hoy()}"></div>
+          <div class="fi"><label>Fecha notificación (si es distinta)</label><input type="date" id="rnf-notif"></div>
           <div class="fi"><label>Sentido del nuevo fallo</label>
             <select id="rnf-sentido"><option value="">Seleccionar...</option>${['Concede tutela','Concede parcialmente','Niega — hecho superado','Niega — improcedente','Declara carencia actual de objeto','Desistimiento','Devuelta por competencia'].map(o=>`<option>${o}</option>`).join('')}</select>
           </div>
@@ -1738,6 +1778,8 @@ function aDT(id){
           <input type="checkbox" id="dt-hc" ${t.esHC?'checked':''} onchange="updT('${id}','esHC',this.checked)">
           <label for="dt-hc"><span class="hc-tag">HC</span> Hábeas Corpus</label>
         </div>
+        <div class="fsec">Identificación</div>
+        <div class="fi full"><label>Radicación ✏️</label><input value="${esc(t.radicacion)}" onchange="updTRadicacion('${id}',this.value)"></div>
         <div class="fsec">Partes</div>
         <div class="fi"><label>Accionante</label><input value="${esc(t.accionante)}" onchange="updT('${id}','accionante',this.value)"></div>
         <div class="fi"><label>Cédula</label><input value="${esc(t.cedula)}" onchange="updT('${id}','cedula',this.value)"></div>
@@ -1756,15 +1798,16 @@ function aDT(id){
         <div class="fi full"><label>Pretensiones</label><textarea onchange="updT('${id}','pretensiones',this.value)">${esc(t.pretensiones)}</textarea></div>
         <div class="fsec">Fechas y fallo</div>
         <div class="fi"><label>Fecha reparto</label><input type="date" value="${t.fechaReparto||''}" onchange="updT('${id}','fechaReparto',this.value)"></div>
-        <div class="fi"><label>Fecha admisión</label><input type="date" value="${t.fechaAdmision||''}" onchange="updT('${id}','fechaAdmision',this.value)"></div>
+        <div class="fi"><label>Fecha admisión</label><input type="date" value="${t.fechaAdmision||''}" onchange="updT('${id}','fechaAdmision',this.value);rT();aDT('${id}')"></div>
         <div class="fi"><label>Día de alerta (1–10 hábiles)</label>
-          <select onchange="updT('${id}','alertaDias',parseInt(this.value));rT()">
+          <select onchange="updT('${id}','alertaDias',parseInt(this.value));rT();aDT('${id}')">
             ${[10,9,8,7,6,5,4,3,2,1].map(n=>`<option value="${n}"${getAlertaDias(t)===n?' selected':''}>Día ${n}</option>`).join('')}
           </select>
         </div>
         <div class="fi"><label>Día de alerta — calculado</label><input value="${fmt(tc.dia9)}" readonly style="background:#fff7ed"></div>
         <div class="fi"><label>Vencimiento fallo (10 días hábiles)</label><input value="${fmt(tc.vce)}" readonly style="background:#fef2f2;font-weight:600"></div>
-        <div class="fi"><label>Fecha del fallo</label><input type="date" value="${t.fechaFallo||''}" onchange="updT('${id}','fechaFallo',this.value);rT()"></div>
+        <div class="fi"><label>Fecha del fallo</label><input type="date" value="${t.fechaFallo||''}" onchange="updT('${id}','fechaFallo',this.value);rT();aDT('${id}')"></div>
+        <div class="fi"><label>Fecha notificación del fallo</label><input type="date" value="${t.fechaNotificacionFallo||''}" onchange="updT('${id}','fechaNotificacionFallo',this.value);rT();aDT('${id}')"></div>
         <div class="fi"><label>Sentido del fallo</label>
           <select onchange="updT('${id}','sentidoFallo',this.value)">
             <option value="">Seleccionar...</option>
@@ -1772,11 +1815,12 @@ function aDT(id){
           </select>
         </div>
         <div class="fi full" style="grid-column:1/-1;background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:8px 12px">
-          <div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:4px">📅 Términos de ejecutoria e impugnación (Art. 32 Decreto 2591/91)</div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:10px;color:#166534">
-            <div><b>Fin correo</b> (vence + 2 hábiles)<br><span style="font-size:11px;font-weight:600">${fmt(tc.cor2)}</span></div>
+          <div style="font-size:10px;font-weight:700;color:#15803d;margin-bottom:4px">📅 Términos de ejecutoria e impugnación (Art. 31-32 Decreto 2591/91)${!t.fechaNotificacionFallo&&!t.fechaFallo?' <span style="color:#b45309">— proyección teórica, aún sin fallo real</span>':!t.fechaNotificacionFallo?' <span style="color:#b45309">— usando fecha del fallo como ancla (falta fecha de notificación)</span>':''}</div>
+          <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;font-size:10px;color:#166534">
+            <div><b>Fin correo</b> (notif. + 2 hábiles)<br><span style="font-size:11px;font-weight:600">${fmt(tc.cor2)}</span></div>
             <div><b>Ejecutoria</b> (correo + 3 hábiles)<br><span style="font-size:11px;font-weight:600">${fmt(tc.ejecutoria)}</span></div>
-            <div><b>Límite envío al reparto</b> (ejecutoria + 2 hábiles)<br><span style="font-size:11px;font-weight:700;color:#b91c1c">${fmt(tc.limImpugnacion)}</span></div>
+            <div><b>Envío Corte Const.</b> (ejecutoria + 1 hábil)<br><span style="font-size:11px;font-weight:700;color:#1a5fa8">${fmt(tc.remCC)}</span></div>
+            <div><b>Lím. envío impugnación</b> (ejecutoria + 2 hábiles)<br><span style="font-size:11px;font-weight:700;color:#b91c1c">${fmt(tc.limImpugnacion)}</span></div>
           </div>
         </div>
         ${(t.ciclosAnulados&&t.ciclosAnulados.length)?`
@@ -1788,7 +1832,7 @@ function aDT(id){
               <div style="background:#fff;border:1px dashed #cbd5e1;border-radius:6px;padding:8px;margin-top:6px">
                 <b style="color:#475569">Ciclo ${i+1} — anulado el ${fmt(c.nulidadFecha)} (nulidad #${c.nulidadIndice})</b><br>
                 • Reparto 1ª: ${fmt(c.fechaReparto)||'—'} &nbsp;|&nbsp; Admisorio: ${fmt(c.fechaAdmision)||'—'}<br>
-                • Sentencia 1ª: ${fmt(c.falloAnterior)||'—'} ${c.sentidoAnterior?'<i>('+c.sentidoAnterior+')</i>':''}<br>
+                • Sentencia 1ª: ${fmt(c.falloAnterior)||'—'} ${c.sentidoAnterior?'<i>('+c.sentidoAnterior+')</i>':''} ${c.notificacionAnterior?'· notif. '+fmt(c.notificacionAnterior):''}<br>
                 • Impugnación: ${fmt(c.impugnacion)||'—'} &nbsp;|&nbsp; Juzgado 2ª: ${c.juzgado2i||'—'}<br>
                 • Reparto 2ª: ${fmt(c.reparto2i)||'—'}<br>
                 • Sentencia 2ª: ${fmt(c.fechaFallo2i)||'—'} ${c.fallo2i?'<i>('+c.fallo2i+')</i>':''}<br>
@@ -1869,6 +1913,20 @@ function aDT(id){
   document.getElementById('md2').classList.add('o');
 }
 
+// v33.36: edición del N° de radicación — caso especial porque hay que prevenir duplicados
+async function updTRadicacion(id,val){
+  val=(val||'').trim();
+  if(!val){alert('⚠ La radicación no puede quedar vacía.');aDT(id);return;}
+  const dup=tA().find(x=>String(x.id)!==String(id)&&(x.radicacion||'').replace(/\D/g,'')===val.replace(/\D/g,'')&&val.replace(/\D/g,''));
+  if(dup){
+    if(!confirm('⚠ YA EXISTE otra tutela con ese radicado:\n'+val+'\n('+(dup.accionante||'sin accionante')+')\n\nSi es un error de digitación, corrígelo. Si de verdad quieres guardarlo así, presiona Aceptar.\n¿Guardar de todas formas?')){
+      aDT(id);return;
+    }
+  }
+  await updT(id,'radicacion',val);
+  rT();
+  aDT(id);
+}
 async function updT(id,campo,val){
   const t=tA().find(x=>String(x.id)===String(id));
   if(!t)return;
@@ -1980,9 +2038,10 @@ async function guardarNulidad(id,tipo){
 async function resolverNulidad(id){
   const t=tA().find(x=>String(x.id)===String(id));
   if(!t)return;
-  const fEl=document.getElementById('rnf-fecha'),sEl=document.getElementById('rnf-sentido');
+  const fEl=document.getElementById('rnf-fecha'),sEl=document.getElementById('rnf-sentido'),nEl=document.getElementById('rnf-notif');
   const fecha=fEl?fEl.value:'';
   const sentido=sEl?sEl.value:'';
+  const notif=nEl?nEl.value:'';
   if(!fecha){alert('La fecha del nuevo fallo es obligatoria.');return;}
   const ult=t.nulidades&&t.nulidades.length?t.nulidades[t.nulidades.length-1].fecha:'';
   if(ult&&fecha<ult){alert('⚠ El nuevo fallo debe ser POSTERIOR a la fecha de la nulidad ('+fmt(ult)+').\n\nRevisa la fecha ingresada.');return;}
@@ -1994,7 +2053,7 @@ async function resolverNulidad(id){
     nulidadIndice:(t.nulidades||[]).length,
     fechaReparto:t.fechaReparto||'',
     fechaAdmision:t.fechaAdmision||'',
-    falloAnterior:t.fechaFallo||'',sentidoAnterior:t.sentidoFallo||'',
+    falloAnterior:t.fechaFallo||'',notificacionAnterior:t.fechaNotificacionFallo||'',sentidoAnterior:t.sentidoFallo||'',
     impugnacion:t.fechaImpugnacion||'',juzgado2i:t.juzgado2i||'',
     reparto2i:t.fechaReparto2i||'',fallo2i:t.fallo2i||'',
     fechaFallo2i:t.fechaFallo2i||'',
@@ -2002,8 +2061,12 @@ async function resolverNulidad(id){
   };
   const ciclosAnulados=Array.isArray(t.ciclosAnulados)?[...t.ciclosAnulados,cicloAnulado]:[cicloAnulado];
   // v33.4: armar objeto LIMPIO con campos del ciclo anterior reiniciados
+  // v33.36: fechaNotificacionFallo se RESETEA explícitamente (o se usa la nueva si se indicó) —
+  // si no se resetea, el nuevo ciclo hereda la notificación del fallo YA ANULADO y el
+  // cómputo de correo/ejecutoria del nuevo fallo queda anclado a una fecha equivocada.
   const merged={...t,
     fechaFallo:fecha,
+    fechaNotificacionFallo:notif||'',
     sentidoFallo:sentido||'',
     estado:'Fallada',
     fechaImpugnacion:'',juzgado2i:'',fechaReparto2i:'',fallo2i:'',fechaFallo2i:'',
@@ -2141,6 +2204,8 @@ function aDD(id){
     </div>
     <div class="mbody"><div class="fg">
       ${nulHTML}
+      <div class="fsec">Identificación</div>
+      <div class="fi full"><label>Radicación ✏️</label><input value="${esc(d.radicacion)}" onchange="updDRadicacion('${id}',this.value)"></div>
       <div class="fsec">Clasificación SIERJU</div>
       <div class="fi"><label>Derecho principal SIERJU ★</label>
         <select onchange="updD('${id}','derechoSierju',this.value)"><option value="">— Seleccione —</option>${derOpts}</select>
@@ -2188,6 +2253,20 @@ function aDD(id){
   document.getElementById('md2').classList.add('o');
 }
 
+// v33.36: edición del N° de radicación de desacato — previene duplicados
+async function updDRadicacion(id,val){
+  val=(val||'').trim();
+  if(!val){alert('⚠ La radicación no puede quedar vacía.');aDD(id);return;}
+  const dup=dA().find(x=>String(x.id)!==String(id)&&(x.radicacion||'').replace(/\D/g,'')===val.replace(/\D/g,'')&&val.replace(/\D/g,''));
+  if(dup){
+    if(!confirm('⚠ YA EXISTE otro desacato con ese radicado:\n'+val+'\n\n¿Guardar de todas formas?')){
+      aDD(id);return;
+    }
+  }
+  await updD(id,'radicacion',val);
+  rD();
+  aDD(id);
+}
 async function updD(id,campo,val){
   const d=dA().find(x=>String(x.id)===String(id));
   if(!d)return;
@@ -2776,13 +2855,17 @@ function rCal(){
     var nom=abrevRad(r.radicacion);
     try{
       const tc=r.fechaSolicitud?termD(r):termT(r);
+      const esNulActiva=hasNulActiva(r);
       addEv(tc.dia9,'alert','Fallo - Día '+getAlertaDiasTutela(r)+' '+tipo+': '+nom,'#d4770a');
-      addEv(tc.vce,'venc','Vence '+tipo+': '+nom,'#c0392b');
-      // v33.12: si hay impugnación presentada pero no se ha enviado al reparto, mostrar plazo
+      // v33.36: si el vencimiento viene de una NULIDAD activa, se etiqueta y resalta
+      // de forma distinta (rojo intenso) para que sea inconfundible en el programador.
+      addEv(tc.vce,'venc',(esNulActiva?'🚨 NULIDAD — nuevo fallo: ':'Vence ')+(esNulActiva?nom:tipo+': '+nom),esNulActiva?'#991b1b':'#c0392b');
+      // v33.12 / v33.36: límite de envío de impugnación al reparto — vencimiento DURO,
+      // ahora se pinta en ROJO (tipo 'venc') en vez de naranja, como pidió el despacho.
       if(tipo==='Tutela'&&r.fechaImpugnacion&&!r.fechaReparto2i&&tc.limImpugnacion){
-        addEv(tc.limImpugnacion,'alert','Lím. envío impugnación al reparto — '+nom,'#ea580c');
+        addEv(tc.limImpugnacion,'venc','🔴 Lím. envío impugnación al reparto — '+nom,'#b91c1c');
       }
-      if(tipo==='Tutela'&&tc.remCC)addEv(tc.remCC,'event','Remite Corte C. — '+nom,'#1a5fa8');
+      if(tipo==='Tutela'&&tc.remCC&&!r.fechaRemCC)addEv(tc.remCC,'event','📬 Envío Corte C. — '+nom,'#1a5fa8');
       if(tipo==='Desacato'&&tc.remCons)addEv(tc.remCons,'event','Consulta — '+nom,'#1a5fa8');
       if(tc.vce2i)addEv(tc.vce2i,'venc','Vence 2ªI — '+nom,'#c0392b');
     }catch(e){}
@@ -3244,7 +3327,7 @@ async function extraerDatosCarpeta(files,folderName){
   const rH=m?.[1]??'', aH=(m?.[2]??folderName).trim();
   const fb={radicacion:rH,accionante:aH,cedula:'',accionado:'',vinculados:'',
     derechoSierju:'',derechos:'',medida:'Sin medida previa',pretensiones:'',
-    fechaReparto:'',fechaAdmision:'',fechaFallo:'',sentidoFallo:'',
+    fechaReparto:'',fechaAdmision:'',fechaFallo:'',fechaNotificacionFallo:'',sentidoFallo:'',
     fechaImpugnacion:'',juzgado2i:'',fallo2i:'',fechaReparto2i:'',fechaFallo2i:'',
     fechaRemCC:'',fechaRegresoCC:'',estado:'En término',observaciones:'',esHC:false};
   const apiKey=getApiKey();
@@ -3569,7 +3652,8 @@ Extrae SOLO los siguientes campos del expediente. Responde ÚNICAMENTE con JSON 
 3. sentidoFallo: SOLO LITERAL desde la PARTE RESOLUTIVA. Si dice "CONCEDE PARCIALMENTE" → "Concede parcialmente". Si NO aparece la palabra "PARCIAL" → NUNCA devuelvas "Concede parcialmente". Preferible "" que inventado.
 
 Campos a extraer:
-- fechaFallo: fecha del fallo 1ª instancia en formato YYYY-MM-DD
+- fechaFallo: fecha del fallo 1ª instancia en formato YYYY-MM-DD (fecha en que el juez PROFIRIÓ/FIRMÓ la sentencia — encabezado o pie del documento de la sentencia misma)
+- fechaNotificacionFallo: fecha en que la sentencia fue NOTIFICADA a las partes — formato YYYY-MM-DD. ⚠️ NO es necesariamente la misma fecha que fechaFallo. Búscala en el oficio de notificación o en la constancia secretarial (frases típicas: "mediante Oficio No. XXX del [fecha], esta secretaría procedió a notificar la sentencia", "se notificó por correo electrónico/estado el [fecha]"). Si no hay un oficio o constancia que indique fecha de notificación distinta, deja igual a fechaFallo.
 - sentidoFallo: exactamente uno de: "Concede tutela", "Concede parcialmente", "Niega — improcedente", "Niega — hecho superado", "Declara carencia actual de objeto", "Desistimiento", "Devuelta por competencia", o "" si no hay fallo aún
 - fechaImpugnacion: fecha de impugnación en formato YYYY-MM-DD
 - juzgado2i: nombre del juzgado de 2ª instancia
@@ -3585,7 +3669,7 @@ Campos a extraer:
 - nulidades: array de descripciones de nulidades
 
 Responde SOLO con este JSON (sin explicaciones):
-{"fechaFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","responsable":"","observaciones":"","nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
+{"fechaFallo":"","fechaNotificacionFallo":"","sentidoFallo":"","fechaImpugnacion":"","juzgado2i":"","fallo2i":"","fechaReparto2i":"","fechaFallo2i":"","fechaRemCC":"","fechaRegresoCC":"","responsable":"","observaciones":"","nulidadDetectada":false,"ciclosAnulados":[],"nulidades":[]}`;
 
   // Ejecutar ambas llamadas en paralelo
   const [parsedA, parsedB] = await Promise.all([
