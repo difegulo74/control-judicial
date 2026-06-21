@@ -160,8 +160,14 @@ td{padding:8px 10px;border-bottom:1px solid var(--bd);vertical-align:middle}
 tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:var(--bg)}
 tr.has-nul td{background:var(--nu-bg)!important}
-.ra{font-family:'SF Mono','Courier New',monospace;font-size:9px;color:var(--t2)}
+.ra{font-family:'SF Mono','Courier New',monospace;font-size:9px;color:var(--t2);max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .trunc{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* v33.56: tabla de desacatos con ancho FIJO por columna (table-layout:fixed) —
+   garantiza que el ancho total nunca se rompa, sin importar qué tan largo sea
+   el contenido de una fila puntual (URLs, textos largos, etc. se truncan con …
+   en vez de estirar la columna para toda la tabla). */
+table.tfix{table-layout:fixed;width:100%;min-width:0}
+table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ract{display:flex;gap:2px}
 
 /* BADGES */
@@ -494,11 +500,11 @@ tr.has-nul td{background:var(--nu-bg)!important}
     </select>
   </div>
   <div class="tw"><div class="tws">
-    <table>
+    <table class="tfix">
       <thead><tr>
-        <th style="width:28px"></th><th>Radicación</th><th>Incidentado</th>
-        <th>Derecho SIERJU</th><th>F.Solicitud</th><th>Req.Previo</th>
-        <th>Apertura</th><th>Vence D10</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
+        <th style="width:30px"></th><th style="width:14%">Radicación</th><th style="width:15%">Incidentado</th>
+        <th style="width:9%">Derecho SIERJU</th><th style="width:8%">F.Solicitud</th><th style="width:7%">Req.Previo</th>
+        <th style="width:7%">Apertura</th><th style="width:8%">Vence D10</th><th style="width:8%">Alerta</th><th style="width:10%">Estado</th><th style="width:14%">Acciones</th>
       </tr></thead>
       <tbody id="tbd"></tbody>
     </table>
@@ -918,7 +924,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.55';
+var APP_VERSION='33.56';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
