@@ -917,7 +917,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.50';
+var APP_VERSION='33.51';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -2347,6 +2347,14 @@ function aFD(){
       <button class="mcls" onclick="cerrar()">✕</button>
     </div>
     <div class="mbody"><div class="fg">
+      <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:12px">
+        <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:4px">📁 Cargar desde carpeta OneDrive</div>
+        <div style="font-size:10px;color:#ea580c;margin-bottom:8px">Selecciona la carpeta del incidente — la IA leerá los documentos y llenará los campos automáticamente.</div>
+        <label for="folder-input-afd" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:6px;background:#ea580c;border-color:#ea580c">📂 Seleccionar carpeta</label>
+        <span id="folder-status-d" style="font-size:10px;color:#c2410c;font-weight:600;margin-left:8px"></span>
+        <input type="file" id="folder-input-afd" multiple webkitdirectory directory style="display:none" onchange="procesarCarpetaD(this)">
+      </div>
+      <p style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--t3);margin:-4px 0">— o ingresa los datos manualmente —</p>
       <div class="fi"><label>Radicación del incidente</label><input id="d-r" placeholder="2026-001"></div>
       <div class="fi"><label>Radicación tutela base</label><input id="d-tb" placeholder="73001400901420260001000"></div>
       <div class="fsec">Partes</div>
@@ -2365,7 +2373,8 @@ function aFD(){
       <div class="fi"><label>Estado</label>
         <select id="d-est">
           <option>Requerimiento previo</option><option>Apertura formal</option>
-          <option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option><option>Archivado</option>
+          <option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option>
+          <option>Retiro voluntario</option><option>Anulado</option><option>Archivado</option>
         </select>
       </div>
       <div class="fi"><label>Enlace expediente OneDrive</label><input id="d-l" placeholder="https://..."></div>
@@ -2401,6 +2410,9 @@ async function guardarD(){
   if(!rad){alert('La radicación del incidente es obligatoria.');return;}
   const ds=document.getElementById('d-ds').value;
   if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
+  // v33.51: chequeo de duplicados, igual que en tutelas
+  const dup=dA().find(x=>(x.radicacion||'').replace(/\D/g,'')===rad.replace(/\D/g,'')&&rad.replace(/\D/g,''));
+  if(dup&&!confirm('⚠ YA EXISTE un incidente con ese radicado:\n'+rad+'\n('+(dup.incidentante||'sin incidentante')+')\n\n¿Guardar de todas formas?'))return;
   const d={id:Date.now(),radicacion:rad,
     tutelaBase:document.getElementById('d-tb').value.trim(),
     incidentante:document.getElementById('d-inc').value.trim(),
@@ -2413,7 +2425,21 @@ async function guardarD(){
     enlace:document.getElementById('d-l').value.trim(),
     observaciones:document.getElementById('d-o').value.trim(),
     fechaDecision:'',resultado:'',nulidades:[],ultimaNulidad:null};
+  // v33.51: aplicar TODOS los datos que Gemini extrajo de la carpeta (carga 100%
+  // en un solo paso, igual que tutelas) — campos no visibles en este formulario.
+  if(window._pendingFolderD){
+    d.folderName=window._pendingFolderD.folderName;
+    d.filesCount=window._pendingFolderD.filesCount;
+    const gd=window._pendingFolderD.geminiData||{};
+    const camposExtra=['fechaDecision','resultado'];
+    camposExtra.forEach(campo=>{ if(gd[campo]&&!d[campo])d[campo]=gd[campo]; });
+    if(!d.enlace){
+      const auto=buildOneDriveURL(window._pendingFolderD.folderName,'d');
+      if(auto)d.enlace=auto;
+    }
+  }
   await fbSave(`desacatos_${anio}`,d.id,d);
+  window._pendingFolderD=null;
   cerrar();rD();
 }
 
@@ -2472,6 +2498,14 @@ function aDD(id){
       <div class="fi full"><label>Enlace OneDrive</label>
         <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
         ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+        ${d.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(d.folderName)}${d.filesCount?' <span style="color:var(--t2)">('+d.filesCount+' archivos)</span>':''}</div>`:''}
+      </div>
+      <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
+        <div style="font-size:10px;color:#ea580c;margin-bottom:8px">Selecciona la carpeta actualizada — la IA completará los campos vacíos sin borrar lo que ya existe.</div>
+        <label for="reload-input-d-${id}" class="btn btn-p" style="font-size:11px;padding:6px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;border-radius:6px;background:#ea580c;border-color:#ea580c">🔄 Actualizar desde carpeta</label>
+        <span id="reload-status-d-${id}" style="font-size:10px;color:#c2410c;font-weight:600;margin-left:8px"></span>
+        <input type="file" id="reload-input-d-${id}" multiple webkitdirectory directory style="display:none" onchange="procesarRecargaD(this,'${id}')">
       </div>
       <div class="fi full"><label>Observaciones</label><textarea onchange="updD('${id}','observaciones',this.value)">${esc(d.observaciones)}</textarea></div>
       <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
@@ -4194,7 +4228,138 @@ Responde SOLO con este JSON (sin explicaciones):
   }
   return{...fb,...parsed};
 }
-// v33.23: detector de responsable por regex como fallback cuando Gemini falla.
+
+// ═══════════════════════════════════════════════════════
+// v33.51: EXTRACCIÓN AUTOMÁTICA PARA DESACATOS (carga 100% en un solo paso,
+// igual que tutelas). Pipeline simplificado de un solo llamado a Gemini —
+// los expedientes de desacato suelen tener muchos menos documentos que una
+// tutela (solicitud, requerimiento previo, auto que sanciona/no sanciona,
+// eventual consulta), así que no se necesita la clasificación elaborada
+// por prioridad documental que sí se justifica para tutelas.
+// ═══════════════════════════════════════════════════════
+const ESTADO_DESACATO_MAP={
+  'requerimiento previo':'Requerimiento previo','requerimiento':'Requerimiento previo',
+  'apertura formal':'Apertura formal','apertura':'Apertura formal','abre incidente':'Apertura formal',
+  'pendiente decisión':'Pendiente decisión','pendiente decision':'Pendiente decisión','pendiente':'Pendiente decisión',
+  'sanciona':'Sanciona','sanciona al':'Sanciona','impone sanción':'Sanciona','impone sancion':'Sanciona',
+  'no sanciona':'No sanciona','niega sanción':'No sanciona','niega sancion':'No sanciona','no impone sanción':'No sanciona',
+  'retiro voluntario':'Retiro voluntario','desiste':'Retiro voluntario','desistimiento':'Retiro voluntario',
+  'anulado':'Anulado','nulidad':'Anulado',
+  'archivado':'Archivado','archiva':'Archivado'
+};
+const RESULTADO_CONSULTA_MAP={
+  'confirma sanción':'Confirma sanción','confirma sancion':'Confirma sanción','confirma':'Confirma sanción',
+  'modifica sanción':'Modifica sanción','modifica sancion':'Modifica sanción','modifica':'Modifica sanción',
+  'revoca sanción':'Revoca sanción','revoca sancion':'Revoca sanción','revoca':'Revoca sanción',
+  'decreta nulidad':'Decreta nulidad','nulidad':'Decreta nulidad'
+};
+
+async function extraerDatosCarpetaDesacato(files,folderName){
+  // El nombre de carpeta de desacatos no sigue un patrón único conocido —
+  // se intenta extraer "AAAA-NNN" (radicación de incidente) si aparece,
+  // y se usa el resto como pista de incidentante, sin forzar nada.
+  const mRad=folderName.match(/(\d{4}-\d{1,4})/);
+  const rH=mRad?mRad[1]:'';
+  const aH=folderName.replace(rH,'').replace(/^[\s\-_]+|[\s\-_]+$/g,'').trim();
+  const fb={radicacion:rH,tutelaBase:'',incidentante:aH,incidentado:'',derechoSierju:'',
+    ordenIncumplida:'',fechaFalloBase:'',fechaSolicitud:'',estado:'Requerimiento previo',
+    fechaDecision:'',resultado:'',observaciones:''};
+  const apiKey=getApiKey();
+  if(!apiKey){console.warn('extraerDatosCarpetaDesacato: sin apiKey');return fb;}
+
+  const allFiles=[...files];
+  const pdfs=allFiles.filter(f=>f.name.toLowerCase().endsWith('.pdf')).slice(0,20);
+  const docx=allFiles.filter(f=>/\.(docx?|DOCX?)$/.test(f.name)).slice(0,6);
+
+  if(!window.pdfjsLib){
+    try{
+      await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }catch(e){console.warn('pdf.js no se pudo cargar:',e);}
+  }
+
+  let pdfTxt='';const pdfDiag=[];
+  for(const f of pdfs){
+    try{
+      const ab=await f.arrayBuffer();
+      if(!window.pdfjsLib){pdfDiag.push(f.name+':NO_PDFJS');continue;}
+      const doc=await window.pdfjsLib.getDocument({data:ab}).promise;
+      let txt='';
+      const maxPages=Math.min(doc.numPages,6);
+      for(let i=1;i<=maxPages;i++){
+        const page=await doc.getPage(i);
+        const cc=await page.getTextContent();
+        txt+=cc.items.map(it=>it.str).join(' ')+'\n';
+      }
+      txt=txt.replace(/\s+/g,' ').trim();
+      if(txt.length>50){pdfTxt+='\n=== '+f.name+' ===\n'+txt.slice(0,5000)+'\n';pdfDiag.push(f.name+' OK ('+txt.length+'ch)');}
+      else pdfDiag.push(f.name+':escaneo_o_vacío');
+    }catch(e){pdfDiag.push(f.name+':ERROR_'+e.message);}
+  }
+
+  let wTxt='';
+  if(docx.length>0){
+    try{
+      if(!window.mammoth){await new Promise((res,rej)=>{const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+      for(const f of docx){
+        try{
+          const ab=await f.arrayBuffer();
+          const r=await window.mammoth.extractRawText({arrayBuffer:ab});
+          if(r.value&&r.value.trim())wTxt+='\n=== '+f.name+' ===\n'+r.value.slice(0,4000)+'\n';
+        }catch(e){console.warn('DOCX '+f.name+':',e);}
+      }
+    }catch(e){console.warn('mammoth:',e);}
+  }
+
+  console.log('[Extracción desacato] PDFs:',pdfDiag,'| Texto PDF:',pdfTxt.length,'chars | DOCX:',wTxt.length,'chars');
+  if(!pdfTxt.trim()&&!wTxt.trim()){
+    throw new Error('No se pudo extraer texto de ningún archivo de la carpeta. Posibles causas: PDFs escaneados sin OCR, o carpeta vacía. Diagnóstico: '+pdfDiag.join(' | '));
+  }
+
+  const listaArchivos=[...pdfs,...docx].map(f=>'  • '+f.name).join('\n');
+  const prompt=`Eres un asistente experto en derecho constitucional colombiano, especializado en INCIDENTES DE DESACATO (Art. 52 Decreto 2591/91) — el trámite que sanciona a quien incumple una orden de tutela. A continuación tienes el TEXTO de los documentos de un incidente de desacato del Juzgado 14 Penal Municipal de Ibagué, año ${anio}.
+
+Carpeta: "${folderName}"
+Radicación de incidente tomada del nombre de carpeta (puede estar vacía si no siguió el patrón AAAA-NNN): "${rH}"
+
+📁 ARCHIVOS:
+${listaArchivos}
+
+${pdfTxt?'TEXTO PDF:\n'+pdfTxt+'\n':''}
+${wTxt?'TEXTO WORD:\n'+wTxt+'\n':''}
+
+Extrae los siguientes campos del incidente. Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código.
+
+Campos a extraer:
+- radicacion: número del incidente (formato típico "AAAA-NNN", ej "2026-001"). Si no aparece explícito, usa: "${rH}"
+- tutelaBase: número COMPLETO de radicación (23 dígitos) de la tutela ORIGINAL cuyo cumplimiento se está exigiendo — aparece como "tutela radicado No. ..." o similar
+- incidentante: nombre de quien solicita el desacato (normalmente el mismo accionante de la tutela base, o su apoderado)
+- incidentado: entidad o persona requerida/señalada de incumplir la orden
+- derechoSierju: derecho principal SIERJU de la tutela base — EXACTAMENTE uno de: "Salud","Debido Proceso","Petición","Vivienda","Trabajo","Educación","Seguridad Social","Mínimo Vital","Otro"
+- ordenIncumplida: transcribe LITERALMENTE el numeral/orden de la parte resolutiva de la tutela base que se alega incumplida (búscalo citado dentro de la solicitud de desacato o del auto)
+- fechaFalloBase: fecha del fallo de la tutela ORIGINAL que se está incumpliendo, formato YYYY-MM-DD
+- fechaSolicitud: fecha en que se RADICÓ/PRESENTÓ la solicitud de desacato (NO la fecha del fallo base), formato YYYY-MM-DD
+- estado: estado procesal actual del incidente — EXACTAMENTE uno de: "Requerimiento previo","Apertura formal","Pendiente decisión","Sanciona","No sanciona","Retiro voluntario","Anulado","Archivado"
+- fechaDecision: fecha del auto que decide el incidente (sanciona/no sanciona), formato YYYY-MM-DD, vacío si aún no hay decisión
+- resultado: SOLO si el expediente fue a CONSULTA ante el superior tras imponer sanción — EXACTAMENTE uno de: "Confirma sanción","Modifica sanción","Revoca sanción","Decreta nulidad". Vacío si no hubo consulta.
+- observaciones: notas relevantes del trámite (máx 2-3 líneas)
+
+Responde SOLO con este JSON:
+{"radicacion":"${rH}","tutelaBase":"","incidentante":"${aH}","incidentado":"","derechoSierju":"","ordenIncumplida":"","fechaFalloBase":"","fechaSolicitud":"","estado":"Requerimiento previo","fechaDecision":"","resultado":"","observaciones":""}`;
+
+  console.log('[Extracción desacato] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
+  const parsed=await _llamarGemini(apiKey,prompt,false);
+  console.log('[Extracción desacato] Gemini respondió:',parsed);
+
+  // Normalizar valores de estado/resultado a las opciones EXACTAS del select
+  if(parsed.estado)parsed.estado=mapV(parsed.estado,ESTADO_DESACATO_MAP)||parsed.estado;
+  if(parsed.resultado)parsed.resultado=mapV(parsed.resultado,RESULTADO_CONSULTA_MAP)||parsed.resultado;
+  if(parsed.derechoSierju)parsed.derechoSierju=mapV(parsed.derechoSierju,SIERJU_MAP)||parsed.derechoSierju;
+
+  window._ultimaExtraccionD={folder:folderName,pdfs:pdfs.length,docx:docx.length,pdfDiag,parsed};
+  return{...fb,...parsed};
+}
+
 // Busca patrones de firma "Cordialmente/Atentamente, [NOMBRE]" en los textos
 // extraídos de archivos NOTIFICACIÓN. Solo devuelve match con la lista válida.
 function detectarResponsablePorRegex(textosNotificacion){
@@ -4451,6 +4616,87 @@ window.procesarRecarga=async function(inp,id){
     alert('✓ Actualización guardada y VERIFICADA en Firebase:\n'+n+' campo(s) actualizado(s).'
       +(nulApplied>0?'\n\n🚨 '+nulApplied+' nulidad(es) detectada(s) y aplicada(s) automáticamente.':'')
       +'\n\nYa puedes recargar (F5) — los cambios quedarán.');
+  }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
+  inp.value='';
+};
+
+// ═══════════════════════════════════════════════════════
+// v33.51: CARGA AUTOMÁTICA DESDE CARPETA — DESACATOS (carga 100% en un solo paso,
+// igual que tutelas). Dos funciones, igual que el patrón de tutelas:
+// - procesarCarpetaD: para el formulario de NUEVO incidente.
+// - procesarRecargaD: para ACTUALIZAR un incidente ya existente.
+// ═══════════════════════════════════════════════════════
+window.procesarCarpetaD=async function(inp){
+  const files=inp.files;if(!files?.length)return;
+  const folderName=files[0].webkitRelativePath.split('/')[0];
+  const st=document.getElementById('folder-status-d');
+  if(st)st.textContent='⏳ Leyendo "'+folderName+'"…';
+  try{
+    if(st)st.textContent='🔄 Analizando con Gemini…';
+    const d=await extraerDatosCarpetaDesacato(files,folderName);
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+    set('d-r',d.radicacion);set('d-tb',d.tutelaBase);set('d-inc',d.incidentante);
+    set('d-inci',d.incidentado);set('d-ord',d.ordenIncumplida);
+    set('d-fb',d.fechaFalloBase);set('d-fs',d.fechaSolicitud);
+    setSelect('d-ds',d.derechoSierju);
+    if(d.estado){const fe=document.getElementById('d-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
+    set('d-o',d.observaciones);
+    if(d.fechaSolicitud&&typeof pvD==='function')pvD();
+    window._pendingFolderD={folderName,filesCount:files.length,geminiData:d};
+    const hayDatos=d.incidentado||d.tutelaBase||d.ordenIncumplida||d.fechaSolicitud;
+    if(hayDatos){
+      if(st)st.innerHTML='✓ Datos cargados. <b style="color:#dc2626">⬇ Revisa los campos y haz clic en "✓ Guardar" (abajo) para GUARDAR</b>';
+    }else{
+      if(st)st.innerHTML='⚠ Gemini no extrajo campos. Puedes llenar los campos manualmente y guardar.';
+    }
+  }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
+  inp.value='';
+};
+
+window.procesarRecargaD=async function(inp,id){
+  const files=inp.files;if(!files?.length)return;
+  const folderName=files[0].webkitRelativePath.split('/')[0];
+  const st=document.getElementById('reload-status-d-'+id);
+  if(st)st.textContent='⏳ Leyendo…';
+  try{
+    if(st)st.textContent='🔄 Analizando con Gemini…';
+    const d=await extraerDatosCarpetaDesacato(files,folderName);
+    const dd=dA().find(x=>String(x.id)===String(id));
+    if(!dd){if(st)st.textContent='⚠ Incidente no encontrado';return;}
+    const upd={};
+    const act=(campo,val)=>{if(val&&String(val).trim())upd[campo]=val;};
+    const solo=(campo,val)=>{if(val&&!dd[campo])upd[campo]=val;};
+    solo('tutelaBase',d.tutelaBase);act('incidentante',d.incidentante);act('incidentado',d.incidentado);
+    act('derechoSierju',d.derechoSierju);act('ordenIncumplida',d.ordenIncumplida);
+    solo('fechaFalloBase',d.fechaFalloBase);solo('fechaSolicitud',d.fechaSolicitud);
+    act('fechaDecision',d.fechaDecision);act('resultado',d.resultado);act('observaciones',d.observaciones);
+    upd.folderName=folderName;upd.filesCount=files.length;
+    const enlaceEsAuto=!dd.enlace||!/^https?:\/\//i.test(dd.enlace)||/ramajudicial|consultaprocesos|sharepoint/i.test(dd.enlace||'');
+    if(enlaceEsAuto){
+      const auto=buildOneDriveURL(folderName,'d');
+      if(auto)upd.enlace=auto;
+    }
+    // Estado: solo avanza en la jerarquía del trámite, nunca retrocede
+    const jerarquia=['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Retiro voluntario','Anulado','Archivado'];
+    const iA=jerarquia.indexOf(dd.estado||''),iN=jerarquia.indexOf(d.estado||'');
+    if(iN>iA&&d.estado)upd.estado=d.estado;
+    const n=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
+    if(n===0){if(st)st.textContent='✓ Sin datos nuevos';inp.value='';return;}
+    if(!fbDb){if(st)st.textContent='⚠ Firebase no conectado — recarga (Ctrl+F5)';inp.value='';return;}
+    const col=`desacatos_${anio}`;const merged={...dd,...upd};
+    try{
+      await fbDb.collection(col).doc(String(id)).set(merged);
+      const check=await fbDb.collection(col).doc(String(id)).get();
+      if(!check||!check.exists){if(st)st.textContent='✗ No se pudo verificar el guardado';inp.value='';return;}
+    }catch(err){
+      console.error('procesarRecargaD ERROR:',err);
+      if(st)st.textContent='✗ Error al guardar';
+      alert('⚠ ERROR al actualizar:\n'+err.message);
+      inp.value='';return;
+    }
+    rD();cerrar2();setTimeout(()=>aDD(id),350);
+    if(st)st.textContent=`✓ ${n} campo(s) actualizado(s) y verificados`;
+    alert('✓ Actualización guardada y VERIFICADA en Firebase:\n'+n+' campo(s) actualizado(s).\n\nYa puedes recargar (F5) — los cambios quedarán.');
   }catch(e){if(st)st.textContent='⚠ Error: '+e.message;}
   inp.value='';
 };
