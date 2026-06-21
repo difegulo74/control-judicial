@@ -249,14 +249,16 @@ tr.has-nul td{background:var(--nu-bg)!important}
 /* v33.43: vista anual de 12 mini-meses con estilo Calendario Colombia */
 /* v33.47: vista anual SIEMPRE en 6 columnas × 2 filas (12 meses exactos), con
    altura total ajustada en JS al espacio real disponible — sin scroll. */
-.cal-grid{display:grid;grid-template-columns:repeat(6,1fr);grid-template-rows:repeat(2,1fr);gap:10px}
-.cal-month{border:2px solid #dc2626;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);background:#fff;display:flex;flex-direction:column;min-height:0}
-.cal-mhdr{flex:0 0 auto;background:#fef3c7;color:#dc2626;font-size:12px;font-weight:800;padding:5px 8px;text-align:center;text-transform:capitalize;letter-spacing:.02em;border-bottom:2px solid #dc2626}
-.cal-dhdr{flex:0 0 auto;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626}
-.cal-dh{font-size:8px;font-weight:700;color:#fff;text-align:center;padding:3px 1px;text-transform:uppercase;border-right:1px solid #b91c1c}
+/* v33.50: vista anual REVERTIDA al estilo espacioso y legible que Diego ya había
+   aprobado (auto-fill natural, sin forzar una caja rígida de 6×2 columnas). */
+.cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
+.cal-month{border:2px solid #dc2626;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);background:#fff}
+.cal-mhdr{background:#fef3c7;color:#dc2626;font-size:13px;font-weight:800;padding:6px 10px;text-align:center;text-transform:capitalize;letter-spacing:.02em;border-bottom:2px solid #dc2626}
+.cal-dhdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626}
+.cal-dh{font-size:9px;font-weight:700;color:#fff;text-align:center;padding:4px 1px;text-transform:uppercase;border-right:1px solid #b91c1c}
 .cal-dh:last-child{border-right:none}
-.cal-days{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:repeat(6,1fr)}
-.cal-day{font-size:10px;text-align:center;padding:1px;min-width:0;min-height:0;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-direction:column;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;position:relative;cursor:pointer;transition:.1s;color:#1f2937;font-weight:600}
+.cal-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.cal-day{font-size:11px;text-align:center;padding:2px 1px;min-height:34px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-direction:column;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;position:relative;cursor:pointer;transition:.1s;color:#1f2937;font-weight:600}
 .cal-day:nth-child(7n){border-right:none}
 .cal-day.empty{background:#fafafa;cursor:default}
 .cal-day.sab,.cal-day.dom{color:#dc2626}
@@ -272,40 +274,40 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .cal-day.ev-user{background:#e8f8e8}
 .ev-dot{width:5px;height:5px;border-radius:50%;margin:1px auto 0}
 .cal-tip{display:none;position:fixed;background:#0f172a;color:#fff;font-size:10px;padding:8px 10px;border-radius:6px;white-space:normal;word-break:break-word;max-width:260px;min-width:180px;z-index:9999;text-align:left;line-height:1.45;box-shadow:0 4px 12px rgba(0,0,0,0.35)}
-/* v33.47: vista mensual con ALTURA AJUSTADA AL VIEWPORT (sin scroll). La altura total
-   del calendario y de cada fila de semana se calculan en JS según el espacio real
-   disponible en pantalla — por eso aquí NO hay alturas fijas, solo flex/grid fluido. */
-.calM{width:calc(100% + 28px);margin:10px -14px 0;border-top:3px solid #dc2626;border-bottom:3px solid #dc2626;overflow:hidden;background:#fff;display:flex;flex-direction:column}
-.calM-hdr{flex:0 0 auto;background:#fef3c7;color:#dc2626;font-size:26px;font-weight:800;text-align:center;padding:10px;border-bottom:3px solid #dc2626;text-transform:capitalize;letter-spacing:.02em}
-.calM-dhdr{flex:0 0 auto;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626;color:#fff}
-.calM-dh{font-size:14px;font-weight:700;text-align:center;padding:8px 0;border-right:1px solid #b91c1c}
+/* v33.50: vista mensual con tamaños FIJOS y cómodos — se eliminó el ajuste de
+   altura por JS (ver comentario en _renderCalMensual) porque producía aplastamiento.
+   Si la pantalla es pequeña, esta vista puede pedir scroll — preferible a verse rota. */
+.calM{width:calc(100% + 28px);margin:10px -14px 0;border-top:3px solid #dc2626;border-bottom:3px solid #dc2626;overflow:hidden;background:#fff}
+.calM-hdr{background:#fef3c7;color:#dc2626;font-size:26px;font-weight:800;text-align:center;padding:12px;border-bottom:3px solid #dc2626;text-transform:capitalize;letter-spacing:.02em}
+.calM-dhdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626;color:#fff}
+.calM-dh{font-size:14px;font-weight:700;text-align:center;padding:9px 0;border-right:1px solid #b91c1c}
 .calM-dh:last-child{border-right:none}
-.calM-days{flex:1;min-height:0;display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-.calM-day{min-width:0;min-height:0;overflow:hidden;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:4px 8px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
+.calM-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
+.calM-day{min-height:110px;min-width:0;overflow:hidden;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:6px 9px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
 .calM-day:hover{background:#fef9c3}
 .calM-day:nth-child(7n){border-right:none}
 .calM-day.empty{background:#fafafa;cursor:default}
 .calM-day.empty:hover{background:#fafafa}
-.calM-num{font-size:17px;font-weight:700;color:#1f2937;line-height:1;flex:0 0 auto}
+.calM-num{font-size:20px;font-weight:700;color:#1f2937;line-height:1}
 .calM-day.sab .calM-num,.calM-day.dom .calM-num{color:#dc2626}
 .calM-day.fest{background:repeating-linear-gradient(45deg,#fef2f2,#fef2f2 10px,#fecaca 10px,#fecaca 20px)!important;box-shadow:inset 0 0 0 2px #dc2626;cursor:default}
 .calM-day.fest:hover{background:repeating-linear-gradient(45deg,#fee2e2,#fee2e2 10px,#fca5a5 10px,#fca5a5 20px)!important}
-.calM-day.fest .calM-num{color:#991b1b;font-weight:900;font-size:19px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
+.calM-day.fest .calM-num{color:#991b1b;font-weight:900;font-size:23px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
 .calM-day.ss{background:#f1f5f9!important;cursor:default}
 .calM-day.ss:hover{background:#e2e8f0!important}
-.calM-day.ss .calM-num{color:#475569;font-weight:700;font-size:17px}
-.calM-day.ss::after{content:'no hábil';position:absolute;top:4px;right:6px;font-size:8px;color:#94a3b8;font-style:italic;font-weight:600}
+.calM-day.ss .calM-num{color:#475569;font-weight:700;font-size:20px}
+.calM-day.ss::after{content:'no hábil';position:absolute;top:6px;right:9px;font-size:9px;color:#94a3b8;font-style:italic;font-weight:600}
 .calM-day.hoy{background:#fef3c7!important;outline:3px solid #dc2626;outline-offset:-3px}
-.calM-day.hoy .calM-num{color:#92400e;font-weight:800;font-size:18px}
-.calM-fest-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:34px;opacity:.25;pointer-events:none;z-index:0}
+.calM-day.hoy .calM-num{color:#92400e;font-weight:800;font-size:21px}
+.calM-fest-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:46px;opacity:.27;pointer-events:none;z-index:0}
 .calM-num,.calM-evs{position:relative;z-index:1}
-.calM-evs{margin-top:3px;display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;min-height:0;min-width:0}
-.calM-ev{font-size:10.5px;line-height:1.3;padding:2px 6px;border-radius:4px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;min-width:0;max-width:100%;flex:0 0 auto}
+.calM-evs{margin-top:5px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.calM-ev{font-size:11.5px;line-height:1.35;padding:3px 7px;border-radius:4px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;min-width:0;max-width:100%}
 .calM-ev.venc{background:#dc2626}
 .calM-ev.alert{background:#ea580c}
 .calM-ev.event{background:#1a5fa8}
 .calM-ev.user{background:#16a34a}
-.calM-more{font-size:10px;color:#475569;font-style:italic;text-align:center;margin-top:2px;font-weight:600;flex:0 0 auto}
+.calM-more{font-size:10.5px;color:#475569;font-style:italic;text-align:center;margin-top:3px;font-weight:600}
 .cal-vb.act{background:#dc2626!important;color:#fff!important}
 .cal-day:hover .cal-tip{display:block!important}
 .cal-day:hover{background:var(--bg)}
@@ -915,7 +917,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.49';
+var APP_VERSION='33.50';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3084,30 +3086,12 @@ function setCalView(v){
 }
 
 // v33.39: dibuja la vista mensual grande tipo "Calendario Colombia"
-// v33.49: ajusta la altura de un elemento del calendario para que ocupe EXACTAMENTE
-// el espacio restante de la ventana del navegador. v33.47 solo hacía el cálculo
-// TEÓRICO antes de pintar, lo cual podía quedar corto por factores difíciles de
-// predecir (barras de scroll que aparecen después, redondeos, fuentes). Ahora se
-// agrega una SEGUNDA pasada que mide el overflow REAL ya renderizado y lo corrige.
-function _calFitHeight(el,extraBottom){
-  if(!el)return;
-  const top=el.getBoundingClientRect().top;
-  let disponible=Math.max(220,window.innerHeight-top-(extraBottom||16));
-  el.style.height=disponible+'px';
-  const corregir=()=>{
-    const overflow=document.documentElement.scrollHeight-window.innerHeight;
-    if(overflow>2){
-      disponible=Math.max(180,disponible-overflow-6);
-      el.style.height=disponible+'px';
-      return true;
-    }
-    return false;
-  };
-  requestAnimationFrame(()=>{
-    if(corregir())requestAnimationFrame(corregir); // 2ª pasada por si la 1ª no alcanzó
-  });
-}
-// Recalcular al cambiar el tamaño de la ventana (debounced)
+// v33.50: ELIMINADO el ajuste de altura por JavaScript (_calFitHeight). Causaba
+// aplastamiento severo del contenido en ciertos casos (el cálculo de "espacio
+// disponible" no siempre coincidía con la realidad y terminaba comprimiendo las
+// celdas a casi 0px). Se reemplaza por tamaños FIJOS y confiables en CSS — si en
+// pantallas muy pequeñas hace falta un poco de scroll, es preferible a que se vea roto.
+// Recalcular columnas/filas al cambiar el tamaño de la ventana (sin tocar alturas)
 let _calResizeTimer=null;
 window.addEventListener('resize',()=>{
   clearTimeout(_calResizeTimer);
@@ -3164,18 +3148,17 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
     if(fest||ss)evs=evs.filter(e=>e.tipo==='user');
     if(evs.length){
       const evsBox=document.createElement('div');evsBox.className='calM-evs';
-      // v33.47: 3 eventos visibles directamente (antes 5) — las celdas ahora son
-      // más compactas porque el calendario completo debe caber en pantalla sin
-      // scroll. El resto aparece en "+N más" y SIEMPRE en el tooltip al pasar el
+      // v33.50: 4 eventos visibles directamente (celdas con tamaño fijo cómodo de
+      // nuevo). El resto aparece en "+N más" y SIEMPRE en el tooltip al pasar el
       // mouse (ese sí lista TODOS los eventos del día, sin límite).
-      evs.slice(0,3).forEach(e=>{
+      evs.slice(0,4).forEach(e=>{
         const el=document.createElement('div');
         el.className='calM-ev '+(e.tipo||'event');
         el.textContent=e.lbl||'';
         el.title=e.lbl||'';
         evsBox.appendChild(el);
       });
-      if(evs.length>3){const m=document.createElement('div');m.className='calM-more';m.textContent='+'+(evs.length-3)+' más (ver detalle)';evsBox.appendChild(m);}
+      if(evs.length>4){const m=document.createElement('div');m.className='calM-more';m.textContent='+'+(evs.length-4)+' más (ver detalle)';evsBox.appendChild(m);}
       cell.appendChild(evsBox);
     }
     // Tooltip al hover (mismo formato de la vista anual)
@@ -3211,9 +3194,6 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
   }
   wrap.appendChild(days);
   grid.appendChild(wrap);
-  // v33.47: ajustar la altura total al espacio real disponible en pantalla,
-  // así el mes completo se ve de una vez, sin necesidad de hacer scroll.
-  _calFitHeight(wrap,16);
 }
 
 function navMes(delta){
@@ -3409,9 +3389,6 @@ function rCal(){
     }
     div.appendChild(days);grid.appendChild(div);
   }
-  // v33.47: ajustar la altura total del grid de 12 meses al espacio disponible
-  // en pantalla — así se ven los 12 meses completos de una sola vez, sin scroll.
-  _calFitHeight(grid,16);
 }
 
 // ═══════════════════════════════════════════════════════
