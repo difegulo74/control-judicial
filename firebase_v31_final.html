@@ -909,7 +909,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.45';
+var APP_VERSION='33.46';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3257,9 +3257,16 @@ function rCal(){
   }
   // ─── VISTA MENSUAL GRANDE (estilo Calendario Colombia) ───
   if(_calView==='m'){
+    // v33.46: FIX CRÍTICO — #cal-grid es CSS Grid de columnas (para los 12 mini-meses
+    // de la vista anual). Si se deja en modo grid al renderizar la vista mensual,
+    // el único elemento que se mete ahí (.calM) solo ocupa UNA columna (~240px) en
+    // vez de todo el ancho, por eso se veía angosto sin importar el CSS del calendario.
+    grid.style.display='block';
     _renderCalMensual(grid,y,_calMes,evMap,todayISO,meses);
     return;
   }
+  // Restaurar el grid de columnas para la vista anual de 12 mini-meses
+  grid.style.display='grid';
   // ─── VISTA ANUAL (12 mini-meses con estilo Calendario Colombia) ───
   for(let m=0;m<12;m++){
     const div=document.createElement('div');div.className='cal-month';
