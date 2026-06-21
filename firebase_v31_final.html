@@ -915,7 +915,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.48';
+var APP_VERSION='33.49';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3084,14 +3084,28 @@ function setCalView(v){
 }
 
 // v33.39: dibuja la vista mensual grande tipo "Calendario Colombia"
-// v33.47: ajusta la altura de un elemento del calendario para que ocupe EXACTAMENTE
-// el espacio restante de la ventana del navegador (desde su posición hasta abajo),
-// así el calendario completo (mes o año) se ve de una sola vez, sin scroll.
+// v33.49: ajusta la altura de un elemento del calendario para que ocupe EXACTAMENTE
+// el espacio restante de la ventana del navegador. v33.47 solo hacía el cálculo
+// TEÓRICO antes de pintar, lo cual podía quedar corto por factores difíciles de
+// predecir (barras de scroll que aparecen después, redondeos, fuentes). Ahora se
+// agrega una SEGUNDA pasada que mide el overflow REAL ya renderizado y lo corrige.
 function _calFitHeight(el,extraBottom){
   if(!el)return;
   const top=el.getBoundingClientRect().top;
-  const disponible=Math.max(280,window.innerHeight-top-(extraBottom||16));
+  let disponible=Math.max(220,window.innerHeight-top-(extraBottom||16));
   el.style.height=disponible+'px';
+  const corregir=()=>{
+    const overflow=document.documentElement.scrollHeight-window.innerHeight;
+    if(overflow>2){
+      disponible=Math.max(180,disponible-overflow-6);
+      el.style.height=disponible+'px';
+      return true;
+    }
+    return false;
+  };
+  requestAnimationFrame(()=>{
+    if(corregir())requestAnimationFrame(corregir); // 2ª pasada por si la 1ª no alcanzó
+  });
 }
 // Recalcular al cambiar el tamaño de la ventana (debounced)
 let _calResizeTimer=null;
