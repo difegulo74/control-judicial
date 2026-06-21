@@ -246,7 +246,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .leg{display:flex;align-items:center;gap:4px;font-size:9px;color:var(--t2)}
 .leg-dot{width:10px;height:10px;border-radius:2px;flex-shrink:0}
 .cal-yr-sel{font-size:11px;padding:5px 8px;border:1px solid var(--bd);border-radius:var(--r);background:var(--card)}
-/* v33.42: vista anual de 12 mini-meses con estilo Calendario Colombia */
+/* v33.43: vista anual de 12 mini-meses con estilo Calendario Colombia */
 .cal-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px}
 .cal-month{border:2px solid #dc2626;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);background:#fff}
 .cal-mhdr{background:#fef3c7;color:#dc2626;font-size:13px;font-weight:800;padding:6px 10px;text-align:center;text-transform:capitalize;letter-spacing:.02em;border-bottom:2px solid #dc2626}
@@ -254,14 +254,15 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .cal-dh{font-size:9px;font-weight:700;color:#fff;text-align:center;padding:4px 1px;text-transform:uppercase;border-right:1px solid #b91c1c}
 .cal-dh:last-child{border-right:none}
 .cal-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-/* min-width:0 + overflow:hidden — CRÍTICO para que las celdas no se desborden
-   y arrastren visualmente el contenido al día siguiente. */
 .cal-day{font-size:11px;text-align:center;padding:2px 1px;min-height:34px;min-width:0;overflow:hidden;display:flex;align-items:center;justify-content:center;flex-direction:column;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;position:relative;cursor:pointer;transition:.1s;color:#1f2937;font-weight:600}
 .cal-day:nth-child(7n){border-right:none}
 .cal-day.empty{background:#fafafa;cursor:default}
 .cal-day.sab,.cal-day.dom{color:#dc2626}
+/* v33.43: SOLO festivos oficiales con rayas rojas + sombra interior. Los días LMX de
+   Semana Santa NO son festivos (legalmente son días corrientes); solo el juzgado no
+   corre términos, pero visualmente deben verse como días normales para no confundir. */
 .cal-day.fest{background:repeating-linear-gradient(45deg,#fef2f2,#fef2f2 5px,#fecaca 5px,#fecaca 10px);color:#991b1b;font-weight:800;box-shadow:inset 0 0 0 1.5px #dc2626;cursor:default}
-.cal-day.ss{background:repeating-linear-gradient(45deg,#fefbed,#fefbed 5px,#fde68a 5px,#fde68a 10px);color:#92400e;font-weight:800;box-shadow:inset 0 0 0 1.5px #d97706;cursor:default}
+.cal-day.ss{background:#f1f5f9;color:#475569;font-weight:600;cursor:default}
 .cal-day.hoy{background:#fef3c7!important;outline:2px solid #dc2626;outline-offset:-2px;color:#92400e;font-weight:900;font-size:12px}
 .cal-day.ev-venc{background:#fde8e7}
 .cal-day.ev-alert{background:#fff3e0}
@@ -269,42 +270,43 @@ tr.has-nul td{background:var(--nu-bg)!important}
 .cal-day.ev-user{background:#e8f8e8}
 .ev-dot{width:5px;height:5px;border-radius:50%;margin:1px auto 0}
 .cal-tip{display:none;position:fixed;background:#0f172a;color:#fff;font-size:10px;padding:8px 10px;border-radius:6px;white-space:normal;word-break:break-word;max-width:260px;min-width:180px;z-index:9999;text-align:left;line-height:1.45;box-shadow:0 4px 12px rgba(0,0,0,0.35)}
-/* v33.39: vista mensual grande tipo "Calendario Colombia" */
-.calM{max-width:1100px;margin:10px auto;border:3px solid #dc2626;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
+/* v33.43: vista mensual grande tipo "Calendario Colombia" — celdas más amplias
+   y eventos más legibles. Solo festivos OFICIALES tienen rayas + ⛪;
+   los LMX de Semana Santa se ven como días corrientes (pero igual se respetan en cómputo). */
+.calM{max-width:1200px;margin:10px auto;border:3px solid #dc2626;border-radius:14px;overflow:hidden;background:#fff;box-shadow:0 4px 16px rgba(0,0,0,0.08)}
 .calM-hdr{background:#fef3c7;color:#dc2626;font-size:24px;font-weight:800;text-align:center;padding:12px;border-bottom:3px solid #dc2626;text-transform:capitalize;letter-spacing:.02em}
 .calM-dhdr{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));background:#dc2626;color:#fff}
 .calM-dh{font-size:14px;font-weight:700;text-align:center;padding:8px 0;border-right:1px solid #b91c1c}
 .calM-dh:last-child{border-right:none}
 .calM-days{display:grid;grid-template-columns:repeat(7,minmax(0,1fr))}
-/* v33.40: min-width:0 + overflow:hidden es CRÍTICO — sin esto el contenido largo de
-   un día invade visualmente la celda del día siguiente (problema reportado: parecía
-   que sábado tenía términos cuando en realidad era el viernes desbordándose). */
-.calM-day{min-height:88px;min-width:0;overflow:hidden;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:5px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
+.calM-day{min-height:120px;min-width:0;overflow:hidden;border-right:1px solid #fca5a5;border-bottom:1px solid #fca5a5;padding:6px;position:relative;cursor:pointer;background:#fff;display:flex;flex-direction:column;transition:.12s}
 .calM-day:hover{background:#fef9c3}
 .calM-day:nth-child(7n){border-right:none}
 .calM-day.empty{background:#fafafa;cursor:default}
 .calM-day.empty:hover{background:#fafafa}
 .calM-num{font-size:18px;font-weight:700;color:#1f2937;line-height:1}
 .calM-day.sab .calM-num,.calM-day.dom .calM-num{color:#dc2626}
-/* v33.40: festivos MUCHO más llamativos — fondo de rayas rojas + borde grueso + número grande.
-   Diego pidió que se distingan claramente de los días con eventos. */
+/* Festivos OFICIALES: rayas rojas llamativas + ícono ⛪ grande */
 .calM-day.fest{background:repeating-linear-gradient(45deg,#fef2f2,#fef2f2 10px,#fecaca 10px,#fecaca 20px)!important;box-shadow:inset 0 0 0 2px #dc2626;cursor:default}
 .calM-day.fest:hover{background:repeating-linear-gradient(45deg,#fee2e2,#fee2e2 10px,#fca5a5 10px,#fca5a5 20px)!important}
 .calM-day.fest .calM-num{color:#991b1b;font-weight:900;font-size:22px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
-.calM-day.ss{background:repeating-linear-gradient(45deg,#fefbed,#fefbed 10px,#fde68a 10px,#fde68a 20px)!important;box-shadow:inset 0 0 0 2px #d97706;cursor:default}
-.calM-day.ss:hover{background:repeating-linear-gradient(45deg,#fef3c7,#fef3c7 10px,#fcd34d 10px,#fcd34d 20px)!important}
-.calM-day.ss .calM-num{color:#92400e;font-weight:900;font-size:22px;text-shadow:1px 1px 0 #fff,-1px -1px 0 #fff,1px -1px 0 #fff,-1px 1px 0 #fff}
+/* Semana Santa LMX: visualmente día CORRIENTE, con un fondo gris muy sutil que
+   indica "el juzgado no corre términos aquí" pero SIN parecer festivo. */
+.calM-day.ss{background:#f1f5f9!important;cursor:default}
+.calM-day.ss:hover{background:#e2e8f0!important}
+.calM-day.ss .calM-num{color:#475569;font-weight:700;font-size:18px}
+.calM-day.ss::after{content:'no hábil';position:absolute;top:6px;right:8px;font-size:8px;color:#94a3b8;font-style:italic;font-weight:600;letter-spacing:.02em}
 .calM-day.hoy{background:#fef3c7!important;outline:3px solid #dc2626;outline-offset:-3px}
 .calM-day.hoy .calM-num{color:#92400e;font-weight:800;font-size:20px}
-.calM-fest-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:36px;opacity:.35;pointer-events:none;z-index:0}
+.calM-fest-ico{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:42px;opacity:.32;pointer-events:none;z-index:0}
 .calM-num,.calM-evs{position:relative;z-index:1}
-.calM-evs{margin-top:4px;display:flex;flex-direction:column;gap:2px;overflow:hidden;flex:1;min-width:0}
-.calM-ev{font-size:9px;line-height:1.25;padding:1px 4px;border-radius:3px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;min-width:0;max-width:100%}
+.calM-evs{margin-top:6px;display:flex;flex-direction:column;gap:3px;overflow:hidden;flex:1;min-width:0}
+.calM-ev{font-size:11px;line-height:1.35;padding:2px 6px;border-radius:4px;color:#fff;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;min-width:0;max-width:100%}
 .calM-ev.venc{background:#dc2626}
 .calM-ev.alert{background:#ea580c}
 .calM-ev.event{background:#1a5fa8}
 .calM-ev.user{background:#16a34a}
-.calM-more{font-size:8px;color:#64748b;font-style:italic;text-align:center;margin-top:2px}
+.calM-more{font-size:10px;color:#475569;font-style:italic;text-align:center;margin-top:3px;font-weight:600}
 .cal-vb.act{background:#dc2626!important;color:#fff!important}
 .cal-day:hover .cal-tip{display:block!important}
 .cal-day:hover{background:var(--bg)}
@@ -524,7 +526,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
   </div>
   <div class="cal-legend">
     <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid #f5c6c2"></div>Festivo oficial</div>
-    <div class="leg"><div class="leg-dot" style="background:#fff3cd;border:1px solid #f0d080"></div>Semana Santa L-M-X (no hábil conocimiento)</div>
+    <div class="leg"><div class="leg-dot" style="background:#f1f5f9;border:1px solid #94a3b8"></div>Semana Santa L-M-X (juzgado no corre términos)</div>
     <div class="leg"><div class="leg-dot" style="background:#fde8e7;border:1px solid var(--rd)"></div>Vencimiento / Nulidad / Lím. impugnación (rojo)</div>
     <div class="leg"><div class="leg-dot" style="background:#fff3e0;border:1px solid var(--or)"></div>Alerta día 9</div>
     <div class="leg"><div class="leg-dot" style="background:#e8f0ff;border:1px solid var(--bl)"></div>Envío Corte Constitucional</div>
@@ -633,18 +635,87 @@ const CAL_SS={
   "2030":["2030-04-15","2030-04-16","2030-04-17"],
   "2031":["2031-04-07","2031-04-08","2031-04-09"]
 };
+// v33.43: etiquetas para todos los años con festivos calculados (2024-2031).
+// Antes solo había labels para 2026 — los años futuros se veían como festivos sin nombre.
 const CAL_LBL={
-  "2026-01-01":"Año Nuevo","2026-01-12":"Reyes Magos","2026-03-23":"San José",
-  "2026-03-30":"Lunes Santo — no hábil juzgados conocimiento",
-  "2026-03-31":"Martes Santo — no hábil juzgados conocimiento",
-  "2026-04-01":"Miércoles Santo — no hábil juzgados conocimiento",
+  // 2024
+  "2024-01-01":"Año Nuevo","2024-01-08":"Reyes Magos (trasladado)","2024-03-25":"Lunes Santo — no hábil",
+  "2024-03-26":"Martes Santo — no hábil","2024-03-27":"Miércoles Santo — no hábil",
+  "2024-03-28":"Jueves Santo","2024-03-29":"Viernes Santo","2024-05-01":"Día del Trabajo",
+  "2024-05-13":"Ascensión del Señor","2024-06-03":"Corpus Christi","2024-06-10":"Sagrado Corazón",
+  "2024-07-01":"San Pedro y San Pablo (trasladado)","2024-07-20":"Grito de Independencia",
+  "2024-08-07":"Batalla de Boyacá","2024-08-19":"Asunción de la Virgen (trasladado)",
+  "2024-10-14":"Día de la Raza (trasladado)","2024-11-04":"Todos los Santos (trasladado)",
+  "2024-11-11":"Independencia de Cartagena (trasladado)","2024-12-08":"Inmaculada Concepción","2024-12-25":"Navidad",
+  // 2025
+  "2025-01-01":"Año Nuevo","2025-01-06":"Reyes Magos","2025-03-24":"San José (trasladado)",
+  "2025-04-14":"Lunes Santo — no hábil","2025-04-15":"Martes Santo — no hábil","2025-04-16":"Miércoles Santo — no hábil",
+  "2025-04-17":"Jueves Santo","2025-04-18":"Viernes Santo","2025-05-01":"Día del Trabajo",
+  "2025-06-02":"Ascensión del Señor (trasladado)","2025-06-23":"Corpus Christi (trasladado)",
+  "2025-06-30":"Sagrado Corazón / San Pedro y San Pablo","2025-07-20":"Grito de Independencia",
+  "2025-08-07":"Batalla de Boyacá","2025-08-18":"Asunción de la Virgen (trasladado)",
+  "2025-10-13":"Día de la Raza (trasladado)","2025-11-03":"Todos los Santos (trasladado)",
+  "2025-11-17":"Independencia de Cartagena (trasladado)","2025-12-08":"Inmaculada Concepción","2025-12-25":"Navidad",
+  // 2026
+  "2026-01-01":"Año Nuevo","2026-01-12":"Reyes Magos (trasladado)","2026-03-23":"San José (trasladado)",
+  "2026-03-30":"Lunes Santo — no hábil","2026-03-31":"Martes Santo — no hábil","2026-04-01":"Miércoles Santo — no hábil",
   "2026-04-02":"Jueves Santo","2026-04-03":"Viernes Santo",
-  "2026-05-01":"Día del Trabajo","2026-05-18":"Ascensión del Señor",
-  "2026-06-08":"Corpus Christi","2026-06-15":"Sagrado Corazón de Jesús",
+  "2026-05-01":"Día del Trabajo","2026-05-18":"Ascensión del Señor (trasladado)",
+  "2026-06-08":"Corpus Christi (trasladado)","2026-06-15":"Sagrado Corazón (trasladado)",
   "2026-06-29":"San Pedro y San Pablo","2026-07-20":"Grito de Independencia",
-  "2026-08-07":"Batalla de Boyacá","2026-08-17":"Asunción de la Virgen",
-  "2026-10-12":"Día de la Raza","2026-11-02":"Todos los Santos",
-  "2026-11-16":"Independencia de Cartagena","2026-12-08":"Inmaculada Concepción","2026-12-25":"Navidad"
+  "2026-08-07":"Batalla de Boyacá","2026-08-17":"Asunción de la Virgen (trasladado)",
+  "2026-10-12":"Día de la Raza","2026-11-02":"Todos los Santos","2026-11-16":"Independencia de Cartagena (trasladado)",
+  "2026-12-08":"Inmaculada Concepción","2026-12-25":"Navidad",
+  // 2027
+  "2027-01-01":"Año Nuevo","2027-01-11":"Reyes Magos (trasladado)","2027-03-22":"San José (trasladado)",
+  "2027-03-22":"Lunes Santo — no hábil","2027-03-23":"Martes Santo — no hábil","2027-03-24":"Miércoles Santo — no hábil",
+  "2027-03-25":"Jueves Santo","2027-03-26":"Viernes Santo",
+  "2027-05-01":"Día del Trabajo","2027-05-10":"Ascensión del Señor (trasladado)",
+  "2027-05-31":"Corpus Christi (trasladado)","2027-06-07":"Sagrado Corazón (trasladado)",
+  "2027-07-05":"San Pedro y San Pablo (trasladado)","2027-07-20":"Grito de Independencia",
+  "2027-08-07":"Batalla de Boyacá","2027-08-16":"Asunción de la Virgen (trasladado)",
+  "2027-10-18":"Día de la Raza (trasladado)","2027-11-08":"Todos los Santos (trasladado)",
+  "2027-11-15":"Independencia de Cartagena (trasladado)","2027-12-08":"Inmaculada Concepción","2027-12-25":"Navidad",
+  // 2028
+  "2028-01-01":"Año Nuevo","2028-01-10":"Reyes Magos (trasladado)","2028-03-20":"San José (trasladado)",
+  "2028-04-10":"Lunes Santo — no hábil","2028-04-11":"Martes Santo — no hábil","2028-04-12":"Miércoles Santo — no hábil",
+  "2028-04-13":"Jueves Santo","2028-04-14":"Viernes Santo",
+  "2028-05-01":"Día del Trabajo","2028-05-29":"Ascensión del Señor (trasladado)",
+  "2028-06-19":"Corpus Christi (trasladado)","2028-06-26":"Sagrado Corazón (trasladado)",
+  "2028-07-03":"San Pedro y San Pablo (trasladado)","2028-07-20":"Grito de Independencia",
+  "2028-08-07":"Batalla de Boyacá","2028-08-15":"Asunción de la Virgen",
+  "2028-10-16":"Día de la Raza (trasladado)","2028-11-06":"Todos los Santos (trasladado)",
+  "2028-11-13":"Independencia de Cartagena (trasladado)","2028-12-08":"Inmaculada Concepción","2028-12-25":"Navidad",
+  // 2029
+  "2029-01-01":"Año Nuevo","2029-01-08":"Reyes Magos (trasladado)","2029-03-19":"San José (trasladado)",
+  "2029-04-02":"Lunes Santo — no hábil","2029-04-03":"Martes Santo — no hábil","2029-04-04":"Miércoles Santo — no hábil",
+  "2029-04-05":"Jueves Santo","2029-04-06":"Viernes Santo",
+  "2029-05-01":"Día del Trabajo","2029-05-21":"Ascensión del Señor (trasladado)",
+  "2029-06-11":"Corpus Christi (trasladado)","2029-06-18":"Sagrado Corazón (trasladado)",
+  "2029-07-02":"San Pedro y San Pablo (trasladado)","2029-07-20":"Grito de Independencia",
+  "2029-08-07":"Batalla de Boyacá","2029-08-20":"Asunción de la Virgen (trasladado)",
+  "2029-10-15":"Día de la Raza (trasladado)","2029-11-05":"Todos los Santos (trasladado)",
+  "2029-11-17":"Independencia de Cartagena (trasladado)","2029-12-08":"Inmaculada Concepción","2029-12-25":"Navidad",
+  // 2030
+  "2030-01-01":"Año Nuevo","2030-01-07":"Reyes Magos (trasladado)","2030-03-25":"San José (trasladado)",
+  "2030-04-15":"Lunes Santo — no hábil","2030-04-16":"Martes Santo — no hábil","2030-04-17":"Miércoles Santo — no hábil",
+  "2030-04-18":"Jueves Santo","2030-04-19":"Viernes Santo",
+  "2030-05-01":"Día del Trabajo","2030-06-03":"Ascensión del Señor (trasladado)",
+  "2030-06-24":"Corpus Christi (trasladado)","2030-07-01":"Sagrado Corazón / San Pedro y San Pablo",
+  "2030-07-20":"Grito de Independencia","2030-08-07":"Batalla de Boyacá",
+  "2030-08-19":"Asunción de la Virgen (trasladado)","2030-10-14":"Día de la Raza (trasladado)",
+  "2030-11-04":"Todos los Santos (trasladado)","2030-11-11":"Independencia de Cartagena (trasladado)",
+  "2030-12-08":"Inmaculada Concepción","2030-12-25":"Navidad",
+  // 2031
+  "2031-01-01":"Año Nuevo","2031-01-06":"Reyes Magos","2031-03-17":"San José (trasladado)",
+  "2031-04-07":"Lunes Santo — no hábil","2031-04-08":"Martes Santo — no hábil","2031-04-09":"Miércoles Santo — no hábil",
+  "2031-04-10":"Jueves Santo","2031-04-11":"Viernes Santo",
+  "2031-05-01":"Día del Trabajo","2031-05-26":"Ascensión del Señor (trasladado)",
+  "2031-06-16":"Corpus Christi (trasladado)","2031-06-23":"Sagrado Corazón (trasladado)",
+  "2031-06-30":"San Pedro y San Pablo (trasladado)","2031-07-20":"Grito de Independencia",
+  "2031-08-07":"Batalla de Boyacá","2031-08-18":"Asunción de la Virgen (trasladado)",
+  "2031-10-13":"Día de la Raza (trasladado)","2031-11-03":"Todos los Santos (trasladado)",
+  "2031-11-17":"Independencia de Cartagena (trasladado)","2031-12-08":"Inmaculada Concepción","2031-12-25":"Navidad"
 };
 
 // ═══════════════════════════════════════════════════════
@@ -842,7 +913,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.42';
+var APP_VERSION='33.43';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3031,7 +3102,9 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
     // Número del día arriba
     const num=document.createElement('div');num.className='calM-num';num.textContent=d;cell.appendChild(num);
     // Icono de festivo si aplica
-    if(fest||ss){const ico=document.createElement('div');ico.className='calM-fest-ico';ico.textContent='⛪';cell.appendChild(ico);}
+    // v33.43: ⛪ solo en festivos OFICIALES (no en LMX de Semana Santa que
+    // legalmente son días corrientes, aunque el juzgado no corra términos).
+    if(fest){const ico=document.createElement('div');ico.className='calM-fest-ico';ico.textContent='⛪';cell.appendChild(ico);}
     // Eventos visibles (hasta 3 por celda).
     // v33.40: en festivos/Semana Santa NO se muestran eventos automáticos
     // (los términos no corren en festivo; si llega alguno es un error de cálculo
@@ -3040,14 +3113,15 @@ function _renderCalMensual(grid,y,m,evMap,todayISO,meses){
     if(fest||ss)evs=evs.filter(e=>e.tipo==='user');
     if(evs.length){
       const evsBox=document.createElement('div');evsBox.className='calM-evs';
-      evs.slice(0,3).forEach(e=>{
+      // v33.43: muestra hasta 5 eventos directamente (antes 3) — el resto va al +N más.
+      evs.slice(0,5).forEach(e=>{
         const el=document.createElement('div');
         el.className='calM-ev '+(e.tipo||'event');
         el.textContent=e.lbl||'';
         el.title=e.lbl||'';
         evsBox.appendChild(el);
       });
-      if(evs.length>3){const m=document.createElement('div');m.className='calM-more';m.textContent='+'+(evs.length-3)+' más';evsBox.appendChild(m);}
+      if(evs.length>5){const m=document.createElement('div');m.className='calM-more';m.textContent='+'+(evs.length-5)+' más';evsBox.appendChild(m);}
       cell.appendChild(evsBox);
     }
     // Tooltip al hover (mismo formato de la vista anual)
