@@ -474,7 +474,8 @@ tr.has-nul td{background:var(--nu-bg)!important}
       <div class="sc"><div class="v" id="sd-to">0</div><div class="l">Total</div></div>
       <div class="sc red"><div class="v" id="sd-ve">0</div><div class="l">Vencidos</div></div>
       <div class="sc or"><div class="v" id="sd-pr">0</div><div class="l">Próximos</div></div>
-      <div class="sc gr"><div class="v" id="sd-ar">0</div><div class="l">Archivados</div></div>
+      <div class="sc gr"><div class="v" id="sd-vi">0</div><div class="l">Vigentes</div></div>
+      <div class="sc bl"><div class="v" id="sd-re">0</div><div class="l">Resueltos</div></div>
       <div class="sc nu" onclick="filtrarNulD()" title="Ver con nulidad"><div class="v" id="sd-nu">0</div><div class="l">Nulidades</div></div>
     </div>
     <button class="btn btn-p" onclick="aFD()">+ Agregar</button>
@@ -495,7 +496,7 @@ tr.has-nul td{background:var(--nu-bg)!important}
   <div class="tw"><div class="tws">
     <table>
       <thead><tr>
-        <th style="width:28px"></th><th>Radicación inc.</th><th>Tutela base</th><th>Incidentado</th>
+        <th style="width:28px"></th><th>Radicación / Tutela base</th><th>Incidentado</th>
         <th>Derecho SIERJU</th><th>F.Solicitud</th><th>Req.Previo</th>
         <th>Apertura</th><th>Vence D10</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
@@ -917,7 +918,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.51';
+var APP_VERSION='33.53';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1705,7 +1706,9 @@ function rD(){
   document.getElementById('sd-to').textContent=rows.length;
   document.getElementById('sd-ve').textContent=rows.filter(d=>aKeyD(d)==='VENCIDO').length;
   document.getElementById('sd-pr').textContent=rows.filter(d=>aKeyD(d)==='PROXIMO').length;
-  document.getElementById('sd-ar').textContent=rows.filter(d=>d.estado==='Archivado').length;
+  document.getElementById('sd-vi').textContent=rows.filter(d=>aKeyD(d)==='VIGENTE').length;
+  document.getElementById('sd-re').textContent=rows.filter(d=>aKeyD(d)==='RESUELTO').length;
+  document.getElementById('sd-nu').textContent=rows.filter(d=>hasNulActiva(d)).length;
   document.getElementById('cnt-d').textContent=rows.length;
 
   const tbody=document.getElementById('tbd');tbody.innerHTML='';
@@ -1717,8 +1720,7 @@ function rD(){
     if(hn)tr.className='has-nul';
     tr.innerHTML=`
       <td><button class="btn btn-ic btn-sm" onclick="aDD('${d.id}')">👁</button></td>
-      <td class="ra">${d.radicacion||'—'}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}</td>
-      <td class="ra" style="font-size:9px">${d.tutelaBase||'—'}</td>
+      <td class="ra">${d.radicacion||'—'}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}<br><span style="font-size:9px;font-weight:500;color:var(--t3)">${d.tutelaBase||'—'}</span></td>
       <td class="trunc">${d.incidentado||'—'}</td>
       <td><span class="badge bgy" style="font-size:8px">${d.derechoSierju||'—'}</span></td>
       <td style="font-size:10px">${fmt(d.fechaSolicitud)}</td>
