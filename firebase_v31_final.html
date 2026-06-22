@@ -924,7 +924,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.58';
+var APP_VERSION='33.59';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3439,16 +3439,21 @@ function rCal(){
 const PERIODOS={1:{m:[1,2,3],lbl:'Período 1 (Ene–Mar)'},2:{m:[4,5,6],lbl:'Período 2 (Abr–Jun)'},
   3:{m:[7,8,9],lbl:'Período 3 (Jul–Sep)'},4:{m:[10,11,12],lbl:'Período 4 (Oct–Dic)'}};
 
-// v33.58: enPer corregida — antes exigía que el AÑO de la fecha coincidiera con
-// el año seleccionado en la barra (anio). Eso rompía los desacatos creados en
-// 2026 con fechaSolicitud de 2025 (porque se crearon mientras anio=2026, quedan
-// en desacatos_2026, pero enPer buscaba 2025 en la fecha y no encontraba nada).
-// El año ya está garantizado por dA()/tA() que leen la colección correcta
-// (desacatos_YYYY / tutelas_YYYY). enPer solo necesita verificar el MES (trimestre).
+// v33.59: enPer restaurada con verificación de año — necesaria para tutelas.
+// Para desacatos se usa una función separada (enPerD) que filtra por el año
+// real de la fecha, independientemente de en qué colección Firestore quedó guardado.
 function enPer(fecha,p){
   if(!fecha)return false;
   const parts=fecha.split('-');
-  return PERIODOS[p].m.includes(parseInt(parts[1]));
+  return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
+}
+// v33.59: para desacatos, el año de la colección NO necesariamente coincide con
+// el año de la fechaSolicitud (Diego los registró en 2026 con fechas de 2025).
+// Esta función filtra por el año REAL de la fecha, sin importar la colección.
+function enPerD(fecha,p,yr){
+  if(!fecha)return false;
+  const parts=fecha.split('-');
+  return parts[0]===String(yr)&&PERIODOS[p].m.includes(parseInt(parts[1]));
 }
 
 function setPer(p,btn){
@@ -3470,7 +3475,16 @@ function rStat(){
   document.getElementById('sresumen-anio').textContent=anio;
 
   const tuts=tA();
-  const desc=dA();
+  // v33.59: para desacatos se usan TODOS los registros de todos los años cargados,
+  // porque algunos pueden haberse creado en la colección de un año distinto al de
+  // su fechaSolicitud (ej. creados en 2026 con fechaSolicitud de 2025).
+  // Se filtra por el año REAL de la fecha, usando enPerD(fecha, período, añoReal).
+  const todosDesc=Object.values(localDB.desacatos||{}).flat();
+  const descAnio=todosDesc.filter(d=>{
+    if(!d.fechaSolicitud)return false;
+    return d.fechaSolicitud.startsWith(String(anio)+'-');
+  });
+  const desc=descAnio;
 
   // ── TABLA TUTELAS ──
   // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Retiro vol. | Anulada | Otras salidas
@@ -3529,7 +3543,7 @@ function rStat(){
   let dTotIng=0,dTotSanc=0,dTotNoSanc=0,dTotRet=0,dTotAnu=0,dTotArch=0;
 
   DERECHOS_SIERJU.forEach(der=>{
-    const dd=desc.filter(d=>enPer(d.fechaSolicitud,p)&&d.derechoSierju===der);
+    const dd=todosDesc.filter(d=>enPerD(d.fechaSolicitud,p,anio)&&d.derechoSierju===der);
     if(dd.length===0)return;
     const ing=dd.length;
     // Anulados se cuentan aparte (no se solapan con sanciona/no sanciona/etc.)
@@ -3560,8 +3574,8 @@ function rStat(){
   [1,2,3,4].forEach(pp=>{
     const ti=tuts.filter(t=>enPer(t.fechaAdmision,pp)).length;
     const tf=tuts.filter(t=>enPer(t.fechaFallo,pp)).length;
-    const di=desc.filter(d=>enPer(d.fechaSolicitud,pp)).length;
-    const dd=desc.filter(d=>enPer(d.fechaDecision,pp)).length;
+    const di=todosDesc.filter(d=>enPerD(d.fechaSolicitud,pp,anio)).length;
+    const dd=todosDesc.filter(d=>enPerD(d.fechaDecision,pp,anio)).length;
     gtTI+=ti;gtTF+=tf;gtDI+=di;gtDD+=dd;
     const isActive=pp===periodoStat;
     rBody+=`<tr style="${isActive?'background:#e8f0f8;font-weight:600':''}">`+
