@@ -924,7 +924,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.59';
+var APP_VERSION='33.60';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1464,7 +1464,20 @@ function renderAnios(){
   anios.forEach(a=>{
     const b=document.createElement('button');
     b.className='ybtn'+(a===anio?' a':'');b.textContent=a;
-    b.onclick=()=>{anio=a;renderAnios();if(fbDb)escuchar(a);else rT();};
+    b.onclick=()=>{
+      anio=a;
+      renderAnios();
+      if(fbDb)escuchar(a);
+      // v33.60: refrescar el panel activo, no solo tutelas — antes al cambiar de
+      // año desde la pestaña Estadística, los datos nunca se recalculaban y se
+      // quedaba mostrando los del año anterior.
+      if(typeof tabAct!=='undefined'){
+        if(tabAct==='s')rStat();
+        else if(tabAct==='d')rD();
+        else if(tabAct==='c')rCal();
+        else rT();
+      }else if(!fbDb)rT();
+    };
     c.appendChild(b);
   });
   document.getElementById('ystats').innerHTML=
