@@ -924,7 +924,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.56';
+var APP_VERSION='33.58';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1726,7 +1726,7 @@ function rD(){
     if(hn)tr.className='has-nul';
     tr.innerHTML=`
       <td><button class="btn btn-ic btn-sm" onclick="aDD('${d.id}')">👁</button></td>
-      <td class="ra">${d.radicacion||'—'}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}<br><span style="font-size:9px;font-weight:500;color:var(--t3)">${d.tutelaBase||'—'}</span></td>
+      <td class="ra">${d.radicacion||'—'}${hn?'<i class="ti ti-alert-octagon nul-ico" style="margin-left:3px"></i>':''}</td>
       <td class="trunc">${d.incidentado||'—'}</td>
       <td><span class="badge bgy" style="font-size:8px">${d.derechoSierju||'—'}</span></td>
       <td style="font-size:10px">${fmt(d.fechaSolicitud)}</td>
@@ -3439,10 +3439,16 @@ function rCal(){
 const PERIODOS={1:{m:[1,2,3],lbl:'Período 1 (Ene–Mar)'},2:{m:[4,5,6],lbl:'Período 2 (Abr–Jun)'},
   3:{m:[7,8,9],lbl:'Período 3 (Jul–Sep)'},4:{m:[10,11,12],lbl:'Período 4 (Oct–Dic)'}};
 
+// v33.58: enPer corregida — antes exigía que el AÑO de la fecha coincidiera con
+// el año seleccionado en la barra (anio). Eso rompía los desacatos creados en
+// 2026 con fechaSolicitud de 2025 (porque se crearon mientras anio=2026, quedan
+// en desacatos_2026, pero enPer buscaba 2025 en la fecha y no encontraba nada).
+// El año ya está garantizado por dA()/tA() que leen la colección correcta
+// (desacatos_YYYY / tutelas_YYYY). enPer solo necesita verificar el MES (trimestre).
 function enPer(fecha,p){
   if(!fecha)return false;
   const parts=fecha.split('-');
-  return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
+  return PERIODOS[p].m.includes(parseInt(parts[1]));
 }
 
 function setPer(p,btn){
