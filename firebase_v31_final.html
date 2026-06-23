@@ -461,7 +461,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
   <div class="tw"><div class="tws">
     <table class="tfix">
       <colgroup>
-        <col style="width:30px">
+        <col style="width:40px">
         <col style="width:16%">
         <col style="width:16%">
         <col style="width:16%">
@@ -471,7 +471,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
         <col style="width:8%">
         <col style="width:6%">
         <col style="width:9%">
-        <col style="width:100px">
+        <col style="width:110px">
       </colgroup>
       <thead><tr>
         <th></th><th>Radicación</th><th>Accionante</th><th>Accionado</th>
@@ -515,7 +515,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
   <div class="tw"><div class="tws">
     <table class="tfix">
       <colgroup>
-        <col style="width:30px">
+        <col style="width:40px">
         <col style="width:12%">
         <col style="width:22%">
         <col style="width:9%">
@@ -525,7 +525,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
         <col style="width:8%">
         <col style="width:7%">
         <col style="width:10%">
-        <col style="width:100px">
+        <col style="width:110px">
       </colgroup>
       <thead><tr>
         <th></th><th>Radicación</th><th>Incidentado</th>
@@ -593,6 +593,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
         </div>
         <div class="sierju-table-wrap">
           <div class="sierju-table-title">⚠ Incidentes de Desacato — <span id="slbl-d">Período 1 (Ene–Mar)</span></div>
+          <div id="stat-diag"></div>
           <div style="overflow-x:auto"><table class="sierju-table" id="sd-table"></table></div>
         </div>
       </div>
@@ -950,7 +951,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.63';
+var APP_VERSION='33.64';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1215,7 +1216,11 @@ function escuchar(a){
     const ids=new Set(recs.map(x=>String(x.id)));
     // Solo agregar del histórico los que NO están en Firebase Y NO fueron eliminados
     hist.forEach(h=>{const hid=String(h.id);if(!ids.has(hid)&&!deletedT.has(hid))recs.push(h);});
-    localDB.tutelas[a]=recs;if(tabAct==='t')rT();renderAnios();actualizarBanner();setSS('ok');
+    localDB.tutelas[a]=recs;
+    // v33.64: refrescar la pestaña ACTIVA, no solo tutelas. Antes Estadística se
+    // quedaba con datos viejos cuando Firestore terminaba de cargar.
+    if(tabAct==='t')rT();else if(tabAct==='s')rStat();
+    renderAnios();actualizarBanner();setSS('ok');
   },err=>{setSS('e','Error Firebase');console.error(err);});
   unsubD=fbDb.collection('desacatos_'+a).onSnapshot(snap=>{
     const recs=[];snap.forEach(d=>recs.push({...d.data(),_fb:true}));
@@ -1223,7 +1228,9 @@ function escuchar(a){
     const hist=PRELOADED_DB.desacatos[a]||[];
     const ids=new Set(recs.map(x=>String(x.id)));
     hist.forEach(h=>{const hid=String(h.id);if(!ids.has(hid)&&!deletedD.has(hid))recs.push(h);});
-    localDB.desacatos[a]=recs;if(tabAct==='d')rD();renderAnios();actualizarBanner();
+    localDB.desacatos[a]=recs;
+    if(tabAct==='d')rD();else if(tabAct==='s')rStat();
+    renderAnios();actualizarBanner();
   },err=>{console.error(err);});
 }
 
@@ -2743,9 +2750,17 @@ async function updD(id,campo,val){
   setSS('s','Guardando '+campo+'...');
   try{
     await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).set(d);
+    // v33.64: verificación robusta — comparar como string para evitar problemas
+    // con tipos (Firebase puede devolver número donde Diego envió string, etc.)
     const check=await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).get();
-    if(!check||!check.exists||check.data()[campo]!==val){
-      setSS('e','⚠ NO verificado');return;
+    if(!check||!check.exists){setSS('e','⚠ NO verificado');return;}
+    const saved=check.data()[campo];
+    const savedStr=saved==null?'':String(saved);
+    const valStr=val==null?'':String(val);
+    if(savedStr!==valStr){
+      console.warn('updD: valor guardado distinto al enviado',{campo,enviado:val,guardado:saved});
+      setSS('e','⚠ Discrepancia: '+campo);
+      return;
     }
     setSS('ok','✓ '+campo+' guardado');
   }catch(e){
@@ -3668,12 +3683,32 @@ function rStat(){
   document.getElementById('sresumen-anio').textContent=anio;
 
   const tuts=tA();
-  // v33.61: para desacatos usar los del año seleccionado (colección anio).
-  // El período se determina por el MES DEL ID (timestamp de creación) = mes en
-  // que se abrió el incidente en el sistema = "ingreso al despacho". Refleja la
-  // realidad operativa, no la fechaSolicitud que puede ser de un documento más
-  // antiguo. Los "Decididos" se cuentan por fechaDecision (la real del auto).
+  // v33.63: desacatos del año seleccionado (colección anio).
   const desc=dA();
+
+  // v33.64: panel de diagnóstico — muestra cuántos desacatos hay cargados y a qué
+  // período cae cada uno según su fechaSolicitud. Permite a Diego ver de inmediato
+  // si el filtro está bien o si los datos están mal distribuidos.
+  const diagEl=document.getElementById('stat-diag');
+  if(diagEl){
+    const conPer={1:0,2:0,3:0,4:0,sinFecha:0};
+    desc.forEach(d=>{
+      if(!d.fechaSolicitud){conPer.sinFecha++;return;}
+      const mes=parseInt(d.fechaSolicitud.split('-')[1]);
+      const año=d.fechaSolicitud.split('-')[0];
+      for(const pp of [1,2,3,4])if(PERIODOS[pp].m.includes(mes)){conPer[pp]++;break;}
+    });
+    const lista=desc.map(d=>{
+      const r=(d.radicacion||'sin radicación').slice(-9);
+      const fs=d.fechaSolicitud||'(sin fechaSolicitud)';
+      return `<span style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;padding:1px 6px;border-radius:4px;margin:1px;font-size:9px;font-family:monospace">…${r} · ${fs}</span>`;
+    }).join(' ');
+    diagEl.innerHTML=`<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px">
+      <b style="color:#92400e">🔍 Diagnóstico estadística desacatos — año ${anio}</b><br>
+      <b>Total cargados:</b> ${desc.length} | <b>P1:</b> ${conPer[1]} | <b>P2:</b> ${conPer[2]} | <b>P3:</b> ${conPer[3]} | <b>P4:</b> ${conPer[4]} | <b>Sin fecha:</b> ${conPer.sinFecha}
+      <div style="margin-top:6px;line-height:1.8">${lista||'<i>No hay desacatos cargados para este año.</i>'}</div>
+    </div>`;
+  }
 
   // ── TABLA TUTELAS ──
   // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Retiro vol. | Anulada | Otras salidas
