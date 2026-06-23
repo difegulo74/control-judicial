@@ -460,10 +460,23 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
   </div>
   <div class="tw"><div class="tws">
     <table class="tfix">
+      <colgroup>
+        <col style="width:30px">
+        <col style="width:16%">
+        <col style="width:16%">
+        <col style="width:16%">
+        <col style="width:9%">
+        <col style="width:5%">
+        <col style="width:7%">
+        <col style="width:8%">
+        <col style="width:6%">
+        <col style="width:9%">
+        <col style="width:100px">
+      </colgroup>
       <thead><tr>
-        <th style="width:30px"></th><th style="width:16%">Radicación</th><th style="width:16%">Accionante</th><th style="width:16%">Accionado</th>
-        <th style="width:9%">Derecho SIERJU</th><th style="width:5%">Resp.</th><th style="width:7%">F.Admisión</th><th style="width:8%">Vence fallo</th>
-        <th style="width:6%">Alerta</th><th style="width:9%">Estado</th><th style="width:8%">Acciones</th>
+        <th></th><th>Radicación</th><th>Accionante</th><th>Accionado</th>
+        <th>Derecho SIERJU</th><th>Resp.</th><th>F.Admisión</th><th>Vence fallo</th>
+        <th>Alerta</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
       <tbody id="tbt"></tbody>
     </table>
@@ -501,10 +514,23 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
   </div>
   <div class="tw"><div class="tws">
     <table class="tfix">
+      <colgroup>
+        <col style="width:30px">
+        <col style="width:12%">
+        <col style="width:22%">
+        <col style="width:9%">
+        <col style="width:8%">
+        <col style="width:8%">
+        <col style="width:8%">
+        <col style="width:8%">
+        <col style="width:7%">
+        <col style="width:10%">
+        <col style="width:100px">
+      </colgroup>
       <thead><tr>
-        <th style="width:30px"></th><th style="width:12%">Radicación</th><th style="width:22%">Incidentado</th>
-        <th style="width:9%">Derecho SIERJU</th><th style="width:8%">F.Solicitud</th><th style="width:7%">Req.Previo</th>
-        <th style="width:7%">Apertura</th><th style="width:8%">Vence D10</th><th style="width:8%">Alerta</th><th style="width:10%">Estado</th><th style="width:9%">Acciones</th>
+        <th></th><th>Radicación</th><th>Incidentado</th>
+        <th>Derecho SIERJU</th><th>F.Solicitud</th><th>Req.Previo</th>
+        <th>Apertura</th><th>Vence D10</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
       <tbody id="tbd"></tbody>
     </table>
@@ -924,7 +950,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.62';
+var APP_VERSION='33.63';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1743,8 +1769,8 @@ function rD(){
       <td class="trunc">${d.incidentado||'—'}</td>
       <td><span class="badge bgy" style="font-size:8px">${d.derechoSierju||'—'}</span></td>
       <td style="font-size:10px">${fmt(d.fechaSolicitud)}</td>
-      <td style="font-size:10px">${fmt(tc.req)}</td>
-      <td style="font-size:10px">${fmt(tc.aper)}</td>
+      <td style="font-size:10px">${fmt(d.fechaRequerimientoPrevio||tc.req)}</td>
+      <td style="font-size:10px">${fmt(d.fechaAperturaFormal||tc.aper)}</td>
       <td style="font-size:10px;font-weight:700;color:var(--rd)">${fmt(tc.vce)}</td>
       <td>${aBadge(k,tc.vce)}</td>
       <td>${eBadge(d.estado)}</td>
@@ -3600,36 +3626,27 @@ function rCal(){
 const PERIODOS={1:{m:[1,2,3],lbl:'Período 1 (Ene–Mar)'},2:{m:[4,5,6],lbl:'Período 2 (Abr–Jun)'},
   3:{m:[7,8,9],lbl:'Período 3 (Jul–Sep)'},4:{m:[10,11,12],lbl:'Período 4 (Oct–Dic)'}};
 
-// v33.59: enPer restaurada con verificación de año — necesaria para tutelas.
-// Para desacatos se usa una función separada (enPerD) que filtra por el año
-// real de la fecha, independientemente de en qué colección Firestore quedó guardado.
+// v33.59: enPer para tutelas — filtra por año de fechaAdmision = año seleccionado.
 function enPer(fecha,p){
   if(!fecha)return false;
   const parts=fecha.split('-');
   return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
 }
-// v33.61: para desacatos hay dos lecturas distintas según qué se quiera contar:
-// - "Ingresados al despacho" → mes del id (timestamp Date.now() al crear el registro).
-//   Refleja cuándo Diego abrió el incidente en el sistema. Independiente de la
-//   fechaSolicitud, que es la fecha del documento original (puede ser anterior).
-// - "Decididos" → mes y año de fechaDecision (la real, del auto interlocutorio).
-function _mesDelId(id){
-  if(!id)return null;
-  const n=Number(id);
-  if(!isFinite(n)||n<1000000000000)return null; // No es un timestamp válido (post-2001)
-  return new Date(n).getMonth()+1; // 1-12
-}
+
+// v33.63: enPerIngreso para desacatos — usa el MES de la fechaSolicitud (fecha
+// real de radicación del incidente). El año ya lo filtra dA(). NO usamos el ID
+// timestamp porque Diego registró incidentes viejos en junio 2026 → todos los
+// IDs son del mismo mes → nada aparecía en P1 (Ene-Mar).
 function enPerIngreso(d,p){
-  const mes=_mesDelId(d.id);
-  if(mes!==null)return PERIODOS[p].m.includes(mes);
-  // Fallback: si el id no es timestamp (datos importados), usar fechaSolicitud
   if(!d.fechaSolicitud)return false;
   return PERIODOS[p].m.includes(parseInt(d.fechaSolicitud.split('-')[1]));
 }
-function enPerDDecision(d,p,yr){
+
+// v33.63: enPerDDecision — filtra por mes de fechaDecision (auto real de archivo
+// o sanción). El año lo controla dA(), solo verificamos el mes.
+function enPerDDecision(d,p){
   if(!d.fechaDecision)return false;
-  const parts=d.fechaDecision.split('-');
-  return parts[0]===String(yr)&&PERIODOS[p].m.includes(parseInt(parts[1]));
+  return PERIODOS[p].m.includes(parseInt(d.fechaDecision.split('-')[1]));
 }
 
 function setPer(p,btn){
@@ -3747,7 +3764,7 @@ function rStat(){
     const ti=tuts.filter(t=>enPer(t.fechaAdmision,pp)).length;
     const tf=tuts.filter(t=>enPer(t.fechaFallo,pp)).length;
     const di=desc.filter(d=>enPerIngreso(d,pp)).length;
-    const dd=desc.filter(d=>enPerDDecision(d,pp,anio)).length;
+    const dd=desc.filter(d=>enPerDDecision(d,pp)).length;
     gtTI+=ti;gtTF+=tf;gtDI+=di;gtDD+=dd;
     const isActive=pp===periodoStat;
     rBody+=`<tr style="${isActive?'background:#e8f0f8;font-weight:600':''}">`+
