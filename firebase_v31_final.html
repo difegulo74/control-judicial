@@ -459,11 +459,11 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
     </select>
   </div>
   <div class="tw"><div class="tws">
-    <table>
+    <table class="tfix">
       <thead><tr>
-        <th style="width:28px"></th><th>Radicación</th><th>Accionante</th><th>Accionado</th>
-        <th>Derecho SIERJU</th><th>Resp.</th><th>F.Admisión</th><th>Vence fallo</th>
-        <th>Alerta</th><th>Estado</th><th>Acciones</th>
+        <th style="width:30px"></th><th style="width:16%">Radicación</th><th style="width:16%">Accionante</th><th style="width:16%">Accionado</th>
+        <th style="width:9%">Derecho SIERJU</th><th style="width:5%">Resp.</th><th style="width:7%">F.Admisión</th><th style="width:8%">Vence fallo</th>
+        <th style="width:6%">Alerta</th><th style="width:9%">Estado</th><th style="width:8%">Acciones</th>
       </tr></thead>
       <tbody id="tbt"></tbody>
     </table>
@@ -502,9 +502,9 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
   <div class="tw"><div class="tws">
     <table class="tfix">
       <thead><tr>
-        <th style="width:30px"></th><th style="width:14%">Radicación</th><th style="width:15%">Incidentado</th>
+        <th style="width:30px"></th><th style="width:12%">Radicación</th><th style="width:22%">Incidentado</th>
         <th style="width:9%">Derecho SIERJU</th><th style="width:8%">F.Solicitud</th><th style="width:7%">Req.Previo</th>
-        <th style="width:7%">Apertura</th><th style="width:8%">Vence D10</th><th style="width:8%">Alerta</th><th style="width:10%">Estado</th><th style="width:14%">Acciones</th>
+        <th style="width:7%">Apertura</th><th style="width:8%">Vence D10</th><th style="width:8%">Alerta</th><th style="width:10%">Estado</th><th style="width:9%">Acciones</th>
       </tr></thead>
       <tbody id="tbd"></tbody>
     </table>
@@ -924,7 +924,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.60';
+var APP_VERSION='33.62';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -2364,7 +2364,7 @@ function aFD(){
     <div class="mhdr">
       <div class="mico r">⚠</div>
       <div class="mhdr-t"><h3>Nuevo incidente de desacato — ${anio}</h3>
-      <p>Los 10 días se calculan con los festivos Colombia verificados.</p></div>
+      <p>Términos calculados según Art. 52 Decreto 2591/91 — festivos Colombia verificados.</p></div>
       <button class="mcls" onclick="cerrar()">✕</button>
     </div>
     <div class="mbody"><div class="fg">
@@ -2376,28 +2376,79 @@ function aFD(){
         <input type="file" id="folder-input-afd" multiple webkitdirectory directory style="display:none" onchange="procesarCarpetaD(this)">
       </div>
       <p style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--t3);margin:-4px 0">— o ingresa los datos manualmente —</p>
-      <div class="fi"><label>Radicación del incidente</label><input id="d-r" placeholder="2026-001"></div>
+
+      <div class="fsec">Identificación del incidente</div>
+      <div class="fi"><label>Radicación del incidente (completa)</label><input id="d-r" placeholder="73001400901420250000000"></div>
       <div class="fi"><label>Radicación tutela base</label><input id="d-tb" placeholder="73001400901420260001000"></div>
+
       <div class="fsec">Partes</div>
       <div class="fi"><label>Incidentante</label><input id="d-inc" placeholder="Nombre del incidentante"></div>
-      <div class="fi"><label>Incidentado / Entidad requerida</label><input id="d-inci" placeholder="Entidad o persona incidentada"></div>
-      <div class="fsec">Clasificación SIERJU</div>
+      <div class="fi"><label>Cédula del incidentante</label><input id="d-cc" placeholder="123456789"></div>
+      <div class="fi full"><label>Incidentado / Entidad requerida</label><input id="d-inci" placeholder="Entidad o persona incidentada"></div>
+
+      <div class="fsec">Clasificación SIERJU y fallo base</div>
       <div class="fi"><label>Derecho principal SIERJU ★</label>
         <select id="d-ds"><option value="">— Seleccione —</option>${derOpts}</select>
       </div>
       <div class="fi"><label>Fecha del fallo base</label><input type="date" id="d-fb"></div>
-      <div class="fsec">Fallo base e incumplimiento</div>
       <div class="fi full"><label>Orden presuntamente incumplida (extracte literal del resuelve)</label>
         <textarea id="d-ord" placeholder="Copie literalmente la orden del punto resolutivo que se alega incumplida"></textarea>
       </div>
+
+      <div class="fsec">Trámite del incidente</div>
       <div class="fi"><label>Fecha solicitud del incidente</label><input type="date" id="d-fs" oninput="pvD()"></div>
-      <div class="fi"><label>Estado</label>
+      <div class="fi"><label>Fecha requerimiento previo</label><input type="date" id="d-frp"></div>
+      <div class="fi"><label>Fecha apertura formal</label><input type="date" id="d-faf"></div>
+      <div class="fi"><label>Estado actual</label>
         <select id="d-est">
           <option>Requerimiento previo</option><option>Apertura formal</option>
           <option>Pendiente decisión</option><option>Sanciona</option><option>No sanciona</option>
           <option>Retiro voluntario</option><option>Anulado</option><option>Archivado</option>
         </select>
       </div>
+
+      <div class="fsec">Decisión del incidente</div>
+      <div class="fi"><label>Decisión final</label>
+        <select id="d-dec" onchange="toggleSancion()">
+          <option value="">— Pendiente —</option>
+          <option value="Archiva">Archiva (no sanciona)</option>
+          <option value="Sanciona">Sanciona</option>
+        </select>
+      </div>
+      <div class="fi"><label>Fecha del auto interlocutorio</label><input type="date" id="d-fdec"></div>
+
+      <div id="d-sancion-box" class="fi full" style="display:none;background:#fef2f2;border:.5px solid #fca5a5;border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:#dc2626;margin-bottom:8px">⚖ Modalidades de sanción (Art. 52 Decreto 2591/91)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Arresto (días)</label>
+            <input type="number" id="d-arr" min="0" max="180" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">
+            <div style="font-size:9px;color:var(--t3);margin-top:3px">Máx. 6 meses (180 días)</div>
+          </div>
+          <div>
+            <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Multa (salarios mínimos)</label>
+            <input type="number" id="d-mul" min="0" max="20" step="0.5" placeholder="0" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">
+            <div style="font-size:9px;color:var(--t3);margin-top:3px">Hasta 20 SMMLV</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fsec">Consulta ante superior (Art. 52 inc. 2°)</div>
+      <div class="fi"><label>Fecha envío a consulta</label><input type="date" id="d-fec" placeholder="Misma del auto de sanción"></div>
+      <div class="fi"><label>Fecha reparto consulta</label><input type="date" id="d-frc" oninput="calcVenceConsulta()"></div>
+      <div class="fi"><label>Fecha vencimiento consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(auto · 3 días háb.)</span></label><input type="date" id="d-fvc" readonly style="background:#f1f5f9"></div>
+      <div class="fi"><label>Fecha decisión consulta</label><input type="date" id="d-fdc"></div>
+      <div class="fi full"><label>Sentido del fallo de consulta</label>
+        <select id="d-rc">
+          <option value="">— Pendiente —</option>
+          <option>Confirma sanción</option>
+          <option>Modifica sanción</option>
+          <option>Revoca sanción</option>
+          <option>Decreta nulidad</option>
+        </select>
+      </div>
+
+      <div class="fsec">Otros</div>
       <div class="fi"><label>Enlace expediente OneDrive</label><input id="d-l" placeholder="https://..."></div>
       <div class="fi full"><label>Observaciones</label><textarea id="d-o" placeholder="Novedades del trámite"></textarea></div>
       <div id="pvd" style="display:none;grid-column:1/-1"></div>
@@ -2407,6 +2458,23 @@ function aFD(){
       <button class="btn btn-p" onclick="guardarD()">✓ Guardar incidente</button>
     </div>`;
   document.getElementById('mf').classList.add('o');
+}
+
+// v33.62: muestra/oculta los campos de modalidades de sanción según la decisión
+function toggleSancion(){
+  const dec=document.getElementById('d-dec');
+  const box=document.getElementById('d-sancion-box');
+  if(!dec||!box)return;
+  box.style.display=dec.value==='Sanciona'?'block':'none';
+}
+
+// v33.62: cálculo automático de fecha vencimiento consulta = reparto + 3 días hábiles
+function calcVenceConsulta(){
+  const rep=document.getElementById('d-frc');
+  const vce=document.getElementById('d-fvc');
+  if(!rep||!vce)return;
+  if(!rep.value){vce.value='';return;}
+  vce.value=addHab(rep.value,3);
 }
 
 function pvD(){
@@ -2434,26 +2502,45 @@ async function guardarD(){
   // v33.51: chequeo de duplicados, igual que en tutelas
   const dup=dA().find(x=>(x.radicacion||'').replace(/\D/g,'')===rad.replace(/\D/g,'')&&rad.replace(/\D/g,''));
   if(dup&&!confirm('⚠ YA EXISTE un incidente con ese radicado:\n'+rad+'\n('+(dup.incidentante||'sin incidentante')+')\n\n¿Guardar de todas formas?'))return;
+  const get=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  const getT=id=>(get(id)||'').trim();
+  const getN=id=>{const v=get(id);return v===''?null:Number(v);};
+  // v33.62: nuevos campos del Bloque 1 — cédula, fechas reales del trámite,
+  // decisión, modalidades de sanción, datos de consulta y sentido.
   const d={id:Date.now(),radicacion:rad,
-    tutelaBase:document.getElementById('d-tb').value.trim(),
-    incidentante:document.getElementById('d-inc').value.trim(),
-    incidentado:document.getElementById('d-inci').value.trim(),
+    tutelaBase:getT('d-tb'),
+    incidentante:getT('d-inc'),
+    cedulaIncidentante:getT('d-cc'),
+    incidentado:getT('d-inci'),
     derechoSierju:ds,
-    ordenIncumplida:document.getElementById('d-ord').value.trim(),
-    fechaFalloBase:document.getElementById('d-fb').value,
-    fechaSolicitud:document.getElementById('d-fs').value,
-    estado:document.getElementById('d-est').value,
-    enlace:document.getElementById('d-l').value.trim(),
-    observaciones:document.getElementById('d-o').value.trim(),
-    fechaDecision:'',resultado:'',nulidades:[],ultimaNulidad:null};
-  // v33.51: aplicar TODOS los datos que Gemini extrajo de la carpeta (carga 100%
-  // en un solo paso, igual que tutelas) — campos no visibles en este formulario.
+    ordenIncumplida:getT('d-ord'),
+    fechaFalloBase:get('d-fb'),
+    fechaSolicitud:get('d-fs'),
+    fechaRequerimientoPrevio:get('d-frp'),
+    fechaAperturaFormal:get('d-faf'),
+    estado:get('d-est'),
+    decision:get('d-dec'),
+    fechaDecision:get('d-fdec'),
+    sancionArrestoDias:getN('d-arr'),
+    sancionMultaSalarios:getN('d-mul'),
+    fechaEnvioConsulta:get('d-fec'),
+    fechaRepartoConsulta:get('d-frc'),
+    fechaVencimientoConsulta:get('d-fvc'),
+    fechaDecisionConsulta:get('d-fdc'),
+    resultado:get('d-rc'),
+    enlace:getT('d-l'),
+    observaciones:getT('d-o'),
+    nulidades:[],ultimaNulidad:null};
+  // Si no se llenó la fecha de envío a consulta pero hay decisión y es "Sanciona",
+  // tomar como envío la misma fecha del auto interlocutorio (regla del Art. 52).
+  if(d.decision==='Sanciona'&&!d.fechaEnvioConsulta&&d.fechaDecision)d.fechaEnvioConsulta=d.fechaDecision;
+  // v33.51: aplicar TODOS los datos que Gemini extrajo de la carpeta
   if(window._pendingFolderD){
     d.folderName=window._pendingFolderD.folderName;
     d.filesCount=window._pendingFolderD.filesCount;
     const gd=window._pendingFolderD.geminiData||{};
-    const camposExtra=['fechaDecision','resultado'];
-    camposExtra.forEach(campo=>{ if(gd[campo]&&!d[campo])d[campo]=gd[campo]; });
+    // Campos no visibles en formulario o no llenados manualmente
+    Object.keys(gd).forEach(k=>{ if(gd[k]&&!d[k])d[k]=gd[k]; });
     if(!d.enlace){
       const auto=buildOneDriveURL(window._pendingFolderD.folderName,'d');
       if(auto)d.enlace=auto;
@@ -2490,32 +2577,71 @@ function aDD(id){
     </div>
     <div class="mbody"><div class="fg">
       ${nulHTML}
+
       <div class="fsec">Identificación</div>
-      <div class="fi full"><label>Radicación ✏️</label><input value="${esc(d.radicacion)}" onchange="updDRadicacion('${id}',this.value)"></div>
-      <div class="fsec">Clasificación SIERJU</div>
+      <div class="fi"><label>Radicación ✏️</label><input value="${esc(d.radicacion)}" onchange="updDRadicacion('${id}',this.value)"></div>
+      <div class="fi"><label>Radicación tutela base</label><input value="${esc(d.tutelaBase)}" onchange="updD('${id}','tutelaBase',this.value)"></div>
+
+      <div class="fsec">Partes</div>
+      <div class="fi"><label>Incidentante</label><input value="${esc(d.incidentante)}" onchange="updD('${id}','incidentante',this.value)"></div>
+      <div class="fi"><label>Cédula del incidentante</label><input value="${esc(d.cedulaIncidentante)}" placeholder="123456789" onchange="updD('${id}','cedulaIncidentante',this.value)"></div>
+      <div class="fi full"><label>Incidentado / Entidad requerida</label><input value="${esc(d.incidentado)}" onchange="updD('${id}','incidentado',this.value)"></div>
+
+      <div class="fsec">Clasificación SIERJU y fallo base</div>
       <div class="fi"><label>Derecho principal SIERJU ★</label>
         <select onchange="updD('${id}','derechoSierju',this.value)"><option value="">— Seleccione —</option>${derOpts}</select>
       </div>
-      <div class="fsec">Partes</div>
-      <div class="fi"><label>Incidentante</label><input value="${esc(d.incidentante)}" onchange="updD('${id}','incidentante',this.value)"></div>
-      <div class="fi"><label>Incidentado</label><input value="${esc(d.incidentado)}" onchange="updD('${id}','incidentado',this.value)"></div>
-      <div class="fi full"><label>Orden incumplida</label><textarea onchange="updD('${id}','ordenIncumplida',this.value)">${esc(d.ordenIncumplida)}</textarea></div>
-      <div class="fsec">Fechas</div>
       <div class="fi"><label>Fecha fallo base</label><input type="date" value="${d.fechaFalloBase||''}" onchange="updD('${id}','fechaFalloBase',this.value)"></div>
+      <div class="fi full"><label>Orden incumplida</label><textarea onchange="updD('${id}','ordenIncumplida',this.value)">${esc(d.ordenIncumplida)}</textarea></div>
+
+      <div class="fsec">Trámite del incidente</div>
       <div class="fi"><label>Fecha solicitud</label><input type="date" value="${d.fechaSolicitud||''}" onchange="updD('${id}','fechaSolicitud',this.value)"></div>
-      <div class="fi"><label>Fecha decisión</label><input type="date" value="${d.fechaDecision||''}" onchange="updD('${id}','fechaDecision',this.value)"></div>
-      <div class="fsec">Resultado</div>
-      <div class="fi"><label>Estado</label>
+      <div class="fi"><label>Fecha requerimiento previo</label><input type="date" value="${d.fechaRequerimientoPrevio||''}" onchange="updD('${id}','fechaRequerimientoPrevio',this.value)"></div>
+      <div class="fi"><label>Fecha apertura formal</label><input type="date" value="${d.fechaAperturaFormal||''}" onchange="updD('${id}','fechaAperturaFormal',this.value)"></div>
+      <div class="fi"><label>Estado actual</label>
         <select onchange="updD('${id}','estado',this.value)">
           ${['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Retiro voluntario','Anulado','Archivado'].map(o=>`<option${d.estado===o?' selected':''}>${o}</option>`).join('')}
         </select>
       </div>
-      <div class="fi"><label>Resultado consulta</label>
+
+      <div class="fsec">Decisión del incidente</div>
+      <div class="fi"><label>Decisión final</label>
+        <select id="ddet-dec-${id}" onchange="updD('${id}','decision',this.value);toggleSancionDet('${id}')">
+          <option value="">— Pendiente —</option>
+          ${['Archiva','Sanciona'].map(o=>`<option value="${o}"${d.decision===o?' selected':''}>${o==='Archiva'?'Archiva (no sanciona)':'Sanciona'}</option>`).join('')}
+        </select>
+      </div>
+      <div class="fi"><label>Fecha del auto interlocutorio</label><input type="date" value="${d.fechaDecision||''}" onchange="updD('${id}','fechaDecision',this.value)"></div>
+
+      <div id="ddet-sancion-${id}" class="fi full" style="display:${d.decision==='Sanciona'?'block':'none'};background:#fef2f2;border:.5px solid #fca5a5;border-radius:8px;padding:10px">
+        <div style="font-size:11px;font-weight:700;color:#dc2626;margin-bottom:8px">⚖ Modalidades de sanción (Art. 52 Decreto 2591/91)</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div>
+            <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Arresto (días)</label>
+            <input type="number" min="0" max="180" value="${d.sancionArrestoDias!=null?d.sancionArrestoDias:''}" placeholder="0" onchange="updD('${id}','sancionArrestoDias',this.value===''?null:Number(this.value))" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">
+            <div style="font-size:9px;color:var(--t3);margin-top:3px">Máx. 6 meses (180 días)</div>
+          </div>
+          <div>
+            <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Multa (salarios mínimos)</label>
+            <input type="number" min="0" max="20" step="0.5" value="${d.sancionMultaSalarios!=null?d.sancionMultaSalarios:''}" placeholder="0" onchange="updD('${id}','sancionMultaSalarios',this.value===''?null:Number(this.value))" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">
+            <div style="font-size:9px;color:var(--t3);margin-top:3px">Hasta 20 SMMLV</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="fsec">Consulta ante superior (Art. 52 inc. 2°)</div>
+      <div class="fi"><label>Fecha envío a consulta</label><input type="date" value="${d.fechaEnvioConsulta||''}" onchange="updD('${id}','fechaEnvioConsulta',this.value)"></div>
+      <div class="fi"><label>Fecha reparto consulta</label><input type="date" value="${d.fechaRepartoConsulta||''}" onchange="updDRepartoConsulta('${id}',this.value)"></div>
+      <div class="fi"><label>Fecha vencimiento consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(auto · 3 días háb.)</span></label><input type="date" value="${d.fechaVencimientoConsulta||''}" readonly style="background:#f1f5f9"></div>
+      <div class="fi"><label>Fecha decisión consulta</label><input type="date" value="${d.fechaDecisionConsulta||''}" onchange="updD('${id}','fechaDecisionConsulta',this.value)"></div>
+      <div class="fi full"><label>Sentido del fallo de consulta</label>
         <select onchange="updD('${id}','resultado',this.value)">
-          <option value="">Seleccionar...</option>
+          <option value="">— Pendiente —</option>
           ${['Confirma sanción','Modifica sanción','Revoca sanción','Decreta nulidad'].map(o=>`<option${d.resultado===o?' selected':''}>${o}</option>`).join('')}
         </select>
       </div>
+
+      <div class="fsec">Otros</div>
       <div class="fi full"><label>Enlace OneDrive</label>
         <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
         ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
@@ -2529,6 +2655,7 @@ function aDD(id){
         <input type="file" id="reload-input-d-${id}" multiple webkitdirectory directory style="display:none" onchange="procesarRecargaD(this,'${id}')">
       </div>
       <div class="fi full"><label>Observaciones</label><textarea onchange="updD('${id}','observaciones',this.value)">${esc(d.observaciones)}</textarea></div>
+
       <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
       <div class="fi full">
         <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','d')">🚨 Registrar nulidad decretada</button>
@@ -2545,6 +2672,27 @@ function aDD(id){
       <button class="btn btn-p" onclick="cerrar2();rD()">✓ Listo</button>
     </div>`;
   document.getElementById('md2').classList.add('o');
+}
+
+// v33.62: muestra/oculta caja de modalidades en el detalle según decisión
+function toggleSancionDet(id){
+  const sel=document.getElementById('ddet-dec-'+id);
+  const box=document.getElementById('ddet-sancion-'+id);
+  if(!sel||!box)return;
+  box.style.display=sel.value==='Sanciona'?'block':'none';
+}
+
+// v33.62: al cambiar fechaRepartoConsulta, recalcula automáticamente la fecha
+// de vencimiento de la consulta (reparto + 3 días hábiles)
+async function updDRepartoConsulta(id,val){
+  await updD(id,'fechaRepartoConsulta',val);
+  if(val){
+    const vce=addHab(val,3);
+    await updD(id,'fechaVencimientoConsulta',vce);
+  }else{
+    await updD(id,'fechaVencimientoConsulta','');
+  }
+  aDD(id);
 }
 
 // v33.36: edición del N° de radicación de desacato — previene duplicados
@@ -3460,12 +3608,27 @@ function enPer(fecha,p){
   const parts=fecha.split('-');
   return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
 }
-// v33.59: para desacatos, el año de la colección NO necesariamente coincide con
-// el año de la fechaSolicitud (Diego los registró en 2026 con fechas de 2025).
-// Esta función filtra por el año REAL de la fecha, sin importar la colección.
-function enPerD(fecha,p,yr){
-  if(!fecha)return false;
-  const parts=fecha.split('-');
+// v33.61: para desacatos hay dos lecturas distintas según qué se quiera contar:
+// - "Ingresados al despacho" → mes del id (timestamp Date.now() al crear el registro).
+//   Refleja cuándo Diego abrió el incidente en el sistema. Independiente de la
+//   fechaSolicitud, que es la fecha del documento original (puede ser anterior).
+// - "Decididos" → mes y año de fechaDecision (la real, del auto interlocutorio).
+function _mesDelId(id){
+  if(!id)return null;
+  const n=Number(id);
+  if(!isFinite(n)||n<1000000000000)return null; // No es un timestamp válido (post-2001)
+  return new Date(n).getMonth()+1; // 1-12
+}
+function enPerIngreso(d,p){
+  const mes=_mesDelId(d.id);
+  if(mes!==null)return PERIODOS[p].m.includes(mes);
+  // Fallback: si el id no es timestamp (datos importados), usar fechaSolicitud
+  if(!d.fechaSolicitud)return false;
+  return PERIODOS[p].m.includes(parseInt(d.fechaSolicitud.split('-')[1]));
+}
+function enPerDDecision(d,p,yr){
+  if(!d.fechaDecision)return false;
+  const parts=d.fechaDecision.split('-');
   return parts[0]===String(yr)&&PERIODOS[p].m.includes(parseInt(parts[1]));
 }
 
@@ -3488,16 +3651,12 @@ function rStat(){
   document.getElementById('sresumen-anio').textContent=anio;
 
   const tuts=tA();
-  // v33.59: para desacatos se usan TODOS los registros de todos los años cargados,
-  // porque algunos pueden haberse creado en la colección de un año distinto al de
-  // su fechaSolicitud (ej. creados en 2026 con fechaSolicitud de 2025).
-  // Se filtra por el año REAL de la fecha, usando enPerD(fecha, período, añoReal).
-  const todosDesc=Object.values(localDB.desacatos||{}).flat();
-  const descAnio=todosDesc.filter(d=>{
-    if(!d.fechaSolicitud)return false;
-    return d.fechaSolicitud.startsWith(String(anio)+'-');
-  });
-  const desc=descAnio;
+  // v33.61: para desacatos usar los del año seleccionado (colección anio).
+  // El período se determina por el MES DEL ID (timestamp de creación) = mes en
+  // que se abrió el incidente en el sistema = "ingreso al despacho". Refleja la
+  // realidad operativa, no la fechaSolicitud que puede ser de un documento más
+  // antiguo. Los "Decididos" se cuentan por fechaDecision (la real del auto).
+  const desc=dA();
 
   // ── TABLA TUTELAS ──
   // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Retiro vol. | Anulada | Otras salidas
@@ -3556,7 +3715,7 @@ function rStat(){
   let dTotIng=0,dTotSanc=0,dTotNoSanc=0,dTotRet=0,dTotAnu=0,dTotArch=0;
 
   DERECHOS_SIERJU.forEach(der=>{
-    const dd=todosDesc.filter(d=>enPerD(d.fechaSolicitud,p,anio)&&d.derechoSierju===der);
+    const dd=desc.filter(d=>enPerIngreso(d,p)&&d.derechoSierju===der);
     if(dd.length===0)return;
     const ing=dd.length;
     // Anulados se cuentan aparte (no se solapan con sanciona/no sanciona/etc.)
@@ -3587,8 +3746,8 @@ function rStat(){
   [1,2,3,4].forEach(pp=>{
     const ti=tuts.filter(t=>enPer(t.fechaAdmision,pp)).length;
     const tf=tuts.filter(t=>enPer(t.fechaFallo,pp)).length;
-    const di=todosDesc.filter(d=>enPerD(d.fechaSolicitud,pp,anio)).length;
-    const dd=todosDesc.filter(d=>enPerD(d.fechaDecision,pp,anio)).length;
+    const di=desc.filter(d=>enPerIngreso(d,pp)).length;
+    const dd=desc.filter(d=>enPerDDecision(d,pp,anio)).length;
     gtTI+=ti;gtTF+=tf;gtDI+=di;gtDD+=dd;
     const isActive=pp===periodoStat;
     rBody+=`<tr style="${isActive?'background:#e8f0f8;font-weight:600':''}">`+
