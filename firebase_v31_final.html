@@ -950,7 +950,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.65';
+var APP_VERSION='33.66';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -4565,31 +4565,70 @@ ${wTxt?'TEXTO WORD:\n'+wTxt+'\n':''}
 
 Extrae los siguientes campos del incidente. Responde ÚNICAMENTE con JSON válido, sin texto adicional, sin bloques de código.
 
-Campos a extraer:
-- radicacion: número del incidente (formato típico "AAAA-NNN", ej "2026-001"). Si no aparece explícito, usa: "${rH}"
-- tutelaBase: número COMPLETO de radicación (23 dígitos) de la tutela ORIGINAL cuyo cumplimiento se está exigiendo — aparece como "tutela radicado No. ..." o similar
-- incidentante: nombre de quien solicita el desacato (normalmente el mismo accionante de la tutela base, o su apoderado)
+═══ IDENTIFICACIÓN ═══
+- radicacion: NÚMERO COMPLETO DE RADICACIÓN (23 dígitos, ej. "73001400901420250000000"). Búscalo PRIORITARIAMENTE en el aparte SUPERIOR del AUTO DE REQUERIMIENTO PREVIO donde aparece el bloque "ASUNTO / RADICACIÓN / INCIDENTANTE / INCIDENTADO". También puede aparecer en el acta de reparto. Si no encuentras el de 23 dígitos, usa el formato corto: "${rH}"
+- tutelaBase: número COMPLETO de radicación (23 dígitos) de la TUTELA ORIGINAL cuyo cumplimiento se está exigiendo. Aparece como "tutela radicado No. ..." o "sentencia de tutela proferida en el proceso ..."
+
+═══ PARTES ═══
+- incidentante: nombre completo de quien solicita el desacato (normalmente el mismo accionante de la tutela base, o su apoderado)
+- cedulaIncidentante: número de CÉDULA DE CIUDADANÍA del incidentante. Aparece en el MEMORIAL/SOLICITUD del incidente, generalmente debajo del nombre (ej. "identificado(a) con C.C. No. 1234567890"). Solo dígitos, sin puntos ni guiones.
 - incidentado: entidad o persona requerida/señalada de incumplir la orden
+
+═══ FALLO BASE ═══
 - derechoSierju: derecho principal SIERJU de la tutela base — EXACTAMENTE uno de: "Salud","Debido Proceso","Petición","Vivienda","Trabajo","Educación","Seguridad Social","Mínimo Vital","Otro"
 - ordenIncumplida: transcribe LITERALMENTE el numeral/orden de la parte resolutiva de la tutela base que se alega incumplida (búscalo citado dentro de la solicitud de desacato o del auto)
 - fechaFalloBase: fecha del fallo de la tutela ORIGINAL que se está incumpliendo, formato YYYY-MM-DD
+
+═══ TRÁMITE DEL INCIDENTE ═══
 - fechaSolicitud: fecha en que se RADICÓ/PRESENTÓ la solicitud de desacato (NO la fecha del fallo base), formato YYYY-MM-DD
+- fechaRequerimientoPrevio: fecha en que el juzgado PROFIRIÓ el auto de REQUERIMIENTO PREVIO al incidentado (NO la fecha de notificación, sino la fecha del auto), formato YYYY-MM-DD
+- fechaAperturaFormal: fecha en que el juzgado PROFIRIÓ el auto que ABRE FORMALMENTE el incidente de desacato (después de vencer el plazo del requerimiento sin cumplimiento), formato YYYY-MM-DD
 - estado: estado procesal actual del incidente — EXACTAMENTE uno de: "Requerimiento previo","Apertura formal","Pendiente decisión","Sanciona","No sanciona","Retiro voluntario","Anulado","Archivado"
-- fechaDecision: fecha del auto que decide el incidente (sanciona/no sanciona), formato YYYY-MM-DD, vacío si aún no hay decisión
-- resultado: SOLO si el expediente fue a CONSULTA ante el superior tras imponer sanción — EXACTAMENTE uno de: "Confirma sanción","Modifica sanción","Revoca sanción","Decreta nulidad". Vacío si no hubo consulta.
+
+═══ DECISIÓN FINAL ═══
+- decision: decisión final del incidente — EXACTAMENTE uno de: "Archiva" (si se archiva por cumplimiento, retiro voluntario, hecho superado, falta de incumplimiento, etc.), "Sanciona" (si se impone sanción de arresto/multa). Vacío si aún no hay decisión.
+- fechaDecision: fecha del AUTO INTERLOCUTORIO que decide el incidente (archiva o sanciona), formato YYYY-MM-DD. NO confundir con la fecha de vencimiento del término. Vacío si aún no hay decisión.
+
+═══ MODALIDADES DE SANCIÓN (solo si decision="Sanciona") ═══
+- sancionArrestoDias: NÚMERO de días de arresto impuestos (0 si no hay, máximo 180 días). Buscar en la parte resolutiva del auto sancionatorio frases como "arresto por X días" o "arresto de X días".
+- sancionMultaSalarios: NÚMERO de salarios mínimos legales mensuales vigentes (SMMLV) impuestos como multa (0 si no hay, máximo 20). Aceptar valores decimales (0.5, 1.5, etc.). Buscar frases como "multa de X salarios mínimos" o "multa equivalente a X SMMLV".
+
+═══ CONSULTA ANTE SUPERIOR (solo si hubo sanción) ═══
+- fechaEnvioConsulta: fecha en que el juzgado ENVIÓ el expediente a consulta del superior (normalmente la misma del auto sancionatorio o el día siguiente), formato YYYY-MM-DD
+- fechaRepartoConsulta: fecha del ACTA DE REPARTO en el juzgado de segunda instancia, formato YYYY-MM-DD
+- fechaDecisionConsulta: fecha del AUTO del superior que resuelve la consulta, formato YYYY-MM-DD
+- resultado: sentido del fallo de consulta del superior — EXACTAMENTE uno de: "Confirma sanción","Modifica sanción","Revoca sanción","Decreta nulidad". Vacío si aún no hay decisión de consulta.
+
+═══ OTROS ═══
 - observaciones: notas relevantes del trámite (máx 2-3 líneas)
 
-Responde SOLO con este JSON:
-{"radicacion":"${rH}","tutelaBase":"","incidentante":"${aH}","incidentado":"","derechoSierju":"","ordenIncumplida":"","fechaFalloBase":"","fechaSolicitud":"","estado":"Requerimiento previo","fechaDecision":"","resultado":"","observaciones":""}`;
+Responde SOLO con este JSON (mantén las comillas vacías en los campos que no encuentres):
+{"radicacion":"","tutelaBase":"","incidentante":"${aH}","cedulaIncidentante":"","incidentado":"","derechoSierju":"","ordenIncumplida":"","fechaFalloBase":"","fechaSolicitud":"","fechaRequerimientoPrevio":"","fechaAperturaFormal":"","estado":"Requerimiento previo","decision":"","fechaDecision":"","sancionArrestoDias":0,"sancionMultaSalarios":0,"fechaEnvioConsulta":"","fechaRepartoConsulta":"","fechaDecisionConsulta":"","resultado":"","observaciones":""}`;
 
   console.log('[Extracción desacato] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
   const parsed=await _llamarGemini(apiKey,prompt,false);
   console.log('[Extracción desacato] Gemini respondió:',parsed);
 
-  // Normalizar valores de estado/resultado a las opciones EXACTAS del select
+  // Normalizar valores
   if(parsed.estado)parsed.estado=mapV(parsed.estado,ESTADO_DESACATO_MAP)||parsed.estado;
   if(parsed.resultado)parsed.resultado=mapV(parsed.resultado,RESULTADO_CONSULTA_MAP)||parsed.resultado;
   if(parsed.derechoSierju)parsed.derechoSierju=mapV(parsed.derechoSierju,SIERJU_MAP)||parsed.derechoSierju;
+  // v33.66: normalizar decision a 'Archiva' o 'Sanciona' exactos
+  if(parsed.decision){
+    const dl=parsed.decision.toLowerCase().trim();
+    if(dl.includes('sanciona')||dl.includes('impone'))parsed.decision='Sanciona';
+    else if(dl.includes('archiva')||dl.includes('no sanciona')||dl.includes('cumplido')||dl.includes('hecho superado'))parsed.decision='Archiva';
+  }
+  // v33.66: si la radicación quedó vacía y hay un patrón corto, usarlo de respaldo
+  if(!parsed.radicacion&&rH)parsed.radicacion=rH;
+  // v33.66: cédula solo dígitos
+  if(parsed.cedulaIncidentante){
+    const ced=String(parsed.cedulaIncidentante).replace(/\D/g,'');
+    parsed.cedulaIncidentante=ced;
+  }
+  // Normalizar números (Gemini a veces devuelve "0" como string)
+  if(parsed.sancionArrestoDias!=null)parsed.sancionArrestoDias=Number(parsed.sancionArrestoDias)||0;
+  if(parsed.sancionMultaSalarios!=null)parsed.sancionMultaSalarios=Number(parsed.sancionMultaSalarios)||0;
 
   window._ultimaExtraccionD={folder:folderName,pdfs:pdfs.length,docx:docx.length,pdfDiag,parsed};
   return{...fb,...parsed};
@@ -4869,12 +4908,28 @@ window.procesarCarpetaD=async function(inp){
   try{
     if(st)st.textContent='🔄 Analizando con Gemini…';
     const d=await extraerDatosCarpetaDesacato(files,folderName);
-    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v)el.value=v;};
+    const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};
+    // Identificación + partes
     set('d-r',d.radicacion);set('d-tb',d.tutelaBase);set('d-inc',d.incidentante);
-    set('d-inci',d.incidentado);set('d-ord',d.ordenIncumplida);
+    set('d-cc',d.cedulaIncidentante);set('d-inci',d.incidentado);set('d-ord',d.ordenIncumplida);
     set('d-fb',d.fechaFalloBase);set('d-fs',d.fechaSolicitud);
     setSelect('d-ds',d.derechoSierju);
+    // v33.66: rellenar también los nuevos campos del Bloque 1
+    set('d-frp',d.fechaRequerimientoPrevio);  // fecha req. previo
+    set('d-faf',d.fechaAperturaFormal);       // fecha apertura formal
+    set('d-fdec',d.fechaDecision);            // fecha del auto interlocutorio
+    set('d-fec',d.fechaEnvioConsulta);        // fecha envío consulta
+    set('d-frc',d.fechaRepartoConsulta);      // fecha reparto consulta
+    set('d-fdc',d.fechaDecisionConsulta);     // fecha decisión consulta
+    // Selectores de estado, decisión y resultado
     if(d.estado){const fe=document.getElementById('d-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
+    if(d.decision){const fd=document.getElementById('d-dec');if(fd){fd.value=d.decision; if(typeof toggleSancion==='function')toggleSancion();}}
+    if(d.resultado){const fr=document.getElementById('d-rc');if(fr){const o=[...fr.options].find(o=>o.text===d.resultado);if(o)fr.value=o.value;}}
+    // Modalidades de sanción (números)
+    if(d.sancionArrestoDias){const a=document.getElementById('d-arr');if(a)a.value=d.sancionArrestoDias;}
+    if(d.sancionMultaSalarios){const m=document.getElementById('d-mul');if(m)m.value=d.sancionMultaSalarios;}
+    // Calcular fecha vencimiento consulta si hay reparto
+    if(d.fechaRepartoConsulta&&typeof calcVenceConsulta==='function')calcVenceConsulta();
     set('d-o',d.observaciones);
     if(d.fechaSolicitud&&typeof pvD==='function')pvD();
     window._pendingFolderD={folderName,filesCount:files.length,geminiData:d};
@@ -4896,15 +4951,40 @@ window.procesarRecargaD=async function(inp,id){
   try{
     if(st)st.textContent='🔄 Analizando con Gemini…';
     const d=await extraerDatosCarpetaDesacato(files,folderName);
-    const dd=dA().find(x=>String(x.id)===String(id));
+    // v33.66: buscar el incidente en todos los años cargados (consistente con updD)
+    let dd=null, yrCol=anio;
+    for(const yr of Object.keys(localDB.desacatos||{})){
+      const found=(localDB.desacatos[yr]||[]).find(x=>String(x.id)===String(id));
+      if(found){dd=found;yrCol=yr;break;}
+    }
     if(!dd){if(st)st.textContent='⚠ Incidente no encontrado';return;}
     const upd={};
-    const act=(campo,val)=>{if(val&&String(val).trim())upd[campo]=val;};
-    const solo=(campo,val)=>{if(val&&!dd[campo])upd[campo]=val;};
-    solo('tutelaBase',d.tutelaBase);act('incidentante',d.incidentante);act('incidentado',d.incidentado);
+    const act=(campo,val)=>{if(val!=null&&String(val).trim())upd[campo]=val;};
+    const solo=(campo,val)=>{if(val!=null&&String(val).trim()&&!dd[campo])upd[campo]=val;};
+    // Identificación y partes
+    solo('tutelaBase',d.tutelaBase);act('incidentante',d.incidentante);
+    act('cedulaIncidentante',d.cedulaIncidentante);  // v33.66 — nuevo
+    act('incidentado',d.incidentado);
     act('derechoSierju',d.derechoSierju);act('ordenIncumplida',d.ordenIncumplida);
+    // Fechas trámite
     solo('fechaFalloBase',d.fechaFalloBase);solo('fechaSolicitud',d.fechaSolicitud);
-    act('fechaDecision',d.fechaDecision);act('resultado',d.resultado);act('observaciones',d.observaciones);
+    act('fechaRequerimientoPrevio',d.fechaRequerimientoPrevio);  // v33.66 — nuevo
+    act('fechaAperturaFormal',d.fechaAperturaFormal);            // v33.66 — nuevo
+    // Decisión
+    act('decision',d.decision);  // v33.66 — nuevo
+    act('fechaDecision',d.fechaDecision);
+    // Modalidades de sanción (números)
+    if(d.sancionArrestoDias&&d.sancionArrestoDias>0)upd.sancionArrestoDias=Number(d.sancionArrestoDias);
+    if(d.sancionMultaSalarios&&d.sancionMultaSalarios>0)upd.sancionMultaSalarios=Number(d.sancionMultaSalarios);
+    // Consulta
+    act('fechaEnvioConsulta',d.fechaEnvioConsulta);              // v33.66 — nuevo
+    act('fechaRepartoConsulta',d.fechaRepartoConsulta);          // v33.66 — nuevo
+    act('fechaDecisionConsulta',d.fechaDecisionConsulta);        // v33.66 — nuevo
+    // Si hay nueva fecha de reparto consulta, recalcular vencimiento (reparto + 3 hábiles)
+    if(d.fechaRepartoConsulta&&typeof addHab==='function'){
+      try{upd.fechaVencimientoConsulta=addHab(d.fechaRepartoConsulta,3);}catch(e){}
+    }
+    act('resultado',d.resultado);act('observaciones',d.observaciones);
     upd.folderName=folderName;upd.filesCount=files.length;
     const enlaceEsAuto=!dd.enlace||!/^https?:\/\//i.test(dd.enlace)||/ramajudicial|consultaprocesos|sharepoint/i.test(dd.enlace||'');
     if(enlaceEsAuto){
@@ -4918,7 +4998,7 @@ window.procesarRecargaD=async function(inp,id){
     const n=Object.keys(upd).filter(k=>k!=='folderName'&&k!=='filesCount').length;
     if(n===0){if(st)st.textContent='✓ Sin datos nuevos';inp.value='';return;}
     if(!fbDb){if(st)st.textContent='⚠ Firebase no conectado — recarga (Ctrl+F5)';inp.value='';return;}
-    const col=`desacatos_${anio}`;const merged={...dd,...upd};
+    const col=`desacatos_${yrCol}`;const merged={...dd,...upd};
     try{
       await fbDb.collection(col).doc(String(id)).set(merged);
       const check=await fbDb.collection(col).doc(String(id)).get();
