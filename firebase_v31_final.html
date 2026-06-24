@@ -593,7 +593,6 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
         </div>
         <div class="sierju-table-wrap">
           <div class="sierju-table-title">⚠ Incidentes de Desacato — <span id="slbl-d">Período 1 (Ene–Mar)</span></div>
-          <div id="stat-diag"></div>
           <div style="overflow-x:auto"><table class="sierju-table" id="sd-table"></table></div>
         </div>
       </div>
@@ -951,7 +950,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.64';
+var APP_VERSION='33.65';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -2743,16 +2742,22 @@ async function updDRadicacion(id,val){
   aDD(id);
 }
 async function updD(id,campo,val){
-  const d=dA().find(x=>String(x.id)===String(id));
-  if(!d)return;
+  // v33.65: buscar el desacato en TODOS los años cargados, no solo en el año
+  // actualmente seleccionado. Antes, si editabas un incidente que estaba en una
+  // colección de otro año, dA() no lo encontraba y updD hacía return silencioso
+  // SIN GUARDAR NADA — por eso "el formulario no actualizaba".
+  let d=null, yrCol=anio;
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    const found=(localDB.desacatos[yr]||[]).find(x=>String(x.id)===String(id));
+    if(found){d=found;yrCol=yr;break;}
+  }
+  if(!d){console.warn('updD: incidente no encontrado en ningún año',id);return;}
   d[campo]=val;
   if(!fbDb){setSS('e','⚠ Sin Firebase'); alert('⚠ El cambio NO se guardó porque Firebase no está conectado. Recarga con Ctrl+F5.');return;}
   setSS('s','Guardando '+campo+'...');
   try{
-    await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).set(d);
-    // v33.64: verificación robusta — comparar como string para evitar problemas
-    // con tipos (Firebase puede devolver número donde Diego envió string, etc.)
-    const check=await fbDb.collection(`desacatos_${anio}`).doc(String(d.id)).get();
+    await fbDb.collection(`desacatos_${yrCol}`).doc(String(d.id)).set(d);
+    const check=await fbDb.collection(`desacatos_${yrCol}`).doc(String(d.id)).get();
     if(!check||!check.exists){setSS('e','⚠ NO verificado');return;}
     const saved=check.data()[campo];
     const savedStr=saved==null?'':String(saved);
@@ -3683,32 +3688,10 @@ function rStat(){
   document.getElementById('sresumen-anio').textContent=anio;
 
   const tuts=tA();
-  // v33.63: desacatos del año seleccionado (colección anio).
+  // v33.65: desacatos del año seleccionado. Solo se cuentan los que tienen
+  // fechaSolicitud (los registrados realmente por Diego). Los datos viejos sin
+  // fecha quedan fuera de la estadística por no tener período asignable.
   const desc=dA();
-
-  // v33.64: panel de diagnóstico — muestra cuántos desacatos hay cargados y a qué
-  // período cae cada uno según su fechaSolicitud. Permite a Diego ver de inmediato
-  // si el filtro está bien o si los datos están mal distribuidos.
-  const diagEl=document.getElementById('stat-diag');
-  if(diagEl){
-    const conPer={1:0,2:0,3:0,4:0,sinFecha:0};
-    desc.forEach(d=>{
-      if(!d.fechaSolicitud){conPer.sinFecha++;return;}
-      const mes=parseInt(d.fechaSolicitud.split('-')[1]);
-      const año=d.fechaSolicitud.split('-')[0];
-      for(const pp of [1,2,3,4])if(PERIODOS[pp].m.includes(mes)){conPer[pp]++;break;}
-    });
-    const lista=desc.map(d=>{
-      const r=(d.radicacion||'sin radicación').slice(-9);
-      const fs=d.fechaSolicitud||'(sin fechaSolicitud)';
-      return `<span style="display:inline-block;background:#f1f5f9;border:1px solid #cbd5e1;padding:1px 6px;border-radius:4px;margin:1px;font-size:9px;font-family:monospace">…${r} · ${fs}</span>`;
-    }).join(' ');
-    diagEl.innerHTML=`<div style="background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:11px">
-      <b style="color:#92400e">🔍 Diagnóstico estadística desacatos — año ${anio}</b><br>
-      <b>Total cargados:</b> ${desc.length} | <b>P1:</b> ${conPer[1]} | <b>P2:</b> ${conPer[2]} | <b>P3:</b> ${conPer[3]} | <b>P4:</b> ${conPer[4]} | <b>Sin fecha:</b> ${conPer.sinFecha}
-      <div style="margin-top:6px;line-height:1.8">${lista||'<i>No hay desacatos cargados para este año.</i>'}</div>
-    </div>`;
-  }
 
   // ── TABLA TUTELAS ──
   // Columnas: Ingresadas | Concede | Niega-Hecho Superado | Niega-Improcedente | Retiro vol. | Anulada | Otras salidas
