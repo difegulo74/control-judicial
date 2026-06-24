@@ -950,7 +950,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.66';
+var APP_VERSION='33.67';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1972,7 +1972,20 @@ async function guardarT(){
   }
   window._pendingFolder=null;
   const bg=document.getElementById('btn-guardar-rad');if(bg)bg.classList.remove('btn-pendiente');
-  cerrar();rT();
+  // v33.67: actualizar localDB inmediatamente y refrescar panel activo —
+  // garantiza que la nueva tutela aparece en estadística sin recargar.
+  if(!localDB.tutelas[anio])localDB.tutelas[anio]=[];
+  if(!localDB.tutelas[anio].find(x=>String(x.id)===String(t.id))){
+    localDB.tutelas[anio].unshift(t);
+  }
+  cerrar();
+  rT();
+  if(typeof tabAct!=='undefined'){
+    if(tabAct==='s'&&typeof rStat==='function')rStat();
+    else if(tabAct==='c'&&typeof rCal==='function')rCal();
+  }
+  if(typeof renderAnios==='function')renderAnios();
+  if(typeof actualizarBanner==='function')actualizarBanner();
   setSS('ok','✓ Radicación guardada y verificada');
   alert('✓ Radicación guardada y VERIFICADA en Firebase:\n\n'+rad+'\nColección: '+col+'\n\nYa puedes recargar (F5) — la radicación quedará.');
 }
@@ -2470,6 +2483,7 @@ function aFD(){
       <div class="fi"><label>Fecha reparto consulta</label><input type="date" id="d-frc" oninput="calcVenceConsulta()"></div>
       <div class="fi"><label>Fecha vencimiento consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(auto · 3 días háb.)</span></label><input type="date" id="d-fvc" readonly style="background:#f1f5f9"></div>
       <div class="fi"><label>Fecha decisión consulta</label><input type="date" id="d-fdc"></div>
+      <div class="fi full"><label>Juzgado encargado de la consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(según acta de reparto)</span></label><input id="d-jc" placeholder="Juzgado Cuarto Penal del Circuito de Ibagué"></div>
       <div class="fi full"><label>Sentido del fallo de consulta</label>
         <select id="d-rc">
           <option value="">— Pendiente —</option>
@@ -2559,6 +2573,7 @@ async function guardarD(){
     fechaRepartoConsulta:get('d-frc'),
     fechaVencimientoConsulta:get('d-fvc'),
     fechaDecisionConsulta:get('d-fdc'),
+    juzgadoConsulta:getT('d-jc'),
     resultado:get('d-rc'),
     enlace:getT('d-l'),
     observaciones:getT('d-o'),
@@ -2579,8 +2594,23 @@ async function guardarD(){
     }
   }
   await fbSave(`desacatos_${anio}`,d.id,d);
+  // v33.67: actualizar localDB inmediatamente para que el nuevo desacato esté
+  // disponible incluso antes de que Firebase notifique (sincronización instantánea
+  // con la estadística sin necesidad de cambiar de pestaña o recargar).
+  if(!localDB.desacatos[anio])localDB.desacatos[anio]=[];
+  if(!localDB.desacatos[anio].find(x=>String(x.id)===String(d.id))){
+    localDB.desacatos[anio].push(d);
+  }
   window._pendingFolderD=null;
-  cerrar();rD();
+  cerrar();
+  // v33.67: refrescar el panel activo, no solo desacatos
+  rD();
+  if(typeof tabAct!=='undefined'){
+    if(tabAct==='s'&&typeof rStat==='function')rStat();
+    else if(tabAct==='c'&&typeof rCal==='function')rCal();
+  }
+  if(typeof renderAnios==='function')renderAnios();
+  if(typeof actualizarBanner==='function')actualizarBanner();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -2666,6 +2696,7 @@ function aDD(id){
       <div class="fi"><label>Fecha reparto consulta</label><input type="date" value="${d.fechaRepartoConsulta||''}" onchange="updDRepartoConsulta('${id}',this.value)"></div>
       <div class="fi"><label>Fecha vencimiento consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(auto · 3 días háb.)</span></label><input type="date" value="${d.fechaVencimientoConsulta||''}" readonly style="background:#f1f5f9"></div>
       <div class="fi"><label>Fecha decisión consulta</label><input type="date" value="${d.fechaDecisionConsulta||''}" onchange="updD('${id}','fechaDecisionConsulta',this.value)"></div>
+      <div class="fi full"><label>Juzgado encargado de la consulta <span style="font-size:9px;color:var(--t3);font-weight:400">(según acta de reparto)</span></label><input value="${esc(d.juzgadoConsulta)}" placeholder="Juzgado Cuarto Penal del Circuito de Ibagué" onchange="updD('${id}','juzgadoConsulta',this.value)"></div>
       <div class="fi full"><label>Sentido del fallo de consulta</label>
         <select onchange="updD('${id}','resultado',this.value)">
           <option value="">— Pendiente —</option>
@@ -2674,10 +2705,11 @@ function aDD(id){
       </div>
 
       <div class="fsec">Otros</div>
-      <div class="fi full"><label>Enlace OneDrive</label>
+      <div class="fi full"><label>Enlace OneDrive <span style="font-size:9px;color:var(--t3);font-weight:400">— pega aquí el link directo del expediente</span></label>
         <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
-        ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir</a>`:''}
+        ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir expediente</a>`:''}
         ${d.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(d.folderName)}${d.filesCount?' <span style="color:var(--t2)">('+d.filesCount+' archivos)</span>':''}</div>`:''}
+        ${!getOneDriveBase('d')?`<div style="font-size:10px;color:#92400e;margin-top:6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px">⚠ <b>Base OneDrive de desacatos no configurada.</b> Para que los enlaces se generen automáticamente, ve a Configuración (⚙) y pega la URL base de tu carpeta DESACATOS ${anio} de OneDrive.</div>`:''}
       </div>
       <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:10px">
         <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
@@ -4597,13 +4629,14 @@ Extrae los siguientes campos del incidente. Responde ÚNICAMENTE con JSON válid
 - fechaEnvioConsulta: fecha en que el juzgado ENVIÓ el expediente a consulta del superior (normalmente la misma del auto sancionatorio o el día siguiente), formato YYYY-MM-DD
 - fechaRepartoConsulta: fecha del ACTA DE REPARTO en el juzgado de segunda instancia, formato YYYY-MM-DD
 - fechaDecisionConsulta: fecha del AUTO del superior que resuelve la consulta, formato YYYY-MM-DD
+- juzgadoConsulta: nombre del JUZGADO encargado del grado jurisdiccional de consulta (ej. "Juzgado Cuarto Penal del Circuito de Ibagué"). Búscalo en el ACTA DE REPARTO en segunda instancia, donde aparece el juzgado destinatario tras "REPARTIDO AL DESPACHO".
 - resultado: sentido del fallo de consulta del superior — EXACTAMENTE uno de: "Confirma sanción","Modifica sanción","Revoca sanción","Decreta nulidad". Vacío si aún no hay decisión de consulta.
 
 ═══ OTROS ═══
 - observaciones: notas relevantes del trámite (máx 2-3 líneas)
 
 Responde SOLO con este JSON (mantén las comillas vacías en los campos que no encuentres):
-{"radicacion":"","tutelaBase":"","incidentante":"${aH}","cedulaIncidentante":"","incidentado":"","derechoSierju":"","ordenIncumplida":"","fechaFalloBase":"","fechaSolicitud":"","fechaRequerimientoPrevio":"","fechaAperturaFormal":"","estado":"Requerimiento previo","decision":"","fechaDecision":"","sancionArrestoDias":0,"sancionMultaSalarios":0,"fechaEnvioConsulta":"","fechaRepartoConsulta":"","fechaDecisionConsulta":"","resultado":"","observaciones":""}`;
+{"radicacion":"","tutelaBase":"","incidentante":"${aH}","cedulaIncidentante":"","incidentado":"","derechoSierju":"","ordenIncumplida":"","fechaFalloBase":"","fechaSolicitud":"","fechaRequerimientoPrevio":"","fechaAperturaFormal":"","estado":"Requerimiento previo","decision":"","fechaDecision":"","sancionArrestoDias":0,"sancionMultaSalarios":0,"fechaEnvioConsulta":"","fechaRepartoConsulta":"","fechaDecisionConsulta":"","juzgadoConsulta":"","resultado":"","observaciones":""}`;
 
   console.log('[Extracción desacato] Enviando prompt a Gemini, tamaño:',prompt.length,'chars');
   const parsed=await _llamarGemini(apiKey,prompt,false);
@@ -4921,6 +4954,7 @@ window.procesarCarpetaD=async function(inp){
     set('d-fec',d.fechaEnvioConsulta);        // fecha envío consulta
     set('d-frc',d.fechaRepartoConsulta);      // fecha reparto consulta
     set('d-fdc',d.fechaDecisionConsulta);     // fecha decisión consulta
+    set('d-jc',d.juzgadoConsulta);            // v33.67 — juzgado consulta
     // Selectores de estado, decisión y resultado
     if(d.estado){const fe=document.getElementById('d-est');if(fe){const o=[...fe.options].find(o=>o.text===d.estado);if(o)fe.value=o.value;}}
     if(d.decision){const fd=document.getElementById('d-dec');if(fd){fd.value=d.decision; if(typeof toggleSancion==='function')toggleSancion();}}
@@ -4980,6 +5014,7 @@ window.procesarRecargaD=async function(inp,id){
     act('fechaEnvioConsulta',d.fechaEnvioConsulta);              // v33.66 — nuevo
     act('fechaRepartoConsulta',d.fechaRepartoConsulta);          // v33.66 — nuevo
     act('fechaDecisionConsulta',d.fechaDecisionConsulta);        // v33.66 — nuevo
+    act('juzgadoConsulta',d.juzgadoConsulta);                    // v33.67 — nuevo
     // Si hay nueva fecha de reparto consulta, recalcular vencimiento (reparto + 3 hábiles)
     if(d.fechaRepartoConsulta&&typeof addHab==='function'){
       try{upd.fechaVencimientoConsulta=addHab(d.fechaRepartoConsulta,3);}catch(e){}
