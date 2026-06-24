@@ -950,7 +950,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.67';
+var APP_VERSION='33.68';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3685,17 +3685,28 @@ function enPer(fecha,p){
   return parts[0]===String(anio)&&PERIODOS[p].m.includes(parseInt(parts[1]));
 }
 
-// v33.63: enPerIngreso para desacatos — usa el MES de la fechaSolicitud (fecha
-// real de radicación del incidente). El año ya lo filtra dA(). NO usamos el ID
-// timestamp porque Diego registró incidentes viejos en junio 2026 → todos los
-// IDs son del mismo mes → nada aparecía en P1 (Ene-Mar).
+// v33.68: LÓGICA SIERJU — el período de un incidente de desacato se determina
+// por la FECHA DE LA DECISIÓN (auto que sanciona/archiva), no por la fecha de
+// radicación. Razón: SIERJU mide la producción judicial del período (fallos
+// proferidos), no los incidentes recibidos. Un desacato radicado en diciembre
+// 2025 pero fallado en enero 2026 pertenece estadísticamente a P1-2026.
+//
+// Si el incidente AÚN NO TIENE DECISIÓN (en trámite), se usa fechaSolicitud
+// como respaldo para que aparezca en algún período provisionalmente.
 function enPerIngreso(d,p){
-  if(!d.fechaSolicitud)return false;
-  return PERIODOS[p].m.includes(parseInt(d.fechaSolicitud.split('-')[1]));
+  // Prioridad 1: fecha de la decisión (sanciona/archiva) — lo que cuenta para SIERJU
+  if(d.fechaDecision){
+    return PERIODOS[p].m.includes(parseInt(d.fechaDecision.split('-')[1]));
+  }
+  // Prioridad 2: si aún no hay decisión, usar fechaSolicitud
+  if(d.fechaSolicitud){
+    return PERIODOS[p].m.includes(parseInt(d.fechaSolicitud.split('-')[1]));
+  }
+  return false;
 }
 
-// v33.63: enPerDDecision — filtra por mes de fechaDecision (auto real de archivo
-// o sanción). El año lo controla dA(), solo verificamos el mes.
+// v33.68: enPerDDecision — específica para "decididos" (cuenta solo los que
+// efectivamente tienen fechaDecision). Sigue usando el mes de fechaDecision.
 function enPerDDecision(d,p){
   if(!d.fechaDecision)return false;
   return PERIODOS[p].m.includes(parseInt(d.fechaDecision.split('-')[1]));
@@ -3771,7 +3782,7 @@ function rStat(){
   const sdTable=document.getElementById('sd-table');
   let dHead=`<thead><tr>
     <th>Derecho / Tipo</th>
-    <th style="text-align:center">Ingresados</th>
+    <th style="text-align:center" title="Decididos en el período (sancionados o archivados) — o en trámite si aún no hay decisión">Decididos<br><small>en el período</small></th>
     <th style="text-align:center">Sanciona</th>
     <th style="text-align:center">No sanciona</th>
     <th style="text-align:center">Retiro<br><small>voluntario</small></th>
@@ -3805,7 +3816,7 @@ function rStat(){
     <th>Período</th>
     <th style="text-align:center">Tutelas<br>Ingresadas</th>
     <th style="text-align:center">Tutelas<br>Falladas</th>
-    <th style="text-align:center">Desacatos<br>Ingresados</th>
+    <th style="text-align:center" title="Decididos por fechaDecision, o en trámite si no hay decisión">Desacatos<br>Decididos / en trámite</th>
     <th style="text-align:center">Desacatos<br>Decididos</th>
   </tr></thead>`;
   let rBody='<tbody>';
