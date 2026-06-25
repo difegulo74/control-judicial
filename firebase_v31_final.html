@@ -400,21 +400,38 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
 </div>
 <div class="alert-panel" id="alert-panel" style="display:none;background:#fff;border-bottom:2px solid #cbd5e1;padding:6px 14px;box-shadow:0 2px 4px rgba(0,0,0,0.05)">
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:8px;max-width:1800px;margin:0 auto">
-    <div id="alert-nul" class="alert-box" style="background:#fef2f2;border:2px solid #dc2626;border-radius:7px;padding:5px 9px;display:none">
-      <div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:2px;display:flex;align-items:center;gap:5px">🚨 NULIDADES ACTIVAS <span id="alert-nul-count" style="background:#dc2626;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
+    <div id="alert-nul" class="alert-box" title="Tutelas a las que se les ha decretado nulidad y requieren un nuevo fallo. Cliquea para ver el filtro de tutelas con nulidades activas." style="background:#fef2f2;border:2px solid #dc2626;border-radius:7px;padding:5px 9px;display:none">
+      <div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:2px;display:flex;align-items:center;gap:5px">🚨 NULIDADES — TUTELAS <span id="alert-nul-count" style="background:#dc2626;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
       <div id="alert-nul-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
     </div>
-    <div id="alert-imp" class="alert-box" style="background:#fff7ed;border:2px solid #ea580c;border-radius:7px;padding:5px 9px;display:none">
+    <div id="alert-imp" class="alert-box" title="Tutelas falladas con impugnación radicada que aún no han sido enviadas al reparto de segunda instancia. Indica el límite de envío al reparto." style="background:#fff7ed;border:2px solid #ea580c;border-radius:7px;padding:5px 9px;display:none">
       <div style="font-size:10px;font-weight:800;color:#c2410c;margin-bottom:2px;display:flex;align-items:center;gap:5px">📤 IMPUGNAC. POR ENVIAR AL REPARTO <span id="alert-imp-count" style="background:#ea580c;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
       <div id="alert-imp-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
     </div>
-    <div id="alert-2i" class="alert-box" style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:7px;padding:5px 9px;display:none">
+    <div id="alert-2i" class="alert-box" title="Tutelas que fueron repartidas a segunda instancia y aún no tienen sentencia. Indica los días hábiles transcurridos y el límite de 20 días para resolver." style="background:#f5f3ff;border:2px solid #7c3aed;border-radius:7px;padding:5px 9px;display:none">
       <div style="font-size:10px;font-weight:800;color:#6d28d9;margin-bottom:2px;display:flex;align-items:center;gap:5px">⚖️ PENDIENTES SENTENCIA 2ª <span id="alert-2i-count" style="background:#7c3aed;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
       <div id="alert-2i-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
     </div>
-    <div id="alert-cc" class="alert-box" style="background:#eff6ff;border:2px solid #1a5fa8;border-radius:7px;padding:5px 9px;display:none">
+    <div id="alert-cc" class="alert-box" title="Tutelas falladas y notificadas que están pendientes de remitirse a la Corte Constitucional para revisión (Decreto 2591/91 Art. 32)" style="background:#eff6ff;border:2px solid #1a5fa8;border-radius:7px;padding:5px 9px;display:none">
       <div style="font-size:10px;font-weight:800;color:#1a5fa8;margin-bottom:2px;display:flex;align-items:center;gap:5px">📬 PENDIENTES ENVÍO CORTE CONST. <span id="alert-cc-count" style="background:#1a5fa8;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
       <div id="alert-cc-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
+    </div>
+    <!-- v33.69: NUEVA — Tutelas en ÚLTIMO día para fallo de 1ª instancia. Se activa cuando
+         la tutela llega al día 10 hábil sin fallo registrado. Se desactiva al guardar fechaFallo. -->
+    <div id="alert-vfa" class="alert-box" title="Tutelas que llegaron al día 10 hábil (último día) para proferir fallo de 1ª instancia y aún no tienen fecha de fallo registrada. Se desactiva al actualizar el formulario con la fecha del fallo." style="background:#fef2f2;border:2px solid #dc2626;border-radius:7px;padding:5px 9px;display:none">
+      <div style="font-size:10px;font-weight:800;color:#dc2626;margin-bottom:2px;display:flex;align-items:center;gap:5px">⏱ ÚLTIMO DÍA PARA FALLO 1ª INST. <span id="alert-vfa-count" style="background:#dc2626;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
+      <div id="alert-vfa-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
+    </div>
+    <!-- v33.69: NUEVA — Desacatos sancionados pendientes de decisión del superior en consulta. Se activa
+         cuando el incidente tiene sanción/fechaDecision y aún no tiene fechaDecisionConsulta. -->
+    <div id="alert-dcons" class="alert-box" title="Incidentes de desacato sancionados que fueron enviados a consulta del superior y aún no se conoce la decisión. Se desactiva al guardar fechaDecisionConsulta o sentido del fallo de consulta." style="background:#fff7ed;border:2px solid #ea580c;border-radius:7px;padding:5px 9px;display:none">
+      <div style="font-size:10px;font-weight:800;color:#c2410c;margin-bottom:2px;display:flex;align-items:center;gap:5px">⚖ DESACATOS EN CONSULTA — SUPERIOR <span id="alert-dcons-count" style="background:#ea580c;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
+      <div id="alert-dcons-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
+    </div>
+    <!-- v33.69: NUEVA — Desacatos con nulidad decretada (paralelo al de tutelas) -->
+    <div id="alert-nuld" class="alert-box" title="Incidentes de desacato a los que se les ha decretado nulidad. Cliquea para ver el filtro de desacatos con nulidades activas." style="background:#fef2f2;border:2px solid #9333ea;border-radius:7px;padding:5px 9px;display:none">
+      <div style="font-size:10px;font-weight:800;color:#7e22ce;margin-bottom:2px;display:flex;align-items:center;gap:5px">🚨 NULIDADES — DESACATOS <span id="alert-nuld-count" style="background:#9333ea;color:#fff;padding:0 5px;border-radius:9px;font-size:9px">0</span></div>
+      <div id="alert-nuld-list" style="font-size:9px;line-height:1.35;max-height:54px;overflow-y:auto"></div>
     </div>
   </div>
   <div style="text-align:center;margin-top:3px">
@@ -865,9 +882,16 @@ function termT(t){
   // Ejemplo: admisión mar 02/06/2026 → día 1 = mié 03/06, día 10 = jue 18/06/2026.
   // v33.39: admite CORRECCIÓN MANUAL (t.vceManual / t.dia9Manual) — botón ✏️ en el
   // formulario, para los casos donde el despacho necesite ajustar el cálculo a mano.
-  const vce=t.vceManual||addHab(base,10);     // día 10 hábil = vencimiento del fallo
+  // v33.69 — REGLA DEFINITIVA: la admisión CUENTA COMO DÍA 1 (regla del despacho).
+  // Confirmada por Diego junio 2026: admisión 19/06/2026 → día 9 = 02/07/2026,
+  // vencimiento (día 10) = 03/07/2026 (saltando 29/06 festivo San Pedro y San Pablo).
+  // Esto reemplaza la regla anterior v33.36 que NO contaba la admisión como día 1.
+  // Si después de aplicar esta corrección quedan fechas manuales (vceManual/dia9Manual)
+  // que ya fueron corregidas para compensar el bug anterior, podrían ser INCORRECTAS
+  // ahora — habrá que limpiarlas con el botón ✏️.
+  const vce=t.vceManual||addHabIncl(base,10);     // día 10 hábil = vencimiento del fallo
   const dias=getAlertaDias(t);
-  const dia9=t.dia9Manual||addHab(base,dias); // día N hábil de alerta
+  const dia9=t.dia9Manual||addHabIncl(base,dias); // día N hábil de alerta
   // v33.36: el ancla real para correo/ejecutoria/Corte/impugnación es la fecha
   // REAL de notificación del fallo (o la fecha real del fallo si no se registró
   // notificación distinta). Solo se usa la proyección teórica (vce) cuando AÚN
@@ -883,12 +907,10 @@ function termT(t){
 function termD(d){
   const base=d.ultimaNulidad||d.fechaSolicitud;
   if(!base)return{req:'',aper:'',dia9:'',vce:'',remCons:'',resCons:'',ofic:''};
-  // v33.38: mismo criterio que tutelas — Art. 52 Decreto 2591/91 / lectura uniforme
-  // del cómputo de términos: la fecha base (solicitud/ultima nulidad) NO se cuenta
-  // como día 1. La cuenta comienza el día hábil siguiente.
-  const vce=addHab(base,10);
+  // v33.69 — REGLA DEFINITIVA: la solicitud/ultima nulidad CUENTA COMO DÍA 1.
+  const vce=addHabIncl(base,10);
   const dias=getAlertaDias(d);
-  const dia9=addHab(base,dias);
+  const dia9=addHabIncl(base,dias);
   return{
     req:addFin(base,1),aper:addFin(base,2),dia9,vce,
     remCons:addD(vce,1),
@@ -950,7 +972,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.68';
+var APP_VERSION='33.69';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1598,11 +1620,41 @@ function actualizarBanner(){
   // sentencia de 2ª. Cuando se registre el fallo (fechaFallo2i o fallo2i) desaparece
   // automáticamente. Plazo del circuito: 20 días hábiles desde el reparto en 2ª.
   const pend2i=arr.filter(t=>t.fechaReparto2i&&!t.fallo2i&&!t.fechaFallo2i);
-  // ── Llenar casilla nulidades ──
+  // === CASILLA 5: TUTELAS EN ÚLTIMO DÍA PARA FALLO 1ª INSTANCIA (v33.69) ===
+  // Se activa cuando la tutela está EN o PASADO el día 10 hábil (vencimiento) Y no tiene
+  // fallo registrado (ni fechaFallo ni fechaFalloOriginal). Se desactiva al guardar fallo.
+  // Permite ver radicación, accionante, fecha exacta de vencimiento.
+  const tutVenceFallo=arr.filter(t=>{
+    if(!t.fechaAdmision)return false;
+    if(t.fechaFallo)return false;
+    if(t.estado==='Fallada')return false;
+    if(hasNulActiva(t))return false;  // las nulidades tienen su propia alerta
+    const tc=termT(t);
+    if(!tc.vce)return false;
+    const dv=diff(tc.vce);
+    return dv!==null && dv<=0;  // Día 10 hoy o ya vencido
+  });
+  // === CASILLA 6: DESACATOS EN CONSULTA — PENDIENTES DE DECISIÓN DEL SUPERIOR (v33.69) ===
+  // Se activa cuando un incidente fue SANCIONADO (decision='Sanciona' o fechaDecision con
+  // sanción) y aún no se conoce la decisión del superior en consulta. Se desactiva al
+  // guardar fechaDecisionConsulta o el sentido del resultado.
+  const dArr=dA();
+  const desCons=dArr.filter(d=>{
+    const sancionado=d.decision==='Sanciona'||d.estado==='Sanciona';
+    if(!sancionado)return false;
+    if(!d.fechaDecision&&!d.fechaEnvioConsulta)return false;  // necesita fecha decisión o envío
+    // Se desactiva cuando ya hay decisión del superior
+    if(d.fechaDecisionConsulta)return false;
+    if(d.resultado)return false;
+    return true;
+  });
+  // === CASILLA 7: DESACATOS CON NULIDAD DECRETADA (v33.69) ===
+  const desNulList=dArr.filter(hasNulActiva);
+  // ── Llenar casilla nulidades TUTELAS ──
   const boxNul=document.getElementById('alert-nul');
-  if(totNul>0){
+  if(conNul.length>0){
     boxNul.style.display='block';
-    document.getElementById('alert-nul-count').textContent=totNul;
+    document.getElementById('alert-nul-count').textContent=conNul.length;
     const items=conNul.map(t=>{
       const ult=t.nulidades&&t.nulidades.length?t.nulidades[t.nulidades.length-1].fecha:'';
       const tc=termT(t);const dv=diff(tc.vce);
@@ -1614,6 +1666,20 @@ function actualizarBanner(){
     }).join('');
     document.getElementById('alert-nul-list').innerHTML=items||'<i>—</i>';
   }else{boxNul.style.display='none';}
+  // ── Llenar casilla nulidades DESACATOS (v33.69) ──
+  const boxNulD=document.getElementById('alert-nuld');
+  if(desNulList.length>0){
+    boxNulD.style.display='block';
+    document.getElementById('alert-nuld-count').textContent=desNulList.length;
+    const items=desNulList.map(d=>{
+      const ult=d.nulidades&&d.nulidades.length?d.nulidades[d.nulidades.length-1].fecha:'';
+      return `<div style="padding:4px 6px;margin:2px 0;background:#fff;border-left:3px solid #9333ea;border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDD('${d.id}')">
+        <b style="color:#1f2937">${esc(d.radicacion||"")}</b> · ${esc((d.incidentante||'').slice(0,28))}
+        <br><span style="color:#64748b">Nulidad decretada: ${fmt(ult)}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-nuld-list').innerHTML=items||'<i>—</i>';
+  }else{boxNulD.style.display='none';}
   // ── Llenar casilla impugnaciones ──
   const boxImp=document.getElementById('alert-imp');
   if(impPend.length>0){
@@ -1663,8 +1729,45 @@ function actualizarBanner(){
     }).join('');
     document.getElementById('alert-2i-list').innerHTML=items||'<i>—</i>';
   }else{box2i.style.display='none';}
-  // Mostrar el panel si hay al menos una alerta
-  document.getElementById('alert-panel').style.display=(totNul>0||impPend.length>0||ccPend.length>0||pend2i.length>0)?'block':'none';
+  // ── v33.69: Llenar casilla ÚLTIMO DÍA PARA FALLO 1ª INSTANCIA ──
+  const boxVfa=document.getElementById('alert-vfa');
+  if(tutVenceFallo.length>0){
+    boxVfa.style.display='block';
+    document.getElementById('alert-vfa-count').textContent=tutVenceFallo.length;
+    const items=tutVenceFallo.map(t=>{
+      const tc=termT(t);const dv=diff(tc.vce);
+      const urg=dv<0?'background:#fee2e2;border-left:3px solid #dc2626':'background:#fef3c7;border-left:3px solid #d97706';
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDT('${t.id}')">
+        <b style="color:#1f2937">${esc(t.radicacion||"")}</b> · ${esc((t.accionante||'').slice(0,30))}
+        <br><span style="color:#64748b">Admisión: ${fmt(t.fechaAdmision)} · Vence fallo (día 10): <b style="color:#dc2626">${fmt(tc.vce)}</b> ${dv<0?'<b style="color:#dc2626">(VENCIDO '+Math.abs(dv)+'d)</b>':'<b style="color:#d97706">(HOY)</b>'}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-vfa-list').innerHTML=items||'<i>—</i>';
+  }else{boxVfa.style.display='none';}
+  // ── v33.69: Llenar casilla DESACATOS EN CONSULTA — DECISIÓN SUPERIOR ──
+  const boxDcons=document.getElementById('alert-dcons');
+  if(desCons.length>0){
+    boxDcons.style.display='block';
+    document.getElementById('alert-dcons-count').textContent=desCons.length;
+    const items=desCons.map(d=>{
+      // Fecha límite proyectada para la decisión de consulta: 3 días hábiles después
+      // del día siguiente al reparto (si tenemos fechaRepartoConsulta) — esto es lo
+      // que Diego pidió: "tres días después al día siguiente del acta de reparto"
+      const limConsulta=d.fechaRepartoConsulta?addHab(d.fechaRepartoConsulta,3):'';
+      const dv=limConsulta?diff(limConsulta):null;
+      const urg=dv!==null && dv<0?'background:#fee2e2;border-left:3px solid #dc2626':(dv!==null && dv<=2?'background:#fef3c7;border-left:3px solid #d97706':'background:#fff;border-left:3px solid #ea580c');
+      const juzg=d.juzgadoConsulta?' · '+esc(d.juzgadoConsulta.slice(0,28)):'';
+      const limTexto=limConsulta?` · Lím. decisión consulta: <b style="color:${dv<0?'#dc2626':'#1f2937'}">${fmt(limConsulta)}</b> ${dv<0?'<b style="color:#dc2626">(vencido '+Math.abs(dv)+'d)</b>':dv===0?'<b style="color:#d97706">(HOY)</b>':'('+dv+'d)'}`:` · <i style="color:#c2410c">Pendiente reparto consulta</i>`;
+      return `<div style="padding:4px 6px;margin:2px 0;${urg};border-radius:4px;cursor:pointer" onclick="event.stopPropagation();aDD('${d.id}')">
+        <b style="color:#1f2937">${esc(d.radicacion||"")}</b> · ${esc((d.incidentante||'').slice(0,28))}${juzg}
+        <br><span style="color:#64748b">Sanción: ${fmt(d.fechaDecision)}${limTexto}</span>
+      </div>`;
+    }).join('');
+    document.getElementById('alert-dcons-list').innerHTML=items||'<i>—</i>';
+  }else{boxDcons.style.display='none';}
+  // Mostrar el panel si hay al menos una alerta — actualizado v33.69
+  const hayAlguna=(conNul.length>0||impPend.length>0||ccPend.length>0||pend2i.length>0||tutVenceFallo.length>0||desCons.length>0||desNulList.length>0);
+  document.getElementById('alert-panel').style.display=hayAlguna?'block':'none';
   // === Mantener el banner simple del top (compat con código existente) ===
   const ban=document.getElementById('nul-banner');if(ban)ban.classList.toggle('show',false);
   // === Contadores en tarjetas (sin cambios) ===
