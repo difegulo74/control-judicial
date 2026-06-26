@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.75';
+var APP_VERSION='33.76';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1409,8 +1409,9 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     if(caseIdx<0)continue;
 
     casefolder=parts[caseIdx];
-    const rad=(casefolder.match(/^\d+/)||[''])[0];
-    if(!rad||rad.length<15)continue;
+    // v33.76: radicacion puede tener sufijo de instancia: 73001...-03
+    const rad=(casefolder.match(/^\d+(?:-\d+)?/)||[''])[0];
+    if(!rad||rad.replace(/-\d+$/,'').length<15)continue;
 
     if(esIncidentes){
       tipo='t';
@@ -1435,10 +1436,12 @@ window.sincronizarCarpetasDesacatos=async function(inp){
   let updated=0,notFound=0,errores=0;
   for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
     // Buscar desacato en todos los años cargados
+    // Normalizar rad a solo digitos para matching robusto (73001...-03 → 7300100...03)
+    const radNorm=rad.replace(/\D/g,'');
     let found=null,yrFound=null;
     for(const yr of Object.keys(localDB.desacatos||{})){
       const d=(localDB.desacatos[yr]||[]).find(x=>
-        String(x.radicacion||'').replace(/\D/g,'')===rad
+        String(x.radicacion||'').replace(/\D/g,'')===radNorm
       );
       if(d){found=d;yrFound=yr;break;}
     }
