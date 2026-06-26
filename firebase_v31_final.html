@@ -774,6 +774,9 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
       <div class="sc nu" onclick="filtrarNulD()" title="Ver con nulidad"><div class="v" id="sd-nu">0</div><div class="l">Nulidades</div></div>
     </div>
     <button class="btn btn-p" onclick="aFD()">+ Agregar</button>
+      <label for="sinc-des-inp" class="btn btn-sm" title="Selecciona INCIDENTES 2026 (activos) o DESACATOS 2026 (cerrados). El sistema detecta la subcarpeta de cada expediente y actualiza todos los enlaces." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px">🗂 Sincronizar rutas</label>
+      <input type="file" id="sinc-des-inp" multiple webkitdirectory directory style="display:none" onchange="sincronizarCarpetasDesacatos(this)">
+      <span id="sinc-des-st" style="font-size:10px;color:var(--t2);font-weight:600;margin-left:4px"></span>
   </div>
   <div class="fbar">
     <input type="text" id="bqd" placeholder="Buscar..." oninput="rD()">
@@ -1231,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.72';
+var APP_VERSION='33.74';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1337,8 +1340,10 @@ async function regenerarLinksOneDrive(){
   for(const yr of Object.keys(localDB.desacatos)){
     for(const d of (localDB.desacatos[yr]||[])){
       if(!esCandidato(d,'d'))continue;
-      const folder=obtenerFolderName(d);
-      if(!folder){sinDatos++;continue;}
+      const baseFolder=obtenerFolderName(d);
+      if(!baseFolder){sinDatos++;continue;}
+      // v33.73: incluir subcarpeta mensual en el path
+      const folder=(d.subcarpeta?d.subcarpeta+'/':'')+baseFolder;
       const nuevo=buildOneDriveURL(folder,'d');
       if(!nuevo)continue;
       try{
@@ -1350,6 +1355,143 @@ async function regenerarLinksOneDrive(){
   alert('✓ '+n+' enlace(s) regenerado(s).'+(sinDatos>0?'\n• '+sinDatos+' sin radicado o accionante (omitidas).':'')+(err>0?'\n⚠ '+err+' error(es).':''));
 }
 window.regenerarLinksOneDrive=regenerarLinksOneDrive;
+
+// v33.73: Subcarpeta de desacatos — DESACATOS 2026 tiene subcarpetas por mes
+// (ARCHIVADOS ENERO 2026, SANCIONADOS FEBRERO 2026, etc.).
+// La URL se construye como: base / subcarpeta / folderName
+function actualizarSubcarpetaD(id, subcarpeta, folderName){
+  subcarpeta=(subcarpeta||'').trim();
+  updD(id,'subcarpeta',subcarpeta);
+  if(folderName){
+    const path=(subcarpeta?subcarpeta+'/':'')+folderName;
+    // INCIDENTES 2026 vive dentro de TUTELAS → usa base tutelas
+    const tipo=/INCIDENTES/i.test(subcarpeta)?'t':'d';
+    const nuevo=buildOneDriveURL(path,tipo);
+    if(nuevo)updD(id,'enlace',nuevo);
+  }
+}
+window.actualizarSubcarpetaD=actualizarSubcarpetaD;
+
+// v33.73: SINCRONIZACIÓN MASIVA de rutas de desacatos.
+// Diego selecciona INCIDENTES 2026 (activos) o DESACATOS 2026 (cerrados).
+// El sistema lee los webkitRelativePath, detecta subcarpeta y radicación,
+// y actualiza todos los desacatos en Firebase de una sola vez.
+window.sincronizarCarpetasDesacatos=async function(inp){
+  const files=inp.files;
+  if(!files?.length){return;}
+  const st=document.getElementById('sinc-des-st');
+  if(st)st.textContent='⏳ Leyendo carpetas…';
+
+  const rootFolder=files[0].webkitRelativePath.split('/')[0];
+  const esIncidentes=/INCIDENTES/i.test(rootFolder);
+  const esDesacatos=/DESACATOS/i.test(rootFolder);
+
+  if(!esIncidentes&&!esDesacatos){
+    if(st)st.textContent='';
+    inp.value='';
+    alert('⚠ Selecciona la carpeta INCIDENTES 2026 (desacatos activos)\no la carpeta DESACATOS 2026 (desacatos cerrados).');
+    return;
+  }
+
+  // Construir mapa: radicacion → {subcarpeta, folderName, tipo}
+  // tipo: "t" = usa base TUTELAS (para INCIDENTES), "d" = usa base DESACATOS
+  const mapa=new Map();
+  for(const file of files){
+    const parts=file.webkitRelativePath.split('/');
+    let subcarpeta='',casefolder='',tipo='d';
+
+    if(esIncidentes){
+      // Estructura: INCIDENTES 2026 / [casefolder] / archivo
+      if(parts.length<3)continue;
+      casefolder=parts[1];
+      subcarpeta=rootFolder;  // "INCIDENTES 2026" dentro de la base TUTELAS
+      tipo='t';               // URL = buildOneDriveURL("INCIDENTES 2026/casefolder","t")
+    } else {
+      // Estructura: DESACATOS 2026 / [mes subfolder] / [casefolder] / archivo
+      //          o: DESACATOS 2026 / [casefolder] / archivo  (si está en raíz)
+      tipo='d';
+      if(parts.length>=4){
+        subcarpeta=parts[1]; casefolder=parts[2];
+      } else if(parts.length===3){
+        if(/^\d{10,}/.test(parts[1])){
+          subcarpeta=''; casefolder=parts[1]; // en raíz de DESACATOS
+        } else {
+          subcarpeta=parts[1]; // subcarpeta sin casefolder visible (skip)
+          continue;
+        }
+      } else continue;
+    }
+
+    if(!casefolder)continue;
+    const rad=(casefolder.match(/^\d+/)||[''])[0];
+    if(!rad||rad.length<15)continue;  // no es radicación
+    if(!mapa.has(rad))mapa.set(rad,{subcarpeta,folderName:casefolder,tipo});
+  }
+
+  if(mapa.size===0){
+    if(st)st.textContent='';
+    inp.value='';
+    alert('⚠ No se encontraron expedientes con radicación en la carpeta seleccionada.');
+    return;
+  }
+
+  if(st)st.textContent=`⏳ Actualizando ${mapa.size} exp…`;
+
+  let updated=0,notFound=0,errores=0;
+  for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
+    // Buscar desacato en todos los años cargados
+    let found=null,yrFound=null;
+    for(const yr of Object.keys(localDB.desacatos||{})){
+      const d=(localDB.desacatos[yr]||[]).find(x=>
+        String(x.radicacion||'').replace(/\D/g,'')===rad
+      );
+      if(d){found=d;yrFound=yr;break;}
+    }
+    if(!found){notFound++;continue;}
+
+    // Construir enlace correcto
+    const path=(subcarpeta?subcarpeta+'/':'')+folderName;
+    const nuevoEnlace=buildOneDriveURL(path,tipo);
+    const upd={subcarpeta,folderName};
+    if(nuevoEnlace)upd.enlace=nuevoEnlace;
+
+    try{
+      await fbDb.collection('desacatos_'+yrFound).doc(String(found.id)).set({...found,...upd});
+      const idx=(localDB.desacatos[yrFound]||[]).findIndex(x=>String(x.id)===String(found.id));
+      if(idx>=0)localDB.desacatos[yrFound][idx]={...localDB.desacatos[yrFound][idx],...upd};
+      updated++;
+    }catch(e){console.error('sinc error',rad,e);errores++;}
+  }
+
+  inp.value='';
+  if(st)st.textContent='';
+  const msg=`✅ Sincronización completada\n✓ ${updated} desacato(s) actualizados`
+    +(notFound>0?`\n• ${notFound} carpeta(s) sin coincidencia en el sistema`:'')
+    +(errores>0?`\n⚠ ${errores} error(es) de Firebase`:'');
+  alert(msg);
+  rD();
+  if(typeof tabAct!=='undefined'&&tabAct==='s'&&typeof rStat==='function')rStat();
+};
+
+function sugerirSubcarpetaD(id, decision, fechaDecision, folderName){
+  const meses=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
+               'AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+  let sug='';
+  // Sin decisión = desacato activo → vive en INCIDENTES 2026
+  if(!decision||decision==='Pendiente decisión'){
+    sug='INCIDENTES 2026';
+  } else if(fechaDecision){
+    const p=fechaDecision.split('-');
+    const mes=meses[parseInt(p[1])-1]||'';
+    const tipo=decision==='Archiva'?'ARCHIVADOS':'SANCIONADOS';
+    sug=mes?`${tipo} ${mes} ${p[0]}`:'';
+  }
+  if(!sug){alert('⚠ No se puede sugerir la subcarpeta. Completa la decisión o fecha de decisión, o escríbela manualmente.');return;}
+  const inp=document.getElementById('subcarpeta-inp-'+id);
+  if(inp)inp.value=sug;
+  actualizarSubcarpetaD(id,sug,folderName);
+}
+window.sugerirSubcarpetaD=sugerirSubcarpetaD;
 
 // Aplicar parche de actualización
 async function aplicarParche(patchData){
@@ -3030,7 +3172,9 @@ async function guardarD(){
     // Campos no visibles en formulario o no llenados manualmente
     Object.keys(gd).forEach(k=>{ if(gd[k]&&!d[k])d[k]=gd[k]; });
     if(!d.enlace){
-      const auto=buildOneDriveURL(window._pendingFolderD.folderName,'d');
+      // v33.73: usar subcarpeta si existe (caso en subcarpeta mensual)
+      const pathGD=(d.subcarpeta?d.subcarpeta+'/':'')+window._pendingFolderD.folderName;
+      const auto=buildOneDriveURL(pathGD,'d');
       if(auto)d.enlace=auto;
     }
   }
@@ -3152,6 +3296,16 @@ function aDD(id){
         ${d.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(d.folderName)}${d.filesCount?' <span style="color:var(--t2)">('+d.filesCount+' archivos)</span>':''}</div>`:''}
         ${!getOneDriveBase('d')?`<div style="font-size:10px;color:#92400e;margin-top:6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px">⚠ <b>Base OneDrive de desacatos no configurada.</b> Para que los enlaces se generen automáticamente, ve a Configuración (⚙) y pega la URL base de tu carpeta DESACATOS ${anio} de OneDrive.</div>`:''}
       </div>
+      ${d.folderName?`<div class="fi full">
+        <label>Subcarpeta dentro de DESACATOS ${anio} <span style="font-size:9px;color:var(--t3);font-weight:400">— vacío = raíz · ej: ARCHIVADOS FEBRERO 2026</span></label>
+        <input id="subcarpeta-inp-${id}" value="${esc(d.subcarpeta||'')}" placeholder="Vacío = el expediente está en la raíz de DESACATOS ${anio}" onchange="actualizarSubcarpetaD('${id}',this.value,'${esc(d.folderName||'')}')">
+        <button class="btn btn-sm" style="font-size:10px;margin-top:5px" onclick="sugerirSubcarpetaD('${id}','${esc(d.decision||'')}','${d.fechaDecision||''}','${esc(d.folderName||'')}')">💡 Sugerir subcarpeta automáticamente</button>
+        <div style="font-size:10px;color:var(--t2);margin-top:5px;line-height:1.5">
+          <b>Activos</b> → <code style="background:var(--bl-bg);padding:1px 4px;border-radius:3px;font-size:9px">INCIDENTES 2026</code> &nbsp;
+          <b>Archivados/Sancionados</b> → <code style="background:var(--bl-bg);padding:1px 4px;border-radius:3px;font-size:9px">ARCHIVADOS FEBRERO 2026</code><br>
+          Al guardar el enlace se actualiza automáticamente.
+        </div>
+      </div>`:''}
       <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:10px">
         <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
         <div style="font-size:10px;color:#ea580c;margin-bottom:8px">Selecciona la carpeta actualizada — la IA completará los campos vacíos sin borrar lo que ya existe.</div>
@@ -5567,9 +5721,11 @@ window.procesarRecargaD=async function(inp,id){
     }
     act('resultado',d.resultado);act('observaciones',d.observaciones);
     upd.folderName=folderName;upd.filesCount=files.length;
-    const enlaceEsAuto=!dd.enlace||!/^https?:\/\//i.test(dd.enlace)||/ramajudicial|consultaprocesos|sharepoint/i.test(dd.enlace||'');
+    // v33.73: no sobreescribir URLs SharePoint correctas; usar subcarpeta almacenada
+    const enlaceEsAuto=!dd.enlace||!/^https?:\/\//i.test(dd.enlace)||/ramajudicial|consultaprocesos/i.test(dd.enlace||'');
     if(enlaceEsAuto){
-      const auto=buildOneDriveURL(folderName,'d');
+      const subcarPathR=(dd.subcarpeta?dd.subcarpeta+'/':'')+folderName;
+      const auto=buildOneDriveURL(subcarPathR,'d');
       if(auto)upd.enlace=auto;
     }
     // Estado: solo avanza en la jerarquía del trámite, nunca retrocede
