@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.76';
+var APP_VERSION='33.77';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1409,9 +1409,10 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     if(caseIdx<0)continue;
 
     casefolder=parts[caseIdx];
-    // v33.76: radicacion puede tener sufijo de instancia: 73001...-03
-    const rad=(casefolder.match(/^\d+(?:-\d+)?/)||[''])[0];
-    if(!rad||rad.replace(/-\d+$/,'').length<15)continue;
+    // La radicacion base son los digitos iniciales antes de cualquier guion o espacio
+    // Ej: "730014009014202400303-01 Rad..." → rad = "730014009014202400303"
+    const rad=(casefolder.match(/^\d+/)||[''])[0];
+    if(!rad||rad.length<15)continue;
 
     if(esIncidentes){
       tipo='t';
@@ -1436,12 +1437,12 @@ window.sincronizarCarpetasDesacatos=async function(inp){
   let updated=0,notFound=0,errores=0;
   for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
     // Buscar desacato en todos los años cargados
-    // Normalizar rad a solo digitos para matching robusto (73001...-03 → 7300100...03)
-    const radNorm=rad.replace(/\D/g,'');
+    // Comparar solo los digitos de ambos lados: carpeta "730014...-01" → "730014..."
+    // Firebase guarda radicacion base sin sufijo de instancia
     let found=null,yrFound=null;
     for(const yr of Object.keys(localDB.desacatos||{})){
       const d=(localDB.desacatos[yr]||[]).find(x=>
-        String(x.radicacion||'').replace(/\D/g,'')===radNorm
+        String(x.radicacion||'').replace(/\D/g,'')===rad
       );
       if(d){found=d;yrFound=yr;break;}
     }
