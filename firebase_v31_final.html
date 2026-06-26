@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.74';
+var APP_VERSION='33.75';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1400,31 +1400,26 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     const parts=file.webkitRelativePath.split('/');
     let subcarpeta='',casefolder='',tipo='d';
 
+    // Parser robusto: busca el primer componente que empiece con radicacion (10+ digitos)
+    // Soporta cualquier profundidad: INCIDENTES/JUEZ/ARCHIVADOS/73001.../file
+    let caseIdx=-1;
+    for(let i=1;i<parts.length-1;i++){
+      if(/^\d{10,}/.test(parts[i])){caseIdx=i;break;}
+    }
+    if(caseIdx<0)continue;
+
+    casefolder=parts[caseIdx];
+    const rad=(casefolder.match(/^\d+/)||[''])[0];
+    if(!rad||rad.length<15)continue;
+
     if(esIncidentes){
-      // Estructura: INCIDENTES 2026 / [casefolder] / archivo
-      if(parts.length<3)continue;
-      casefolder=parts[1];
-      subcarpeta=rootFolder;  // "INCIDENTES 2026" dentro de la base TUTELAS
-      tipo='t';               // URL = buildOneDriveURL("INCIDENTES 2026/casefolder","t")
+      tipo='t';
+      subcarpeta=parts.slice(0,caseIdx).join('/');
     } else {
-      // Estructura: DESACATOS 2026 / [mes subfolder] / [casefolder] / archivo
-      //          o: DESACATOS 2026 / [casefolder] / archivo  (si está en raíz)
       tipo='d';
-      if(parts.length>=4){
-        subcarpeta=parts[1]; casefolder=parts[2];
-      } else if(parts.length===3){
-        if(/^\d{10,}/.test(parts[1])){
-          subcarpeta=''; casefolder=parts[1]; // en raíz de DESACATOS
-        } else {
-          subcarpeta=parts[1]; // subcarpeta sin casefolder visible (skip)
-          continue;
-        }
-      } else continue;
+      subcarpeta=parts.slice(1,caseIdx).join('/');
     }
 
-    if(!casefolder)continue;
-    const rad=(casefolder.match(/^\d+/)||[''])[0];
-    if(!rad||rad.length<15)continue;  // no es radicación
     if(!mapa.has(rad))mapa.set(rad,{subcarpeta,folderName:casefolder,tipo});
   }
 
