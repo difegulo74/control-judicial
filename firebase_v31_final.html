@@ -1231,7 +1231,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.71';
+var APP_VERSION='33.72';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1265,15 +1265,24 @@ function setOneDriveBase(v,tipo){
   else localStorage.setItem('cj_onedrive_base',v);
 }
 function buildOneDriveURL(folderName,tipo){
-  const base=getOneDriveBase(tipo);
+  let base=getOneDriveBase(tipo);
+  // v33.72: FALLBACK INTELIGENTE — si la base de desacatos no está configurada,
+  // intentar derivarla de la base de tutelas reemplazando "TUTELAS" por "DESACATOS"
+  // (manejando URL-encoding). Esto hace que los enlaces se generen sin necesidad
+  // de configurar dos bases distintas si las carpetas están en el mismo SharePoint.
+  if(!base && tipo==='d'){
+    const baseT=getOneDriveBase('t');
+    if(baseT){
+      // Reemplazar TUTELAS por DESACATOS — case-insensitive, también en URL-encoded
+      base=baseT.replace(/TUTELAS/gi,'DESACATOS');
+    }
+  }
   if(!base||!folderName)return '';
   // v33.16 FIX CRÍTICO: el separador depende del formato de la base.
   // — Base "/my?id=...%2F..." (SharePoint web): TODO el path va URL-encoded,
   //   entonces separador = %2F y el folderName se encodea con espacios→%20, "/"→(no aplica).
   // — Base con "/" legible: separador = "/" y folderName con encodeURIComponent.
   if(esBaseEncoded(base)){
-    // encodeURIComponent del folder: espacios→%20, tildes→%C3.., paréntesis→%28.. etc.
-    // El separador entre la base y el folder es %2F (slash codificado).
     return base+'%2F'+encodeURIComponent(folderName);
   }
   return base+'/'+encodeURIComponent(folderName);
@@ -2686,6 +2695,16 @@ async function guardarNulidad(id,tipo){
   r.ultimaNulidad=fecha;
   r.estado='En término';
   if(tipo==='t'){r.fechaFallo='';r.sentidoFallo='';}
+  else{
+    // v33.72: para desacatos, limpiar los campos relacionados con la decisión
+    // anulada para iniciar el ciclo de trámite nuevamente.
+    r.decision='';r.fechaDecision='';
+    r.sancionArrestoDias=null;r.sancionMultaSalarios=null;
+    r.fechaEnvioConsulta='';r.fechaRepartoConsulta='';
+    r.fechaVencimientoConsulta='';r.fechaDecisionConsulta='';
+    r.juzgadoConsulta='';r.resultado='';
+    r.estado='Apertura formal';  // vuelve al estado de trámite activo
+  }
   const col=tipo==='t'?`tutelas_${anio}`:`desacatos_${anio}`;
   await fbSave(col,r.id,r);
   cerrar();
@@ -2699,6 +2718,66 @@ async function guardarNulidad(id,tipo){
     });
   }
   alert(`Nulidad #${r.nulidades.length} registrada.\nNuevo vencimiento: ${fmt(tc.vce)}\nNueva alerta día 9: ${fmt(tc.dia9)}`);
+}
+
+// v33.72: RESOLVER NULIDAD DE DESACATO — registra la nueva decisión tras la nulidad
+// y guarda en histórico el ciclo anulado del trámite del incidente.
+async function resolverNulidadDesacato(id){
+  const d=dA().find(x=>String(x.id)===String(id));
+  if(!d)return;
+  const fEl=document.getElementById('rnd-fecha'),dEl=document.getElementById('rnd-decision');
+  const fecha=fEl?fEl.value:'';
+  const decision=dEl?dEl.value:'';
+  if(!fecha){alert('La fecha de la nueva decisión es obligatoria.');return;}
+  if(!decision){alert('Debe seleccionar la decisión (Archiva o Sanciona).');return;}
+  const ult=d.nulidades&&d.nulidades.length?d.nulidades[d.nulidades.length-1].fecha:'';
+  if(ult&&fecha<ult){alert('⚠ La nueva decisión debe ser POSTERIOR a la fecha de la nulidad ('+fmt(ult)+').\n\nRevisa la fecha ingresada.');return;}
+  if(!confirm('¿Registrar nueva decisión del '+fmt(fecha)+'?\n\n• La nulidad activa queda RESUELTA y la alerta desaparece.\n• Se reinicia el ciclo de consulta (si la decisión es Sanciona).\n• El historial de nulidades se conserva.'))return;
+  // Snapshot del ciclo anulado del trámite del incidente
+  const cicloAnulado={
+    nulidadFecha:ult||'',
+    nulidadIndice:(d.nulidades||[]).length,
+    fechaSolicitud:d.fechaSolicitud||'',
+    fechaRequerimientoPrevio:d.fechaRequerimientoPrevio||'',
+    fechaAperturaFormal:d.fechaAperturaFormal||'',
+    decisionAnterior:d.decision||'',fechaDecisionAnterior:d.fechaDecision||'',
+    sancionArrestoDiasAnt:d.sancionArrestoDias||null,
+    sancionMultaSalariosAnt:d.sancionMultaSalarios||null,
+    fechaEnvioConsultaAnt:d.fechaEnvioConsulta||'',
+    fechaRepartoConsultaAnt:d.fechaRepartoConsulta||'',
+    fechaDecisionConsultaAnt:d.fechaDecisionConsulta||'',
+    juzgadoConsultaAnt:d.juzgadoConsulta||'',
+    resultadoAnterior:d.resultado||''
+  };
+  const ciclosAnulados=Array.isArray(d.ciclosAnulados)?[...d.ciclosAnulados,cicloAnulado]:[cicloAnulado];
+  const merged={...d,
+    decision:decision,
+    fechaDecision:fecha,
+    estado:decision==='Sanciona'?'Sanciona':(decision==='Archiva'?'Archivado':d.estado),
+    // Reiniciar ciclo de consulta — se llenará con la nueva decisión si aplica
+    fechaEnvioConsulta:decision==='Sanciona'?fecha:'',
+    fechaRepartoConsulta:'',fechaVencimientoConsulta:'',fechaDecisionConsulta:'',
+    juzgadoConsulta:'',resultado:'',
+    ciclosAnulados:ciclosAnulados
+  };
+  if(!fbDb){alert('⚠ Firebase no conectado. Recarga con Ctrl+F5.');return;}
+  // v33.72: buscar la colección correcta del año donde está guardado el desacato
+  let yrCol=anio;
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    if((localDB.desacatos[yr]||[]).find(x=>String(x.id)===String(id))){yrCol=yr;break;}
+  }
+  const col=`desacatos_${yrCol}`;
+  try{
+    await fbDb.collection(col).doc(String(d.id)).set(merged);
+    const check=await fbDb.collection(col).doc(String(d.id)).get();
+    if(!check||!check.exists){alert('⚠ El guardado NO se verificó en Firebase. Intenta de nuevo.');return;}
+  }catch(e){
+    console.error('resolverNulidadDesacato ERROR:',e);
+    alert('⚠ ERROR al guardar:\n'+e.message);return;
+  }
+  cerrar2();rD();actualizarBanner();
+  setTimeout(()=>aDD(id),320);
+  alert('✓ Nueva decisión registrada el '+fmt(fecha)+' y VERIFICADA en Firebase.\n\nLa nulidad queda RESUELTA y la alerta desaparece.\n\nEste incidente seguirá contando en el histórico de nulidades.');
 }
 
 // v33: RESOLVER NULIDAD — registra el nuevo fallo tras la nulidad y reinicia el trámite
@@ -3083,9 +3162,71 @@ function aDD(id){
       <div class="fi full"><label>Observaciones</label><textarea onchange="updD('${id}','observaciones',this.value)">${esc(d.observaciones)}</textarea></div>
 
       <div class="fsec nu">⚠ Nulidad — reinicio de términos</div>
-      <div class="fi full">
-        <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','d')">🚨 Registrar nulidad decretada</button>
-      </div>
+      ${(()=>{
+        const nuls=d.nulidades||[];
+        const ciclos=d.ciclosAnulados||[];
+        const activa=hasNulActiva(d);
+        let html='';
+        // === Caja roja con histórico de todas las nulidades ===
+        if(nuls.length>0){
+          html+=`<div class="fi full" style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;display:flex;align-items:center;gap:6px">
+              📜 Histórico de nulidades · <span style="background:#dc2626;color:#fff;padding:1px 7px;border-radius:10px;font-size:10px">${nuls.length}</span>
+              ${activa?'<span style="color:#dc2626;font-size:10px;font-weight:700;margin-left:auto">⚠ NULIDAD ACTIVA</span>':'<span style="color:#16a34a;font-size:10px;font-weight:700;margin-left:auto">✓ RESUELTAS</span>'}
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">`;
+          nuls.forEach((n,i)=>{
+            const esUltima=i===nuls.length-1;
+            const esActiva=esUltima&&activa;
+            const cicloCerrado=ciclos[i];
+            html+=`<div style="background:#fff;border:1px solid ${esActiva?'#dc2626':'#cbd5e1'};border-radius:6px;padding:8px 10px;font-size:10px;line-height:1.5">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+                <b style="color:${esActiva?'#dc2626':'#1f2937'}">Nulidad #${i+1}${esActiva?' (ACTIVA)':' (resuelta)'}</b>
+                <span style="color:var(--t2);font-size:9px">${fmt(n.fecha)}</span>
+              </div>
+              ${n.auto?`<div><b style="color:var(--t2)">Auto:</b> ${esc(n.auto)}</div>`:''}
+              ${n.quien?`<div><b style="color:var(--t2)">Decretada por:</b> ${esc(n.quien)}</div>`:''}
+              ${n.nota?`<div style="margin-top:3px;padding-top:3px;border-top:1px dashed #e2e8f0;color:var(--t2);font-style:italic">${esc(n.nota)}</div>`:''}
+              ${cicloCerrado?`<div style="margin-top:5px;padding-top:5px;border-top:1px dashed #e2e8f0">
+                <div style="font-size:9px;color:#16a34a;font-weight:700;margin-bottom:2px">✓ Ciclo cerrado</div>
+                ${cicloCerrado.decisionAnterior?`<div style="font-size:9px;color:var(--t2)"><b>Decisión anulada:</b> ${esc(cicloCerrado.decisionAnterior)} · ${fmt(cicloCerrado.fechaDecisionAnterior)}</div>`:''}
+                ${cicloCerrado.resultadoAnterior?`<div style="font-size:9px;color:var(--t2)"><b>Resultado consulta:</b> ${esc(cicloCerrado.resultadoAnterior)}</div>`:''}
+              </div>`:''}
+            </div>`;
+          });
+          html+=`</div></div>`;
+        }
+        // === Si hay nulidad ACTIVA → mostrar formulario "Resolver con nueva decisión" ===
+        if(activa){
+          html+=`<div class="fi full" style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:8px;padding:10px;margin-bottom:8px">
+            <div style="font-size:11px;font-weight:700;color:#047857;margin-bottom:8px">↻ Resolver nulidad con nueva decisión</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+              <div>
+                <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Fecha nueva decisión ★</label>
+                <input type="date" id="rnd-fecha" style="width:100%;padding:6px 9px;border:1px solid var(--bd);border-radius:6px;font-size:11px">
+              </div>
+              <div>
+                <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Decisión ★</label>
+                <select id="rnd-decision" style="width:100%;padding:6px 9px;border:1px solid var(--bd);border-radius:6px;font-size:11px">
+                  <option value="">— Seleccione —</option>
+                  <option value="Archiva">Archiva (no sanciona)</option>
+                  <option value="Sanciona">Sanciona</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn btn-p" onclick="resolverNulidadDesacato('${id}')" style="background:linear-gradient(180deg,#047857,#065f46);border-color:#065f46;width:100%;justify-content:center">↻ Registrar nueva decisión y resolver nulidad</button>
+          </div>
+          <div class="fi full">
+            <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','d')" style="width:100%;justify-content:center">🚨 Registrar OTRA nulidad sobre la actual</button>
+          </div>`;
+        } else {
+          // Sin nulidad activa: botón normal para registrar
+          html+=`<div class="fi full">
+            <button class="btn btn-nu" onclick="abrirFormNulidad('${id}','d')" style="width:100%;justify-content:center">🚨 Registrar nulidad decretada</button>
+          </div>`;
+        }
+        return html;
+      })()}
       <div class="tbox rd">
         <h4>⏰ Términos actuales — 10 días</h4>
         ${trows([['D1 — req. previo',tc.req,''],['D2 — apertura',tc.aper,''],
@@ -4204,14 +4345,21 @@ function rStat(){
   const snTable=document.getElementById('snul-table');
   if(snTable){
     let snHead=`<thead><tr>
-      <th>Período</th>
+      <th rowspan="2">Período</th>
+      <th colspan="3" style="text-align:center;background:linear-gradient(180deg,#1a5fa8,#1e40af);color:#fff">TUTELAS</th>
+      <th colspan="3" style="text-align:center;background:linear-gradient(180deg,#9333ea,#7e22ce);color:#fff">DESACATOS</th>
+    </tr><tr>
       <th style="text-align:center">Nulidades<br>decretadas</th>
       <th style="text-align:center">Tutelas<br>afectadas</th>
       <th style="text-align:center">Pendientes<br>nuevo fallo</th>
+      <th style="text-align:center">Nulidades<br>decretadas</th>
+      <th style="text-align:center">Desacatos<br>afectados</th>
+      <th style="text-align:center">Pendientes<br>nueva decisión</th>
     </tr></thead>`;
     let snBody='<tbody>';
-    let gN=0;
+    let gN=0,gNd=0;
     [1,2,3,4].forEach(pp=>{
+      // Tutelas
       let nDecr=0,tAfect=0,pend=0;
       tuts.forEach(t=>{
         if(!t.nulidades||!t.nulidades.length)return;
@@ -4220,11 +4368,36 @@ function rStat(){
         if(hasNulActiva(t)){const ult=t.nulidades[t.nulidades.length-1].fecha;if(enPer(ult,pp))pend++;}
       });
       gN+=nDecr;
-      snBody+=`<tr><td><strong>${PERIODOS[pp].lbl}</strong></td><td style="text-align:center">${numCell(nDecr)}</td><td style="text-align:center">${numCell(tAfect)}</td><td style="text-align:center">${numCell(pend)}</td></tr>`;
+      // v33.72: Desacatos — misma lógica, columnas paralelas
+      let nDecrD=0,dAfect=0,pendD=0;
+      desc.forEach(d=>{
+        if(!d.nulidades||!d.nulidades.length)return;
+        const enP=d.nulidades.filter(n=>enPer(n.fecha,pp));
+        if(enP.length){nDecrD+=enP.length;dAfect++;}
+        if(hasNulActiva(d)){const ult=d.nulidades[d.nulidades.length-1].fecha;if(enPer(ult,pp))pendD++;}
+      });
+      gNd+=nDecrD;
+      snBody+=`<tr><td><strong>${PERIODOS[pp].lbl}</strong></td>
+        <td style="text-align:center">${numCell(nDecr)}</td>
+        <td style="text-align:center">${numCell(tAfect)}</td>
+        <td style="text-align:center">${numCell(pend)}</td>
+        <td style="text-align:center">${numCell(nDecrD)}</td>
+        <td style="text-align:center">${numCell(dAfect)}</td>
+        <td style="text-align:center">${numCell(pendD)}</td>
+      </tr>`;
     });
     const totTutAfect=tuts.filter(hasNulHist).length;
     const totPend=tuts.filter(hasNulActiva).length;
-    snBody+=`<tr class="total-row"><td>TOTAL AÑO ${anio}</td><td style="text-align:center">${gN}</td><td style="text-align:center">${totTutAfect}</td><td style="text-align:center">${totPend}</td></tr>`;
+    const totDescAfect=desc.filter(hasNulHist).length;
+    const totDescPend=desc.filter(hasNulActiva).length;
+    snBody+=`<tr class="total-row"><td>TOTAL AÑO ${anio}</td>
+      <td style="text-align:center">${gN}</td>
+      <td style="text-align:center">${totTutAfect}</td>
+      <td style="text-align:center">${totPend}</td>
+      <td style="text-align:center">${gNd}</td>
+      <td style="text-align:center">${totDescAfect}</td>
+      <td style="text-align:center">${totDescPend}</td>
+    </tr>`;
     snBody+='</tbody>';
     snTable.innerHTML=snHead+snBody;
   }
@@ -5432,6 +5605,7 @@ window.aFT=aFT;window.aFD=aFD;window.pvT=pvT;window.pvD=pvD;
 window.guardarT=guardarT;window.guardarD=guardarD;
 window.aDT=aDT;window.aDD=aDD;window.updT=updT;window.updD=updD;
 window.abrirFormNulidad=abrirFormNulidad;window.pvNul=pvNul;window.guardarNulidad=guardarNulidad;
+window.resolverNulidad=resolverNulidad;window.resolverNulidadDesacato=resolverNulidadDesacato;
 window.resolverNulidad=resolverNulidad;window.filtrarNulHist=filtrarNulHist;window.filtrarNulHistD=filtrarNulHistD;
 window.confElimT=confElimT;window.confElimD=confElimD;
 window.verifySec=verifySec;window.cerrarSec=cerrarSec;
