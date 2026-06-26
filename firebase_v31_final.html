@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.79';
+var APP_VERSION='33.80';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -3006,7 +3006,7 @@ function aFD(){
       <p style="grid-column:1/-1;text-align:center;font-size:10px;color:var(--t3);margin:-4px 0">— o ingresa los datos manualmente —</p>
 
       <div class="fsec">Identificación del incidente</div>
-      <div class="fi"><label>Radicación del incidente (completa)</label><input id="d-r" placeholder="← Escribe la radicación del incidente (23 dígitos)" style="font-style:italic"></div>
+      <div class="fi"><label>Radicación del incidente (completa)</label><input id="d-r" placeholder="73001400901420250000000"></div>
       <div class="fi"><label>Radicación tutela base</label><input id="d-tb" placeholder="73001400901420260001000"></div>
 
       <div class="fsec">Partes</div>
@@ -3125,11 +3125,7 @@ function pvD(){
 
 async function guardarD(){
   const rad=document.getElementById('d-r').value.trim();
-  if(!rad){
-    alert('⚠ Radicación del incidente vacía.\n\nGemini no pudo extraerla automáticamente de los documentos.\n\nEscribe el número completo (23 dígitos) en el campo\n"Radicación del incidente (completa)" y vuelve a guardar.');
-    document.getElementById('d-r').focus();
-    return;
-  }
+  if(!rad){alert('La radicación del incidente es obligatoria.');document.getElementById('d-r').focus();return;}
   const ds=document.getElementById('d-ds').value;
   if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
   // v33.51: chequeo de duplicados, igual que en tutelas
@@ -5648,6 +5644,14 @@ window.procesarCarpetaD=async function(inp){
     const set=(id,v)=>{const el=document.getElementById(id);if(el&&v!=null&&v!=='')el.value=v;};
     // Identificación + partes
     set('d-r',d.radicacion);set('d-tb',d.tutelaBase);set('d-inc',d.incidentante);
+    // v33.80: radicacion incidente = radicacion tutela base (siempre la misma)
+    // Si Gemini no la extrajo, usar tutelaBase o los dígitos del nombre de carpeta
+    {const rEl=document.getElementById('d-r');
+     if(rEl&&!rEl.value){
+       const tb=document.getElementById('d-tb');
+       if(tb&&tb.value)rEl.value=tb.value;
+       else{const m=folderName.match(/^\d+/);if(m)rEl.value=m[0];}
+     }}
     set('d-cc',d.cedulaIncidentante);set('d-inci',d.incidentado);set('d-ord',d.ordenIncumplida);
     set('d-fb',d.fechaFalloBase);set('d-fs',d.fechaSolicitud);
     setSelect('d-ds',d.derechoSierju);
