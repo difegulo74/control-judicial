@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.77';
+var APP_VERSION='33.78';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1437,12 +1437,13 @@ window.sincronizarCarpetasDesacatos=async function(inp){
   let updated=0,notFound=0,errores=0;
   for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
     // Buscar desacato en todos los años cargados
-    // Comparar solo los digitos de ambos lados: carpeta "730014...-01" → "730014..."
-    // Firebase guarda radicacion base sin sufijo de instancia
+    // Comparar radicacion base (sin sufijo -01, -02, -03) de ambos lados
+    // Carpeta: "730014...-03 Rcdo..." → rad = "730014..." (digitos antes del guion)
+    // Firebase: "730014...-03" → strip sufijo → "730014..." → solo digitos
     let found=null,yrFound=null;
     for(const yr of Object.keys(localDB.desacatos||{})){
       const d=(localDB.desacatos[yr]||[]).find(x=>
-        String(x.radicacion||'').replace(/\D/g,'')===rad
+        String(x.radicacion||'').replace(/-\d+$/,'').replace(/\D/g,'')===rad
       );
       if(d){found=d;yrFound=yr;break;}
     }
