@@ -781,6 +781,8 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
     <button class="btn btn-p" onclick="aFD()">+ Agregar</button>
       <label for="sinc-des-inp" class="btn btn-sm" title="Selecciona INCIDENTES 2026 (activos) o DESACATOS 2026 (cerrados). El sistema detecta la subcarpeta de cada expediente y actualiza todos los enlaces." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px">🗂 Sincronizar rutas</label>
       <input type="file" id="sinc-des-inp" multiple webkitdirectory directory style="display:none" onchange="sincronizarCarpetasDesacatos(this)">
+      <label for="verif-rad-inp" class="btn btn-sm" title="Lee los documentos clave de cada incidente (sentencia 1ª inst., requerimiento previo, apertura formal, oficios) y verifica que la radicación guardada coincida con la real. Si encuentra diferencias, muestra cada caso para que apruebes la corrección." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px;background:#fef3c7;border-color:#f59e0b;color:#92400e">🔬 Verificar radicaciones</label>
+      <input type="file" id="verif-rad-inp" multiple webkitdirectory directory style="display:none" onchange="verificarRadicacionesDesacatos(this)">
       <span id="sinc-des-st" style="font-size:10px;color:var(--t2);font-weight:600;margin-left:4px"></span>
   </div>
   <div class="fbar">
@@ -1240,7 +1242,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.85';
+var APP_VERSION='33.86';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1405,6 +1407,228 @@ window.actualizarSubcarpetaD=actualizarSubcarpetaD;
 // Diego selecciona INCIDENTES 2026 (activos) o DESACATOS 2026 (cerrados).
 // El sistema lee los webkitRelativePath, detecta subcarpeta y radicación,
 // y actualiza todos los desacatos en Firebase de una sola vez.
+// v33.86: VERIFICADOR DE RADICACIONES.
+// Lee documentos clave del expediente y extrae con Gemini la radicación de cada uno.
+// Compara con la guardada en Firebase. Si difiere, muestra el caso al usuario para aprobar.
+window.verificarRadicacionesDesacatos=async function(inp){
+  const files=inp.files;
+  if(!files?.length)return;
+  const apiKey=getApiKey();
+  if(!apiKey){inp.value='';alert('⚠ Configura la API key de Gemini en ⚙ Configuración antes de usar el verificador.');return;}
+
+  const st=document.getElementById('sinc-des-st');
+  const setS=t=>{if(st)st.textContent=t;};
+  setS('⏳ Leyendo carpetas…');
+
+  // 1. Agrupar archivos por carpeta de expediente (igual que sync)
+  const rootFolder=files[0].webkitRelativePath.split('/')[0];
+  const foldersMap=new Map(); // folderName del expediente → [archivos]
+  for(const f of files){
+    const parts=f.webkitRelativePath.split('/');
+    let caseIdx=-1;
+    for(let i=1;i<parts.length-1;i++){
+      if(/^\d{10,}/.test(parts[i])){caseIdx=i;break;}
+    }
+    if(caseIdx<0)continue;
+    const casefolder=parts[caseIdx];
+    if(!foldersMap.has(casefolder))foldersMap.set(casefolder,[]);
+    foldersMap.get(casefolder).push(f);
+  }
+
+  if(foldersMap.size===0){
+    inp.value='';setS('');
+    alert('⚠ No se encontraron carpetas de expedientes con radicación en la carpeta seleccionada.');
+    return;
+  }
+
+  // 2. Para cada desacato del sistema, buscar su carpeta en OneDrive
+  const desacatos=[];
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    for(const d of (localDB.desacatos[yr]||[])){
+      desacatos.push({d,yr});
+    }
+  }
+
+  // Emparejar desacato con su carpeta:
+  // primero por folderName guardado, luego por primeros 21 digitos
+  const pares=[]; // {d, yr, casefolder, files}
+  for(const {d,yr} of desacatos){
+    const radGuardada=String(d.radicacion||'').replace(/\D/g,'').substring(0,21);
+    if(radGuardada.length!==21)continue;
+    let match=null;
+    // Probar por folderName guardado (usa el último segmento si tiene "/")
+    if(d.folderName){
+      const base=d.folderName.split('/').pop();
+      if(foldersMap.has(base))match=base;
+    }
+    // Si no, por radicación
+    if(!match){
+      for(const folderName of foldersMap.keys()){
+        const radCarp=((folderName.match(/^\d+/)||[''])[0]).substring(0,21);
+        if(radCarp===radGuardada){match=folderName;break;}
+      }
+    }
+    if(match)pares.push({d,yr,casefolder:match,files:foldersMap.get(match)});
+  }
+
+  if(pares.length===0){
+    inp.value='';setS('');
+    alert('⚠ No se pudo emparejar ningún desacato con una carpeta de OneDrive.\n\nUsa "🗂 Sincronizar rutas" primero.');
+    return;
+  }
+
+  // 3. Confirmar antes de procesar (cuesta tiempo y cuota Gemini)
+  const segs=pares.length*6;
+  const min=Math.floor(segs/60),sec=segs%60;
+  const tStr=min>0?(min+' min '+sec+' seg'):(sec+' seg');
+  if(!confirm('🔬 Verificación de radicaciones\n\n'+
+    'Desacatos a verificar: '+pares.length+'\n'+
+    'Tiempo estimado: ~'+tStr+' (pausa de 5s entre llamadas Gemini)\n\n'+
+    'Por cada desacato se leerán sus documentos clave y se extraerá la radicación real.\n'+
+    'Solo te mostraré los que tengan diferencias para que apruebes la corrección.\n\n'+
+    '¿Continuar? Puedes cancelar en cualquier momento.')){
+    inp.value='';setS('');return;
+  }
+
+  // 4. Procesar uno por uno
+  window._verifCancelado=false;
+  if(st){st.style.cursor='pointer';st.onclick=()=>{window._verifCancelado=true;setS('🛑 Cancelando…');};}
+
+  const correctos=[],divergentes=[],sinDatos=[],errores=[];
+  for(let i=0;i<pares.length;i++){
+    if(window._verifCancelado)break;
+    const {d,yr,casefolder,files:fArr}=pares[i];
+    setS('⏳ '+(i+1)+'/'+pares.length+' · '+casefolder.substring(0,30)+'… (click cancelar)');
+    try{
+      const res=await _extraerRadicacionesDeDocumentos(apiKey,fArr,casefolder);
+      if(!res||res.length===0){sinDatos.push({d,yr,casefolder});continue;}
+      // Consenso: la radicación que aparece en más documentos
+      const cuenta=new Map();
+      res.forEach(r=>{
+        if(!r.radicacion)return;
+        const norm=r.radicacion.replace(/\D/g,'').substring(0,21);
+        if(norm.length!==21)return;
+        cuenta.set(norm,(cuenta.get(norm)||0)+1);
+      });
+      if(cuenta.size===0){sinDatos.push({d,yr,casefolder,docs:res});continue;}
+      // Ordenar por frecuencia
+      const ranking=[...cuenta.entries()].sort((a,b)=>b[1]-a[1]);
+      const [radConsenso,votos]=ranking[0];
+      const radGuardada=String(d.radicacion||'').replace(/\D/g,'').substring(0,21);
+      if(radConsenso===radGuardada){
+        correctos.push({d,yr,casefolder,votos,docs:res});
+      } else {
+        divergentes.push({d,yr,casefolder,radConsenso,radGuardada,votos,docs:res,ranking});
+      }
+    }catch(e){
+      console.error('[Verif]',casefolder,e);
+      errores.push({d,yr,casefolder,error:e.message||'error'});
+    }
+    if(i<pares.length-1&&!window._verifCancelado)await new Promise(r=>setTimeout(r,5000));
+  }
+
+  inp.value='';
+  if(st){st.style.cursor='';st.onclick=null;}
+  setS('');
+
+  // 5. Mostrar resultado
+  console.log('[Verif] Resultado:',{correctos:correctos.length,divergentes:divergentes.length,sinDatos:sinDatos.length,errores:errores.length});
+  if(divergentes.length===0){
+    let msg='✅ Verificación completada\n\n'+
+      '✓ '+correctos.length+' radicación(es) correctas\n'+
+      '• '+sinDatos.length+' sin datos extraíbles\n'+
+      '• '+errores.length+' con error\n\n'+
+      'No se encontraron radicaciones para corregir.';
+    if(window._verifCancelado)msg+='\n\n🛑 Cancelado.';
+    alert(msg);
+    return;
+  }
+
+  // 6. Para cada divergente, mostrar dialogo de aprobación
+  let corregidos=0,mantenidos=0;
+  for(const div of divergentes){
+    const {d,yr,casefolder,radConsenso,radGuardada,votos,docs}=div;
+    const docsTxt=docs.map(r=>'  • '+r.tipo+':\t'+(r.radicacion||'(no encontrada)')).join('\n');
+    const aprobar=confirm(
+      '🔬 Diferencia de radicación detectada\n\n'+
+      'Desacato: '+(d.incidentado||'sin nombre')+'\n'+
+      'Carpeta: '+casefolder.substring(0,50)+'\n\n'+
+      'Guardada en sistema: '+radGuardada+'\n'+
+      'Radicación verdadera: '+radConsenso+'\n'+
+      '   (coincide en '+votos+' de '+docs.length+' documentos)\n\n'+
+      'Documentos analizados:\n'+docsTxt+'\n\n'+
+      '¿Corregir la radicación en el sistema?\n'+
+      '[ Aceptar ] = Corregir   [ Cancelar ] = Mantener actual'
+    );
+    if(aprobar){
+      try{
+        const upd={...d,radicacion:radConsenso};
+        await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set(upd);
+        const idx=(localDB.desacatos[yr]||[]).findIndex(x=>String(x.id)===String(d.id));
+        if(idx>=0)localDB.desacatos[yr][idx].radicacion=radConsenso;
+        corregidos++;
+      }catch(e){console.error('[Verif] Error guardando',e);}
+    } else {
+      mantenidos++;
+    }
+  }
+
+  if(typeof rD==='function')rD();
+  alert('✅ Verificación finalizada\n\n'+
+    '✓ '+corregidos+' corregidas\n'+
+    '• '+mantenidos+' mantenidas\n'+
+    '✓ '+correctos.length+' ya estaban correctas\n'+
+    (sinDatos.length>0?'• '+sinDatos.length+' sin datos extraíbles\n':'')+
+    (errores.length>0?'⚠ '+errores.length+' con error\n':'')+
+    '\n💡 Ahora ejecuta "🗂 Sincronizar rutas" para que los enlaces se actualicen con las radicaciones corregidas.');
+};
+
+// Helper: lee los documentos clave de una carpeta y pide a Gemini la radicación de cada uno
+async function _extraerRadicacionesDeDocumentos(apiKey, files, folderName){
+  // Identificar documentos clave por nombre (heurística)
+  const claves=[];
+  const buckets={sentencia:[],reqprev:[],apertura:[],oficio:[]};
+  for(const f of files){
+    const n=(f.name||'').toLowerCase();
+    if(!n.endsWith('.pdf'))continue;
+    if(/sentencia.*(1ra|1°|primera|primer.*inst)|fallo.*tutela|sentenciatutela/i.test(n)){buckets.sentencia.push(f);}
+    else if(/requerimiento.*previo|req.*prev|requerimientoprevio/i.test(n)){buckets.reqprev.push(f);}
+    else if(/apertura.*formal|aperturaformal|requerimiento.*formal|auto.*apertura/i.test(n)){buckets.apertura.push(f);}
+    else if(/oficio/i.test(n)){buckets.oficio.push(f);}
+  }
+  // Tomar el primero de cada bucket — máximo 4 documentos
+  if(buckets.sentencia[0])claves.push({tipo:'Sentencia 1ª inst.',file:buckets.sentencia[0]});
+  if(buckets.reqprev[0])claves.push({tipo:'Requerimiento previo',file:buckets.reqprev[0]});
+  if(buckets.apertura[0])claves.push({tipo:'Apertura formal',file:buckets.apertura[0]});
+  if(buckets.oficio[0])claves.push({tipo:'Oficio',file:buckets.oficio[0]});
+
+  // Si no encontramos por nombre, tomar los primeros 3 PDFs grandes
+  if(claves.length===0){
+    const pdfs=files.filter(f=>f.name.toLowerCase().endsWith('.pdf')).sort((a,b)=>b.size-a.size).slice(0,3);
+    pdfs.forEach((f,i)=>claves.push({tipo:'PDF '+(i+1),file:f}));
+  }
+
+  const resultados=[];
+  for(const {tipo,file} of claves){
+    try{
+      const b64=await toB64(file);
+      const prompt='Extrae UNICAMENTE el numero de radicacion del documento adjunto.\n'+
+        'La radicacion es un numero largo de 21 a 23 digitos (formato CNJ Colombia, '+
+        'ej: 73001400901420260014100).\n'+
+        'Busca el numero MAS REPETIDO en el documento; suele aparecer en el encabezado o '+
+        'en la referencia.\n\n'+
+        'Responde SOLO con JSON: {"radicacion":"73001..."}\n'+
+        'Si no encuentras, responde: {"radicacion":""}';
+      const data=await _llamarGemini(apiKey,prompt,null,[{inlineData:{mimeType:'application/pdf',data:b64}}]);
+      resultados.push({tipo,radicacion:(data?.radicacion||'').replace(/\D/g,'')});
+    }catch(e){
+      console.warn('[Verif] Error en',tipo,file.name,e.message);
+      resultados.push({tipo,radicacion:''});
+    }
+  }
+  return resultados;
+}
+
 window.sincronizarCarpetasDesacatos=async function(inp){
   // v33.83: SIMPLIFICADO igual que tutelas — folderName lleva el PATH COMPLETO,
   // el enlace se construye base + folderName (sin "subcarpeta" separada).
