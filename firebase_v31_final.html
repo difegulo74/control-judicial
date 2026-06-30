@@ -718,7 +718,12 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
       <div class="sc bl"><div class="v" id="st-fa">0</div><div class="l">Falladas</div></div>
       <div class="sc nu" onclick="filtrarNulHist()" title="Ver con nulidad (histórico)"><div class="v" id="st-nu">0</div><div class="l">Nulidades</div></div>
     </div>
-    <button class="btn btn-p" onclick="aFT()">+ Agregar</button>
+    <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+      <button class="btn btn-p" onclick="aFT()">+ Agregar</button>
+      <label for="esc-tut-inp" class="btn btn-sm" title="Escanea la carpeta TUTELAS 2026 completa y registra automáticamente todas las tutelas que aún no existan en el sistema, usando Gemini para extraer sus datos." style="cursor:pointer;font-size:11px;white-space:nowrap">📥 Escanear y registrar tutelas faltantes</label>
+      <input type="file" id="esc-tut-inp" multiple webkitdirectory directory style="display:none" onchange="escanearTutelasFaltantes(this)">
+      <span id="esc-tut-st" style="font-size:11px;color:var(--t2);font-weight:600"></span>
+    </div>
   </div>
   <div class="fbar">
     <input type="text" id="bqt" placeholder="Buscar radicación, accionante, accionado..." oninput="rT()">
@@ -1235,7 +1240,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.83';
+var APP_VERSION='33.85';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1341,11 +1346,12 @@ async function regenerarLinksOneDrive(){
   for(const yr of Object.keys(localDB.desacatos)){
     for(const d of (localDB.desacatos[yr]||[])){
       if(!esCandidato(d,'d'))continue;
-      const baseFolder=obtenerFolderName(d);
-      if(!baseFolder){sinDatos++;continue;}
-      // v33.73: incluir subcarpeta mensual en el path
-      const folder=(d.subcarpeta?d.subcarpeta+'/':'')+baseFolder;
-      const nuevo=buildOneDriveURL(folder,'d');
+      const folder=obtenerFolderName(d);
+      if(!folder){sinDatos++;continue;}
+      // v33.83: folderName ya tiene el path completo (incluida subcarpeta si aplica)
+      // Detectar si folderName empieza con "INCIDENTES" -> usa base TUTELAS
+      const tipo=/^INCIDENTES/i.test(folder)?'t':'d';
+      const nuevo=buildOneDriveURL(folder,tipo);
       if(!nuevo)continue;
       try{
         await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,folderName:folder,enlace:nuevo});
@@ -1356,6 +1362,28 @@ async function regenerarLinksOneDrive(){
   alert('✓ '+n+' enlace(s) regenerado(s).'+(sinDatos>0?'\n• '+sinDatos+' sin radicado o accionante (omitidas).':'')+(err>0?'\n⚠ '+err+' error(es).':''));
 }
 window.regenerarLinksOneDrive=regenerarLinksOneDrive;
+
+// v33.84: aplica el responsable por defecto a TODOS los desacatos que no tengan uno
+async function aplicarResponsableATodos(){
+  const def=getResponsableDefault();
+  if(!def){alert('⚠ Primero selecciona y guarda un responsable por defecto.');return;}
+  if(!confirm('Esto asignará "'+def+'" como responsable a todos los desacatos que actualmente NO tienen responsable.\n\n¿Continuar?'))return;
+  let n=0,err=0;
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    for(const d of (localDB.desacatos[yr]||[])){
+      if(d.responsable)continue;
+      try{
+        await fbDb.collection('desacatos_'+yr).doc(String(d.id)).set({...d,responsable:def});
+        const idx=(localDB.desacatos[yr]||[]).findIndex(x=>String(x.id)===String(d.id));
+        if(idx>=0)localDB.desacatos[yr][idx].responsable=def;
+        n++;
+      }catch(e){console.error(e);err++;}
+    }
+  }
+  alert('✓ '+n+' desacato(s) actualizados con responsable "'+def+'".'+(err>0?'\n⚠ '+err+' error(es).':''));
+  rD();
+}
+window.aplicarResponsableATodos=aplicarResponsableATodos;
 
 // v33.73: Subcarpeta de desacatos — DESACATOS 2026 tiene subcarpetas por mes
 // (ARCHIVADOS ENERO 2026, SANCIONADOS FEBRERO 2026, etc.).
@@ -3155,6 +3183,7 @@ function pvD(){
 async function guardarD(){
   const rad=document.getElementById('d-r').value.trim();
   if(!rad){alert('La radicación del incidente es obligatoria.');document.getElementById('d-r').focus();return;}
+  const respDef=getResponsableDefault(); // v33.84: aplicar responsable por defecto
   const ds=document.getElementById('d-ds').value;
   if(!ds){alert('Seleccione el derecho principal SIERJU.');return;}
   // v33.51: chequeo de duplicados, igual que en tutelas
@@ -3189,6 +3218,7 @@ async function guardarD(){
     resultado:get('d-rc'),
     enlace:getT('d-l'),
     observaciones:getT('d-o'),
+    responsable:respDef||'',
     nulidades:[],ultimaNulidad:null};
   // Si no se llenó la fecha de envío a consulta pero hay decisión y es "Sanciona",
   // tomar como envío la misma fecha del auto interlocutorio (regla del Art. 52).
@@ -3594,7 +3624,7 @@ function abrirConfig(){
 }
 function _mostrarConfig(){
   (()=>{
-    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">\n      <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Responsable por defecto del despacho</label>\n      <div style="display:flex;gap:6px;align-items:center"><select id="cfg-resp-default" style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px"></select><button class="btn btn-p btn-sm" onclick="guardarResponsableDefault()" style="white-space:nowrap;padding:7px 12px">\u2713 Guardar</button></div>\n      <div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Se asigna automáticamente cuando un oficio del juzgado termina con "Cordialmente," pero la firma está como imagen (no extraíble como texto). Selecciona la persona que firma habitualmente los oficios.</div>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base — TUTELAS del año</label>\n    <input id="cfg-od" placeholder="Pega la URL de la carpeta TUTELAS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px">\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin:8px 0 3px">URL base — DESACATOS del año</label>\n    <input id="cfg-od-d" placeholder="Pega la URL de la carpeta DESACATOS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de cada carpeta madre. Pega la URL tal cual aparece en tu navegador al abrir la carpeta en OneDrive web; el sistema limpia parámetros sobrantes. Funciona desde cualquier PC.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URLs base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔬 Diagnóstico</div>\n    <button class="btn btn-sm" onclick="verUltimoJSON()" style="justify-content:flex-start;width:100%">🔬 Ver último JSON extraído por Gemini</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.4">Muestra los datos que Gemini extrajo de la última carpeta procesada. Útil para diagnosticar por qué algún campo no se llenó.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
+    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">\n      <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Responsable por defecto del despacho</label>\n      <div style="display:flex;gap:6px;align-items:center"><select id="cfg-resp-default" style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px"></select><button class="btn btn-p btn-sm" onclick="guardarResponsableDefault()" style="white-space:nowrap;padding:7px 12px">\u2713 Guardar</button></div>\n      <div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Se asigna automáticamente cuando un oficio del juzgado termina con "Cordialmente," pero la firma está como imagen (no extraíble como texto). Selecciona la persona que firma habitualmente los oficios.</div>\n      <button class=\"btn btn-sm\" onclick=\"aplicarResponsableATodos()\" style=\"width:100%;margin-top:8px;justify-content:center\">\ud83d\udc65 Asignar responsable a todos los desacatos sin asignar</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base — TUTELAS del año</label>\n    <input id="cfg-od" placeholder="Pega la URL de la carpeta TUTELAS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px">\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin:8px 0 3px">URL base — DESACATOS del año</label>\n    <input id="cfg-od-d" placeholder="Pega la URL de la carpeta DESACATOS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de cada carpeta madre. Pega la URL tal cual aparece en tu navegador al abrir la carpeta en OneDrive web; el sistema limpia parámetros sobrantes. Funciona desde cualquier PC.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URLs base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔬 Diagnóstico</div>\n    <button class="btn btn-sm" onclick="verUltimoJSON()" style="justify-content:flex-start;width:100%">🔬 Ver último JSON extraído por Gemini</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.4">Muestra los datos que Gemini extrajo de la última carpeta procesada. Útil para diagnosticar por qué algún campo no se llenó.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
     // Agregar sección IA al final del panel
     const iaDiv=document.createElement('div');
@@ -5445,6 +5475,187 @@ const SENTIDO_MAP={'concede tutela':'Concede tutela','concede':'Concede tutela',
 const FALLO2I_MAP={'confirma':'Confirma','confirmar':'Confirma','confirm':'Confirma','revoca parcialmente':'Revoca parcialmente','revocar parcialmente':'Revoca parcialmente','revoca en parte':'Revoca parcialmente','revoca y adiciona':'Revoca y adiciona','revocar y adicionar':'Revoca y adiciona','revoca':'Revoca','revocar':'Revoca','modifica':'Modifica','modificar':'Modifica','adiciona':'Adiciona','adicionar':'Adiciona','decreta nulidad':'Decreta nulidad','decretar nulidad':'Decreta nulidad','nulidad':'Decreta nulidad','anula':'Decreta nulidad','anular':'Decreta nulidad'};
 function mapV(val,map){if(!val)return '';const k=val.toLowerCase().trim();if(map[k])return map[k];for(const[ky,v] of Object.entries(map)){if(k.includes(ky)||ky.includes(k))return v;}return val;}
 function setSelect(id,val){if(!val)return;const s=document.getElementById(id);if(!s)return;const mv=mapV(val,id.includes('ds')||id.includes('derecho')?SIERJU_MAP:SENTIDO_MAP);const o=[...s.options].find(o=>o.text===mv||o.value===mv||o.text.toLowerCase().includes(mv.toLowerCase().split(' ')[0]));if(o)s.value=o.value||o.text;}
+
+// v33.85: ESCANEO MASIVO de TUTELAS 2026 - registra automaticamente todas las
+// tutelas que falten en el sistema. Reutiliza la logica de Gemini ya probada.
+window._escanearTutelasCancelado=false;
+
+window.escanearTutelasFaltantes=async function(inp){
+  const files=inp.files;
+  if(!files?.length){return;}
+  const st=document.getElementById('esc-tut-st');
+  const setS=(t)=>{if(st)st.textContent=t;};
+
+  // 1. AGRUPAR archivos por subcarpeta (cada subcarpeta = una tutela)
+  setS('⏳ Leyendo carpetas…');
+  const rootFolder=files[0].webkitRelativePath.split('/')[0];
+  if(!/TUTELAS/i.test(rootFolder)){
+    inp.value='';setS('');
+    alert('⚠ Selecciona la carpeta TUTELAS '+anio+' (no INCIDENTES ni DESACATOS).');
+    return;
+  }
+
+  // Agrupar: foldersMap.set(folderName, [files])
+  const foldersMap=new Map();
+  for(const f of files){
+    const parts=f.webkitRelativePath.split('/');
+    // Estructura: TUTELAS 2026/[carpeta tutela]/archivo
+    // Ignorar archivos en INCIDENTES 2026 (no son tutelas)
+    if(parts.length<3)continue;
+    if(/^INCIDENTES/i.test(parts[1]))continue;
+    const folderName=parts[1];
+    // Validar que empiece con radicación
+    if(!/^\d{15,}/.test(folderName))continue;
+    if(!foldersMap.has(folderName))foldersMap.set(folderName,[]);
+    foldersMap.get(folderName).push(f);
+  }
+
+  if(foldersMap.size===0){
+    inp.value='';setS('');
+    alert('⚠ No se encontraron subcarpetas con radicación en TUTELAS '+anio+'.');
+    return;
+  }
+
+  // 2. IDENTIFICAR cuáles ya existen
+  const tutelasExist=new Set();
+  for(const yr of Object.keys(localDB.tutelas||{})){
+    for(const t of (localDB.tutelas[yr]||[])){
+      const radNorm=String(t.radicacion||'').replace(/\D/g,'').substring(0,21);
+      if(radNorm.length===21)tutelasExist.add(radNorm);
+    }
+  }
+
+  // 3. FILTRAR las faltantes
+  const faltantes=[];
+  for(const [folderName,filesArr] of foldersMap){
+    const radFull=(folderName.match(/^\d+/)||[''])[0];
+    const rad=radFull.substring(0,21);
+    if(rad.length!==21)continue;
+    if(tutelasExist.has(rad))continue;
+    faltantes.push({folderName,files:filesArr,rad});
+  }
+
+  if(faltantes.length===0){
+    inp.value='';setS('');
+    alert('✓ Todas las tutelas ya están registradas en el sistema.\n\nCarpetas en OneDrive: '+foldersMap.size+'\nYa registradas: '+foldersMap.size);
+    return;
+  }
+
+  // 4. CONFIRMAR antes de procesar
+  const segs=faltantes.length*5;
+  const min=Math.floor(segs/60), sec=segs%60;
+  const tiempoStr=min>0?(min+' min '+sec+' seg'):(sec+' seg');
+  const ok=confirm('📥 Tutelas a registrar: '+faltantes.length+'\n'+
+    '✓ Ya existen: '+(foldersMap.size-faltantes.length)+'\n\n'+
+    '⏱ Tiempo estimado: ~'+tiempoStr+' (4s entre cada una por límite Gemini)\n\n'+
+    '¿Continuar? Puedes cancelar en cualquier momento; las ya procesadas quedarán guardadas.');
+  if(!ok){inp.value='';setS('');return;}
+
+  // 5. PROCESAR una por una con pausa de 4s
+  window._escanearTutelasCancelado=false;
+  setS('⏳ 0/'+faltantes.length+' · Click para cancelar');
+  if(st)st.style.cursor='pointer',st.onclick=()=>{window._escanearTutelasCancelado=true;setS('🛑 Cancelando…');};
+
+  const respDef=getResponsableDefault();
+  const yrAct=anio; // v33.85: variable global del año activo
+  let registradas=0,errores=0,saltadas=0;
+  const errLog=[];
+
+  for(let i=0;i<faltantes.length;i++){
+    if(window._escanearTutelasCancelado){console.log('[Escaneo] Cancelado por el usuario');break;}
+    const {folderName,files:fArr}=faltantes[i];
+    setS('⏳ '+(i+1)+'/'+faltantes.length+' · '+folderName.substring(0,30)+'… (click cancelar)');
+    try{
+      // Llamar a Gemini con los archivos de esta carpeta
+      const d=await extraerDatosCarpeta(fArr,folderName);
+      // Validar que extrajo lo mínimo
+      if(!d.radicacion){
+        errores++;errLog.push(folderName+' — sin radicación extraída');
+        await new Promise(r=>setTimeout(r,4000));continue;
+      }
+      // Aplicar normalizaciones (igual que en procesarCarpeta + guardarT)
+      const SENT_MAP=typeof SENTIDO_MAP!=='undefined'?SENTIDO_MAP:{};
+      const F2_MAP=typeof FALLO2I_MAP!=='undefined'?FALLO2I_MAP:{};
+      if(d.sentidoFallo&&typeof mapV!=='undefined')d.sentidoFallo=mapV(d.sentidoFallo,SENT_MAP)||d.sentidoFallo;
+      if(d.fallo2i&&typeof mapV!=='undefined')d.fallo2i=mapV(d.fallo2i,F2_MAP)||d.fallo2i;
+      // Aplicar responsable: el que detectó Gemini, o el default
+      let respFinal='';
+      if(d.responsable&&typeof normalizarResponsableDetectado!=='undefined'){
+        respFinal=normalizarResponsableDetectado(d.responsable)||'';
+      }
+      if(!respFinal)respFinal=respDef||'';
+      // Construir tutela
+      const t={
+        id:Date.now()+i, // único por iteración
+        radicacion:d.radicacion,
+        esHC:!!d.esHC,
+        accionante:d.accionante||'',
+        cedula:d.cedula||'',
+        accionado:d.accionado||'',
+        vinculados:d.vinculados||'',
+        derechoSierju:d.derechoSierju||'',
+        derechos:d.derechos||'',
+        medida:d.medida||'Sin medida previa',
+        pretensiones:d.pretensiones||'',
+        fechaReparto:d.fechaReparto||'',
+        fechaAdmision:d.fechaAdmision||'',
+        responsable:respFinal,
+        estado:d.estado||'En término',
+        observaciones:d.observaciones||'',
+        fechaFallo:d.fechaFallo||'',
+        fechaNotificacionFallo:d.fechaNotificacionFallo||'',
+        sentidoFallo:d.sentidoFallo||'',
+        fechaImpugnacion:d.fechaImpugnacion||'',
+        juzgado2i:d.juzgado2i||'',
+        fallo2i:d.fallo2i||'',
+        fechaReparto2i:d.fechaReparto2i||'',
+        fechaFallo2i:d.fechaFallo2i||'',
+        fechaRemCC:d.fechaRemCC||'',
+        fechaRegresoCC:d.fechaRegresoCC||'',
+        alertaDias:9,
+        folderName:folderName,
+        filesCount:fArr.length,
+        nulidades:Array.isArray(d.nulidades)?d.nulidades.map(n=>({fecha:n.fecha,auto:n.juzgado||'Sentencia 2ª inst.',quien:n.juzgado||'Superior',nota:n.causal||''})):[],
+        ultimaNulidad:null
+      };
+      if(t.nulidades.length>0)t.ultimaNulidad=t.nulidades[t.nulidades.length-1].fecha;
+      // Enlace OneDrive
+      const auto=buildOneDriveURL(folderName,'t');
+      if(auto)t.enlace=auto;
+      // Guardar en Firebase
+      await fbDb.collection('tutelas_'+yrAct).doc(String(t.id)).set(t);
+      // Actualizar localDB
+      if(!localDB.tutelas[yrAct])localDB.tutelas[yrAct]=[];
+      localDB.tutelas[yrAct].push(t);
+      registradas++;
+    }catch(e){
+      console.error('[Escaneo] Error en',folderName,e);
+      errores++;errLog.push(folderName+' — '+(e.message||'error'));
+    }
+    // Pausa de 4s para no saturar Gemini (límite del free tier)
+    if(i<faltantes.length-1 && !window._escanearTutelasCancelado){
+      await new Promise(r=>setTimeout(r,4000));
+    }
+  }
+
+  inp.value='';
+  if(st){st.style.cursor='';st.onclick=null;}
+  setS('');
+
+  // Refrescar tabla
+  if(typeof rT==='function')rT();
+  if(typeof rStat==='function'&&tabAct==='s')try{rStat();}catch(e){}
+
+  let msg='✅ Escaneo completado\n\n✓ '+registradas+' tutela(s) registradas\n';
+  if(saltadas>0)msg+='• '+saltadas+' saltadas\n';
+  if(errores>0){
+    msg+='⚠ '+errores+' con error\n\nErrores en consola (F12).';
+    console.error('[Escaneo] Carpetas con error:');
+    errLog.forEach(e=>console.error('  •',e));
+  }
+  if(window._escanearTutelasCancelado)msg+='\n\n🛑 Cancelado por el usuario.';
+  alert(msg);
+};
 
 window.procesarCarpeta=async function(inp){
   const files=inp.files;if(!files?.length)return;
