@@ -1234,7 +1234,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.80';
+var APP_VERSION='33.81';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1409,10 +1409,12 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     if(caseIdx<0)continue;
 
     casefolder=parts[caseIdx];
-    // La radicacion base son los digitos iniciales antes de cualquier guion o espacio
-    // Ej: "730014009014202400303-01 Rad..." → rad = "730014009014202400303"
-    const rad=(casefolder.match(/^\d+/)||[''])[0];
-    if(!rad||rad.length<15)continue;
+    // v33.81: la radicacion BASE son los primeros 21 digitos.
+    // Los digitos 22-23 son la instancia (00, 01, 02...) y se ignoran para match.
+    // Toma TODOS los digitos del nombre y trunca a 21.
+    const radFull=(casefolder.match(/^\d+/)||[''])[0];
+    if(!radFull||radFull.length<15)continue;
+    const rad=radFull.substring(0,21); // primeros 21 digitos = radicacion base
 
     if(esIncidentes){
       tipo='t';
@@ -1435,19 +1437,19 @@ window.sincronizarCarpetasDesacatos=async function(inp){
   if(st)st.textContent=`⏳ Actualizando ${mapa.size} exp…`;
 
   let updated=0,notFound=0,errores=0;
+  const noMatchList=[]; // v33.81: para diagnostico al usuario
   for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
-    // Buscar desacato en todos los años cargados
-    // Comparar radicacion base (sin sufijo -01, -02, -03) de ambos lados
-    // Carpeta: "730014...-03 Rcdo..." → rad = "730014..." (digitos antes del guion)
-    // Firebase: "730014...-03" → strip sufijo → "730014..." → solo digitos
+    // v33.81: matching robusto por PRIMEROS 21 DIGITOS de la radicacion base
+    // Independiente de: sufijos (-01,-02), puntos, espacios, longitud (21 vs 23)
     let found=null,yrFound=null;
     for(const yr of Object.keys(localDB.desacatos||{})){
-      const d=(localDB.desacatos[yr]||[]).find(x=>
-        String(x.radicacion||'').replace(/-\d+$/,'').replace(/\D/g,'')===rad
-      );
+      const d=(localDB.desacatos[yr]||[]).find(x=>{
+        const fbRad=String(x.radicacion||'').replace(/\D/g,'').substring(0,21);
+        return fbRad===rad && fbRad.length===21;
+      });
       if(d){found=d;yrFound=yr;break;}
     }
-    if(!found){notFound++;continue;}
+    if(!found){notFound++;noMatchList.push(rad+' ('+folderName.substring(0,40)+')');continue;}
 
     // Construir enlace correcto
     const path=(subcarpeta?subcarpeta+'/':'')+folderName;
@@ -1465,9 +1467,31 @@ window.sincronizarCarpetasDesacatos=async function(inp){
 
   inp.value='';
   if(st)st.textContent='';
-  const msg=`✅ Sincronización completada\n✓ ${updated} desacato(s) actualizados`
-    +(notFound>0?`\n• ${notFound} carpeta(s) sin coincidencia en el sistema`:'')
-    +(errores>0?`\n⚠ ${errores} error(es) de Firebase`:'');
+  console.log('[Sinc] Total carpetas en OneDrive:',mapa.size,'| Actualizadas:',updated,'| Sin match:',notFound,'| Errores:',errores);
+  if(noMatchList.length){
+    console.log('[Sinc] Radicaciones SIN MATCH en Firebase:');
+    noMatchList.forEach(r=>console.log('  • '+r));
+  }
+  // Tambien loguear radicaciones de Firebase que NO estan en las carpetas (las que quedaran sin sync)
+  const radsCarpetas=new Set([...mapa.keys()]);
+  const fbSinCarpeta=[];
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    for(const d of (localDB.desacatos[yr]||[])){
+      const fbRad=String(d.radicacion||'').replace(/\D/g,'').substring(0,21);
+      if(fbRad.length===21 && !radsCarpetas.has(fbRad)){
+        fbSinCarpeta.push(fbRad+' ('+(d.incidentado||'sin nombre').substring(0,30)+')');
+      }
+    }
+  }
+  if(fbSinCarpeta.length){
+    console.log('[Sinc] Desacatos en Firebase SIN CARPETA en OneDrive:');
+    fbSinCarpeta.forEach(r=>console.log('  • '+r));
+  }
+  let msg=`✅ Sincronización completada\n✓ ${updated} desacato(s) actualizados`;
+  if(notFound>0)msg+=`\n• ${notFound} carpeta(s) de OneDrive sin desacato registrado en el sistema`;
+  if(fbSinCarpeta.length>0)msg+=`\n• ${fbSinCarpeta.length} desacato(s) en el sistema sin carpeta en OneDrive`;
+  if(errores>0)msg+=`\n⚠ ${errores} error(es) de Firebase`;
+  msg+='\n\n💡 Detalle completo en la consola del navegador (F12)';
   alert(msg);
   rD();
   if(typeof tabAct!=='undefined'&&tabAct==='s'&&typeof rStat==='function')rStat();
