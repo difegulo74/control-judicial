@@ -796,20 +796,21 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
       <colgroup>
         <col style="width:40px">
         <col style="width:12%">
-        <col style="width:22%">
+        <col style="width:18%">
         <col style="width:9%">
         <col style="width:8%">
         <col style="width:8%">
         <col style="width:8%">
         <col style="width:8%">
+        <col style="width:5%">
         <col style="width:7%">
-        <col style="width:10%">
+        <col style="width:9%">
         <col style="width:110px">
       </colgroup>
       <thead><tr>
         <th></th><th>Radicación</th><th>Incidentado</th>
         <th>Derecho SIERJU</th><th>F.Solicitud</th><th>Req.Previo</th>
-        <th>Apertura</th><th>Vence D10</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
+        <th>Apertura</th><th>Vence D10</th><th>Resp.</th><th>Alerta</th><th>Estado</th><th>Acciones</th>
       </tr></thead>
       <tbody id="tbd"></tbody>
     </table>
@@ -1234,7 +1235,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.81';
+var APP_VERSION='33.83';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1377,6 +1378,8 @@ window.actualizarSubcarpetaD=actualizarSubcarpetaD;
 // El sistema lee los webkitRelativePath, detecta subcarpeta y radicación,
 // y actualiza todos los desacatos en Firebase de una sola vez.
 window.sincronizarCarpetasDesacatos=async function(inp){
+  // v33.83: SIMPLIFICADO igual que tutelas — folderName lleva el PATH COMPLETO,
+  // el enlace se construye base + folderName (sin "subcarpeta" separada).
   const files=inp.files;
   if(!files?.length){return;}
   const st=document.getElementById('sinc-des-st');
@@ -1393,38 +1396,37 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     return;
   }
 
-  // Construir mapa: radicacion → {subcarpeta, folderName, tipo}
-  // tipo: "t" = usa base TUTELAS (para INCIDENTES), "d" = usa base DESACATOS
+  // Mapa: rad21 (primeros 21 digitos) → folderName COMPLETO (con subcarpetas)
   const mapa=new Map();
   for(const file of files){
     const parts=file.webkitRelativePath.split('/');
-    let subcarpeta='',casefolder='',tipo='d';
-
-    // Parser robusto: busca el primer componente que empiece con radicacion (10+ digitos)
-    // Soporta cualquier profundidad: INCIDENTES/JUEZ/ARCHIVADOS/73001.../file
+    // Buscar el primer componente con radicacion (10+ digitos al inicio)
     let caseIdx=-1;
     for(let i=1;i<parts.length-1;i++){
       if(/^\d{10,}/.test(parts[i])){caseIdx=i;break;}
     }
     if(caseIdx<0)continue;
-
-    casefolder=parts[caseIdx];
-    // v33.81: la radicacion BASE son los primeros 21 digitos.
-    // Los digitos 22-23 son la instancia (00, 01, 02...) y se ignoran para match.
-    // Toma TODOS los digitos del nombre y trunca a 21.
+    const casefolder=parts[caseIdx];
     const radFull=(casefolder.match(/^\d+/)||[''])[0];
     if(!radFull||radFull.length<15)continue;
-    const rad=radFull.substring(0,21); // primeros 21 digitos = radicacion base
+    const rad=radFull.substring(0,21);
 
+    // folderName COMPLETO desde la base hasta la carpeta del expediente.
+    // - INCIDENTES (base = TUTELAS): incluye "INCIDENTES 2026/" porque vive DENTRO de TUTELAS
+    //   ej: "INCIDENTES 2026/DIEGO/73001400901420260018300 EPS SANITAS"
+    // - DESACATOS (base = DESACATOS): NO incluye "DESACATOS 2026/" porque ESA es la base
+    //   ej: "ARCHIVADOS FEBRERO/73001400901420240303-01 Rad..."
+    //   ej raiz: "73001400901420260011200 Rcado..."
+    let folderNameCompleto, tipo;
     if(esIncidentes){
-      tipo='t';
-      subcarpeta=parts.slice(0,caseIdx).join('/');
+      tipo='t'; // base TUTELAS
+      folderNameCompleto=parts.slice(0,caseIdx+1).join('/');
     } else {
-      tipo='d';
-      subcarpeta=parts.slice(1,caseIdx).join('/');
+      tipo='d'; // base DESACATOS
+      folderNameCompleto=parts.slice(1,caseIdx+1).join('/');
     }
 
-    if(!mapa.has(rad))mapa.set(rad,{subcarpeta,folderName:casefolder,tipo});
+    if(!mapa.has(rad))mapa.set(rad,{folderName:folderNameCompleto,tipo});
   }
 
   if(mapa.size===0){
@@ -1437,10 +1439,8 @@ window.sincronizarCarpetasDesacatos=async function(inp){
   if(st)st.textContent=`⏳ Actualizando ${mapa.size} exp…`;
 
   let updated=0,notFound=0,errores=0;
-  const noMatchList=[]; // v33.81: para diagnostico al usuario
-  for(const [rad,{subcarpeta,folderName,tipo}] of mapa){
-    // v33.81: matching robusto por PRIMEROS 21 DIGITOS de la radicacion base
-    // Independiente de: sufijos (-01,-02), puntos, espacios, longitud (21 vs 23)
+  const noMatchList=[];
+  for(const [rad,{folderName,tipo}] of mapa){
     let found=null,yrFound=null;
     for(const yr of Object.keys(localDB.desacatos||{})){
       const d=(localDB.desacatos[yr]||[]).find(x=>{
@@ -1449,13 +1449,14 @@ window.sincronizarCarpetasDesacatos=async function(inp){
       });
       if(d){found=d;yrFound=yr;break;}
     }
-    if(!found){notFound++;noMatchList.push(rad+' ('+folderName.substring(0,40)+')');continue;}
+    if(!found){notFound++;noMatchList.push(rad+' ('+folderName.substring(0,50)+')');continue;}
 
-    // Construir enlace correcto
-    const path=(subcarpeta?subcarpeta+'/':'')+folderName;
-    const nuevoEnlace=buildOneDriveURL(path,tipo);
-    const upd={subcarpeta,folderName};
+    // Calcular enlace nuevo
+    const nuevoEnlace=buildOneDriveURL(folderName,tipo);
+    const upd={folderName};
     if(nuevoEnlace)upd.enlace=nuevoEnlace;
+    // Limpiar campo legacy "subcarpeta" si existia (v33.73 - v33.82)
+    if(found.subcarpeta!==undefined)upd.subcarpeta=null;
 
     try{
       await fbDb.collection('desacatos_'+yrFound).doc(String(found.id)).set({...found,...upd});
@@ -1467,35 +1468,16 @@ window.sincronizarCarpetasDesacatos=async function(inp){
 
   inp.value='';
   if(st)st.textContent='';
-  console.log('[Sinc] Total carpetas en OneDrive:',mapa.size,'| Actualizadas:',updated,'| Sin match:',notFound,'| Errores:',errores);
-  if(noMatchList.length){
-    console.log('[Sinc] Radicaciones SIN MATCH en Firebase:');
-    noMatchList.forEach(r=>console.log('  • '+r));
-  }
-  // Tambien loguear radicaciones de Firebase que NO estan en las carpetas (las que quedaran sin sync)
-  const radsCarpetas=new Set([...mapa.keys()]);
-  const fbSinCarpeta=[];
-  for(const yr of Object.keys(localDB.desacatos||{})){
-    for(const d of (localDB.desacatos[yr]||[])){
-      const fbRad=String(d.radicacion||'').replace(/\D/g,'').substring(0,21);
-      if(fbRad.length===21 && !radsCarpetas.has(fbRad)){
-        fbSinCarpeta.push(fbRad+' ('+(d.incidentado||'sin nombre').substring(0,30)+')');
-      }
-    }
-  }
-  if(fbSinCarpeta.length){
-    console.log('[Sinc] Desacatos en Firebase SIN CARPETA en OneDrive:');
-    fbSinCarpeta.forEach(r=>console.log('  • '+r));
-  }
+  console.log('[Sinc] OneDrive:',mapa.size,'| Actualizados:',updated,'| Sin match:',notFound,'| Errores:',errores);
+  if(noMatchList.length){console.log('[Sinc] Sin match:');noMatchList.forEach(r=>console.log('  • '+r));}
   let msg=`✅ Sincronización completada\n✓ ${updated} desacato(s) actualizados`;
-  if(notFound>0)msg+=`\n• ${notFound} carpeta(s) de OneDrive sin desacato registrado en el sistema`;
-  if(fbSinCarpeta.length>0)msg+=`\n• ${fbSinCarpeta.length} desacato(s) en el sistema sin carpeta en OneDrive`;
-  if(errores>0)msg+=`\n⚠ ${errores} error(es) de Firebase`;
-  msg+='\n\n💡 Detalle completo en la consola del navegador (F12)';
+  if(notFound>0)msg+=`\n• ${notFound} carpeta(s) sin desacato registrado`;
+  if(errores>0)msg+=`\n⚠ ${errores} error(es)`;
   alert(msg);
   rD();
   if(typeof tabAct!=='undefined'&&tabAct==='s'&&typeof rStat==='function')rStat();
 };
+
 
 function sugerirSubcarpetaD(id, decision, fechaDecision, folderName){
   const meses=['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO',
@@ -1516,6 +1498,28 @@ function sugerirSubcarpetaD(id, decision, fechaDecision, folderName){
   actualizarSubcarpetaD(id,sug,folderName);
 }
 window.sugerirSubcarpetaD=sugerirSubcarpetaD;
+
+// v33.82: Regenera el enlace OneDrive de UN desacato individualmente.
+// Util cuando el sync masivo no atrapo el desacato (radicacion no matcheo).
+window.regenerarEnlaceDesacato=function(id){
+  const d=dA().find(x=>String(x.id)===String(id));
+  if(!d){alert('No se encontro el desacato.');return;}
+  if(!d.folderName){
+    alert('⚠ Este desacato no tiene carpeta capturada (folderName).\nAbre la carpeta del expediente desde "Recargar desde carpeta" primero.');
+    return;
+  }
+  const subcarpeta=(d.subcarpeta||'').trim();
+  const path=(subcarpeta?subcarpeta+'/':'')+d.folderName;
+  const tipo=/INCIDENTES/i.test(subcarpeta)?'t':'d';
+  const nuevo=buildOneDriveURL(path,tipo);
+  if(!nuevo){
+    alert('⚠ No se pudo construir la URL. Revisa la configuracion de URL base.');
+    return;
+  }
+  updD(id,'enlace',nuevo);
+  alert('✓ Enlace regenerado:\n\n'+nuevo);
+  setTimeout(()=>aDD(id),300);
+};
 
 // Aplicar parche de actualización
 async function aplicarParche(patchData){
@@ -2315,6 +2319,7 @@ function rD(){
       <td style="font-size:10px">${fmt(d.fechaRequerimientoPrevio||tc.req)}</td>
       <td style="font-size:10px">${fmt(d.fechaAperturaFormal||tc.aper)}</td>
       <td style="font-size:10px;font-weight:700;color:var(--rd)">${fmt(tc.vce)}</td>
+      <td style="font-size:10px;font-weight:600;color:#475569">${d.responsable||'—'}</td>
       <td>${aBadge(k,tc.vce)}</td>
       <td>${eBadge(d.estado)}</td>
       <td><div class="ract">
@@ -3274,6 +3279,11 @@ function aDD(id){
           ${['Requerimiento previo','Apertura formal','Pendiente decisión','Sanciona','No sanciona','Retiro voluntario','Anulado','Archivado'].map(o=>`<option${d.estado===o?' selected':''}>${o}</option>`).join('')}
         </select>
       </div>
+      <div class="fi"><label>Responsable</label>
+        <select onchange="updD('${id}','responsable',this.value)">
+          ${optsResponsables(d.responsable||'')}
+        </select>
+      </div>
 
       <div class="fsec">Decisión del incidente</div>
       <div class="fi"><label>Decisión final</label>
@@ -3320,16 +3330,7 @@ function aDD(id){
         ${d.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(d.folderName)}${d.filesCount?' <span style="color:var(--t2)">('+d.filesCount+' archivos)</span>':''}</div>`:''}
         ${!getOneDriveBase('d')?`<div style="font-size:10px;color:#92400e;margin-top:6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px">⚠ <b>Base OneDrive de desacatos no configurada.</b> Para que los enlaces se generen automáticamente, ve a Configuración (⚙) y pega la URL base de tu carpeta DESACATOS ${anio} de OneDrive.</div>`:''}
       </div>
-      ${d.folderName?`<div class="fi full">
-        <label>Subcarpeta dentro de DESACATOS ${anio} <span style="font-size:9px;color:var(--t3);font-weight:400">— vacío = raíz · ej: ARCHIVADOS FEBRERO 2026</span></label>
-        <input id="subcarpeta-inp-${id}" value="${esc(d.subcarpeta||'')}" placeholder="Vacío = el expediente está en la raíz de DESACATOS ${anio}" onchange="actualizarSubcarpetaD('${id}',this.value,'${esc(d.folderName||'')}')">
-        <button class="btn btn-sm" style="font-size:10px;margin-top:5px" onclick="sugerirSubcarpetaD('${id}','${esc(d.decision||'')}','${d.fechaDecision||''}','${esc(d.folderName||'')}')">💡 Sugerir subcarpeta automáticamente</button>
-        <div style="font-size:10px;color:var(--t2);margin-top:5px;line-height:1.5">
-          <b>Activos</b> → <code style="background:var(--bl-bg);padding:1px 4px;border-radius:3px;font-size:9px">INCIDENTES 2026</code> &nbsp;
-          <b>Archivados/Sancionados</b> → <code style="background:var(--bl-bg);padding:1px 4px;border-radius:3px;font-size:9px">ARCHIVADOS FEBRERO 2026</code><br>
-          Al guardar el enlace se actualiza automáticamente.
-        </div>
-      </div>`:''}
+      ''
       <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:10px">
         <div style="font-size:11px;font-weight:700;color:#c2410c;margin-bottom:4px">📁 Actualizar desde carpeta OneDrive</div>
         <div style="font-size:10px;color:#ea580c;margin-bottom:8px">Selecciona la carpeta actualizada — la IA completará los campos vacíos sin borrar lo que ya existe.</div>
