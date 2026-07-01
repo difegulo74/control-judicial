@@ -1141,7 +1141,11 @@ function abrevRad(rad,nivel2i){
 function getAlertaDias(t){const v=parseInt(t.alertaDias);return (v>=1&&v<=10)?v:9;}
 function getAlertaDiasTutela(t){return getAlertaDias(t);}
 function termT(t){
-  const base=t.ultimaNulidad||t.fechaAdmision;
+  // v33.88: la base para el cómputo de términos es la FECHA DE REPARTO (no admisión).
+  // Confirmado por Diego: el acta de reparto marca el día 1. La admisión puede ser
+  // a día siguiente y no afecta el cómputo del término del fallo.
+  // Fallback a fechaAdmision solo si no hay reparto registrado (casos legacy).
+  const base=t.ultimaNulidad||t.fechaReparto||t.fechaAdmision;
   if(!base)return{dia9:'',vce:'',cor2:'',eje3:'',remCC:'',vce2i:'',ejecutoria:'',limImpugnacion:''};
   // v33.38: REGLA DE CÓMPUTO CORREGIDA — Art. 29 Decreto 2591/91: "Dentro de los diez
   // días SIGUIENTES a la presentación de la solicitud el juez dictará el fallo".
@@ -1206,7 +1210,8 @@ function hasNulHist(r){return !!(r.nulidades&&r.nulidades.length);}
 function aKeyT(t){
   if(hasNulActiva(t))return 'NULIDAD';
   if(t.fechaFallo)return 'FALLADA';
-  if(!t.fechaAdmision)return 'SF';
+  // v33.88: SF si NO hay reparto NI admisión (la base ahora es reparto)
+  if(!t.fechaReparto&&!t.fechaAdmision)return 'SF';
   const r=diff(termT(t).vce);
   if(r===null)return 'SF';
   if(r<0)return 'VENCIDO';if(r<=5)return 'PROXIMO';return 'VIGENTE';
@@ -1242,7 +1247,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.87';
+var APP_VERSION='33.88';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
