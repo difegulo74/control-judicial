@@ -779,7 +779,7 @@ table.tfix td,table.tfix th{overflow:hidden;text-overflow:ellipsis;white-space:n
       <div class="sc nu" onclick="filtrarNulD()" title="Ver con nulidad"><div class="v" id="sd-nu">0</div><div class="l">Nulidades</div></div>
     </div>
     <button class="btn btn-p" onclick="aFD()">+ Agregar</button>
-      <label for="sinc-des-inp" class="btn btn-sm" title="Selecciona INCIDENTES 2026 (activos) o DESACATOS 2026 (cerrados). El sistema detecta la subcarpeta de cada expediente y actualiza todos los enlaces." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px">🗂 Sincronizar rutas</label>
+      <label for="sinc-des-inp" class="btn btn-sm" title="Selecciona la carpeta INCIDENTES 2026. Todos los desacatos (activos en AURA/DIEGO/MILENA, archivados y sancionados) deben estar dentro de esta carpeta. El sistema actualiza todos los enlaces automáticamente." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px">🗂 Sincronizar rutas</label>
       <input type="file" id="sinc-des-inp" multiple webkitdirectory directory style="display:none" onchange="sincronizarCarpetasDesacatos(this)">
       <label for="verif-rad-inp" class="btn btn-sm" title="Lee los documentos clave de cada incidente (sentencia 1ª inst., requerimiento previo, apertura formal, oficios) y verifica que la radicación guardada coincida con la real. Si encuentra diferencias, muestra cada caso para que apruebes la corrección." style="cursor:pointer;font-size:11px;white-space:nowrap;margin-left:4px;background:#fef3c7;border-color:#f59e0b;color:#92400e">🔬 Verificar radicaciones</label>
       <input type="file" id="verif-rad-inp" multiple webkitdirectory directory style="display:none" onchange="verificarRadicacionesDesacatos(this)">
@@ -1247,7 +1247,7 @@ function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 // ═══════════════════════════════════════════════════════
 // SISTEMA DE VERSIONES Y ACTUALIZACIONES
 // ═══════════════════════════════════════════════════════
-var APP_VERSION='33.88';
+var APP_VERSION='33.90';
 var APP_NAME='Control Judicial';
 
 function getVersion(){return localStorage.getItem('cj_version')||APP_VERSION;}
@@ -1256,8 +1256,8 @@ function setVersion(v){localStorage.setItem('cj_version',v);}
 // El usuario configura una sola vez; el sistema agrega el nombre EXACTO de carpeta
 // capturado desde webkitRelativePath al cargar/actualizar (funciona desde cualquier PC).
 function getOneDriveBase(tipo){
-  // tipo: 't' (tutelas) | 'd' (desacatos). Compat: si no se pasa, usa tutelas.
-  if(tipo==='d')return localStorage.getItem('cj_onedrive_base_d')||'';
+  // v33.89: todos los desacatos viven bajo INCIDENTES 2026 (dentro de TUTELAS).
+  // Ambos tipos usan la misma base TUTELAS.
   return localStorage.getItem('cj_onedrive_base')||'';
 }
 function normalizarBase(v){
@@ -1357,7 +1357,7 @@ async function regenerarLinksOneDrive(){
       if(!folder){sinDatos++;continue;}
       // v33.83: folderName ya tiene el path completo (incluida subcarpeta si aplica)
       // Detectar si folderName empieza con "INCIDENTES" -> usa base TUTELAS
-      const tipo=/^INCIDENTES/i.test(folder)?'t':'d';
+      const tipo='t'; // v33.89: todos los desacatos viven bajo INCIDENTES (base TUTELAS)
       const nuevo=buildOneDriveURL(folder,tipo);
       if(!nuevo)continue;
       try{
@@ -1635,29 +1635,25 @@ async function _extraerRadicacionesDeDocumentos(apiKey, files, folderName){
 }
 
 window.sincronizarCarpetasDesacatos=async function(inp){
-  // v33.83: SIMPLIFICADO igual que tutelas — folderName lleva el PATH COMPLETO,
-  // el enlace se construye base + folderName (sin "subcarpeta" separada).
+  // v33.89: TODOS los desacatos viven bajo INCIDENTES 2026 (base TUTELAS).
+  // Un solo sync con la carpeta INCIDENTES 2026 corrige todos los enlaces.
   const files=inp.files;
-  if(!files?.length){return;}
+  if(!files?.length)return;
   const st=document.getElementById('sinc-des-st');
-  if(st)st.textContent='⏳ Leyendo carpetas…';
+  const setS=t=>{if(st)st.textContent=t;};
+  setS('⏳ Leyendo carpetas…');
 
   const rootFolder=files[0].webkitRelativePath.split('/')[0];
-  const esIncidentes=/INCIDENTES/i.test(rootFolder);
-  const esDesacatos=/DESACATOS/i.test(rootFolder);
-
-  if(!esIncidentes&&!esDesacatos){
-    if(st)st.textContent='';
-    inp.value='';
-    alert('⚠ Selecciona la carpeta INCIDENTES 2026 (desacatos activos)\no la carpeta DESACATOS 2026 (desacatos cerrados).');
+  if(!/INCIDENTES/i.test(rootFolder)){
+    setS('');inp.value='';
+    alert('⚠ Selecciona la carpeta INCIDENTES '+anio+'.\nTodos los desacatos (activos, archivados y sancionados) deben estar dentro de esta carpeta.');
     return;
   }
 
-  // Mapa: rad21 (primeros 21 digitos) → folderName COMPLETO (con subcarpetas)
+  // 1. Agrupar: buscar carpetas de expediente (radicación numérica)
   const mapa=new Map();
-  for(const file of files){
-    const parts=file.webkitRelativePath.split('/');
-    // Buscar el primer componente con radicacion (10+ digitos al inicio)
+  for(const f of files){
+    const parts=f.webkitRelativePath.split('/');
     let caseIdx=-1;
     for(let i=1;i<parts.length-1;i++){
       if(/^\d{10,}/.test(parts[i])){caseIdx=i;break;}
@@ -1666,73 +1662,82 @@ window.sincronizarCarpetasDesacatos=async function(inp){
     const casefolder=parts[caseIdx];
     const radFull=(casefolder.match(/^\d+/)||[''])[0];
     if(!radFull||radFull.length<15)continue;
-    const rad=radFull.substring(0,21);
-
-    // folderName COMPLETO desde la base hasta la carpeta del expediente.
-    // - INCIDENTES (base = TUTELAS): incluye "INCIDENTES 2026/" porque vive DENTRO de TUTELAS
-    //   ej: "INCIDENTES 2026/DIEGO/73001400901420260018300 EPS SANITAS"
-    // - DESACATOS (base = DESACATOS): NO incluye "DESACATOS 2026/" porque ESA es la base
-    //   ej: "ARCHIVADOS FEBRERO/73001400901420240303-01 Rad..."
-    //   ej raiz: "73001400901420260011200 Rcado..."
-    let folderNameCompleto, tipo;
-    if(esIncidentes){
-      tipo='t'; // base TUTELAS
-      folderNameCompleto=parts.slice(0,caseIdx+1).join('/');
-    } else {
-      tipo='d'; // base DESACATOS
-      folderNameCompleto=parts.slice(1,caseIdx+1).join('/');
+    const rad21=radFull.substring(0,21);
+    const folderNameCompleto=parts.slice(0,caseIdx+1).join('/');
+    if(!mapa.has(folderNameCompleto)){
+      mapa.set(folderNameCompleto,{rad21,casefolder,folderNameCompleto});
     }
-
-    if(!mapa.has(rad))mapa.set(rad,{folderName:folderNameCompleto,tipo});
   }
 
-  if(mapa.size===0){
-    if(st)st.textContent='';
-    inp.value='';
-    alert('⚠ No se encontraron expedientes con radicación en la carpeta seleccionada.');
-    return;
+  if(mapa.size===0){setS('');inp.value='';alert('⚠ No se encontraron expedientes.');return;}
+  setS('⏳ Actualizando '+mapa.size+' exp…');
+
+  // 2. Lista de desacatos del sistema
+  const todosD=[];
+  for(const yr of Object.keys(localDB.desacatos||{})){
+    for(const d of (localDB.desacatos[yr]||[])){
+      todosD.push({d,yr});
+    }
   }
 
-  if(st)st.textContent=`⏳ Actualizando ${mapa.size} exp…`;
-
+  // 3. Para cada carpeta de OneDrive, buscar su desacato en Firebase
   let updated=0,notFound=0,errores=0;
-  const noMatchList=[];
-  for(const [rad,{folderName,tipo}] of mapa){
-    let found=null,yrFound=null;
-    for(const yr of Object.keys(localDB.desacatos||{})){
-      const d=(localDB.desacatos[yr]||[]).find(x=>{
-        const fbRad=String(x.radicacion||'').replace(/\D/g,'').substring(0,21);
-        return fbRad===rad && fbRad.length===21;
-      });
-      if(d){found=d;yrFound=yr;break;}
-    }
-    if(!found){notFound++;noMatchList.push(rad+' ('+folderName.substring(0,50)+')');continue;}
+  const noMatch=[];
+  const yaUsados=new Set();
 
-    // Calcular enlace nuevo
-    const nuevoEnlace=buildOneDriveURL(folderName,tipo);
-    const upd={folderName};
+  for(const [folderNameCompleto,{rad21,casefolder}] of mapa){
+    let best=null;
+    // Intento 1: match por folderName guardado (último segmento)
+    for(const {d,yr} of todosD){
+      if(yaUsados.has(d.id))continue;
+      if(d.folderName){
+        const lastPart=d.folderName.split('/').pop();
+        if(lastPart===casefolder){best={d,yr};break;}
+      }
+    }
+    // Intento 2: match por rad21
+    if(!best){
+      const cands=todosD.filter(({d})=>{
+        if(yaUsados.has(d.id))return false;
+        const fbRad=String(d.radicacion||'').replace(/-\d+$/,'').replace(/\D/g,'').substring(0,21);
+        return fbRad===rad21&&fbRad.length===21;
+      });
+      if(cands.length===1){best=cands[0];}
+      else if(cands.length>1){
+        // Desambiguar por fecha en el nombre de la carpeta
+        const fm=casefolder.match(/(\d{2})-(\d{2})-(\d{2,4})/);
+        if(fm){for(const c of cands){
+          if((c.d.fechaSolicitud||'').includes(fm[0])||(c.d.fechaDecision||'').includes(fm[0])){best=c;break;}
+        }}
+        if(!best)best=cands[0];
+      }
+    }
+
+    if(!best){notFound++;noMatch.push(rad21+' ('+casefolder.substring(0,45)+')');continue;}
+    yaUsados.add(best.d.id);
+
+    // Enlace: siempre tipo 't' (base TUTELAS) — todo bajo INCIDENTES
+    const nuevoEnlace=buildOneDriveURL(folderNameCompleto,'t');
+    const upd={folderName:folderNameCompleto};
     if(nuevoEnlace)upd.enlace=nuevoEnlace;
-    // Limpiar campo legacy "subcarpeta" si existia (v33.73 - v33.82)
-    if(found.subcarpeta!==undefined)upd.subcarpeta=null;
+    if(best.d.subcarpeta!==undefined)upd.subcarpeta=null;
 
     try{
-      await fbDb.collection('desacatos_'+yrFound).doc(String(found.id)).set({...found,...upd});
-      const idx=(localDB.desacatos[yrFound]||[]).findIndex(x=>String(x.id)===String(found.id));
-      if(idx>=0)localDB.desacatos[yrFound][idx]={...localDB.desacatos[yrFound][idx],...upd};
+      await fbDb.collection('desacatos_'+best.yr).doc(String(best.d.id)).set({...best.d,...upd});
+      const idx=(localDB.desacatos[best.yr]||[]).findIndex(x=>String(x.id)===String(best.d.id));
+      if(idx>=0)localDB.desacatos[best.yr][idx]={...localDB.desacatos[best.yr][idx],...upd};
       updated++;
-    }catch(e){console.error('sinc error',rad,e);errores++;}
+    }catch(e){console.error('sinc error',rad21,e);errores++;}
   }
 
-  inp.value='';
-  if(st)st.textContent='';
-  console.log('[Sinc] OneDrive:',mapa.size,'| Actualizados:',updated,'| Sin match:',notFound,'| Errores:',errores);
-  if(noMatchList.length){console.log('[Sinc] Sin match:');noMatchList.forEach(r=>console.log('  • '+r));}
-  let msg=`✅ Sincronización completada\n✓ ${updated} desacato(s) actualizados`;
-  if(notFound>0)msg+=`\n• ${notFound} carpeta(s) sin desacato registrado`;
-  if(errores>0)msg+=`\n⚠ ${errores} error(es)`;
+  inp.value='';setS('');
+  console.log('[Sinc] OneDrive:',mapa.size,'| OK:',updated,'| Sin match:',notFound);
+  if(noMatch.length)noMatch.forEach(r=>console.log('  •',r));
+  let msg='✅ Sincronización completada\n✓ '+updated+' desacato(s) actualizados';
+  if(notFound>0)msg+='\n• '+notFound+' carpeta(s) sin desacato registrado';
+  if(errores>0)msg+='\n⚠ '+errores+' error(es)';
   alert(msg);
   rD();
-  if(typeof tabAct!=='undefined'&&tabAct==='s'&&typeof rStat==='function')rStat();
 };
 
 
@@ -1940,7 +1945,15 @@ function escuchar(a){
   },err=>{setSS('e','Error Firebase');console.error(err);});
   unsubD=fbDb.collection('desacatos_'+a).onSnapshot(snap=>{
     const recs=[];snap.forEach(d=>recs.push({...d.data(),_fb:true}));
-    recs.sort((x,y)=>(y.fechaSolicitud||'').localeCompare(x.fechaSolicitud||''));
+    recs.sort((x,y)=>{
+      // v33.89: primero por radicación descendente (agrupa repetidos),
+      // dentro de misma radicación por fechaSolicitud descendente (más reciente arriba)
+      const rX=(x.radicacion||'').replace(/\D/g,'').substring(0,21);
+      const rY=(y.radicacion||'').replace(/\D/g,'').substring(0,21);
+      const cR=rY.localeCompare(rX,undefined,{numeric:true});
+      if(cR!==0)return cR;
+      return (y.fechaSolicitud||'').localeCompare(x.fechaSolicitud||'');
+    });
     const hist=PRELOADED_DB.desacatos[a]||[];
     const ids=new Set(recs.map(x=>String(x.id)));
     hist.forEach(h=>{const hid=String(h.id);if(!ids.has(hid)&&!deletedD.has(hid))recs.push(h);});
@@ -3461,8 +3474,7 @@ async function guardarD(){
     Object.keys(gd).forEach(k=>{ if(gd[k]&&!d[k])d[k]=gd[k]; });
     if(!d.enlace){
       // v33.73: usar subcarpeta si existe (caso en subcarpeta mensual)
-      const pathGD=(d.subcarpeta?d.subcarpeta+'/':'')+window._pendingFolderD.folderName;
-      const auto=buildOneDriveURL(pathGD,'d');
+      const auto=buildOneDriveURL(window._pendingFolderD.folderName,'t');
       if(auto)d.enlace=auto;
     }
   }
@@ -3587,7 +3599,7 @@ function aDD(id){
         <input value="${esc(d.enlace)}" placeholder="https://..." onchange="updD('${id}','enlace',this.value)">
         ${(d.enlace&&/^https?:\/\//i.test(d.enlace))?`<a href="${d.enlace}" style="color:var(--bl);font-size:10px;margin-top:3px;display:inline-flex;align-items:center;gap:3px" target="_blank">↗ Abrir expediente</a>`:''}
         ${d.folderName?`<div style="font-size:10px;color:var(--t2);margin-top:6px;background:#f1f5f9;border:1px solid #cbd5e1;border-radius:6px;padding:6px 8px"><b>📁 Carpeta local capturada:</b> ${esc(d.folderName)}${d.filesCount?' <span style="color:var(--t2)">('+d.filesCount+' archivos)</span>':''}</div>`:''}
-        ${!getOneDriveBase('d')?`<div style="font-size:10px;color:#92400e;margin-top:6px;background:#fef3c7;border:1px solid #f59e0b;border-radius:6px;padding:6px 8px">⚠ <b>Base OneDrive de desacatos no configurada.</b> Para que los enlaces se generen automáticamente, ve a Configuración (⚙) y pega la URL base de tu carpeta DESACATOS ${anio} de OneDrive.</div>`:''}
+        
       </div>
       ''
       <div class="fi full" style="background:#fff7ed;border:.5px solid #fed7aa;border-radius:8px;padding:10px">
@@ -3853,7 +3865,7 @@ function abrirConfig(){
 }
 function _mostrarConfig(){
   (()=>{
-    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">\n      <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Responsable por defecto del despacho</label>\n      <div style="display:flex;gap:6px;align-items:center"><select id="cfg-resp-default" style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px"></select><button class="btn btn-p btn-sm" onclick="guardarResponsableDefault()" style="white-space:nowrap;padding:7px 12px">\u2713 Guardar</button></div>\n      <div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Se asigna automáticamente cuando un oficio del juzgado termina con "Cordialmente," pero la firma está como imagen (no extraíble como texto). Selecciona la persona que firma habitualmente los oficios.</div>\n      <button class=\"btn btn-sm\" onclick=\"aplicarResponsableATodos()\" style=\"width:100%;margin-top:8px;justify-content:center\">\ud83d\udc65 Asignar responsable a todos los desacatos sin asignar</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base — TUTELAS del año</label>\n    <input id="cfg-od" placeholder="Pega la URL de la carpeta TUTELAS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px">\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin:8px 0 3px">URL base — DESACATOS del año</label>\n    <input id="cfg-od-d" placeholder="Pega la URL de la carpeta DESACATOS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de cada carpeta madre. Pega la URL tal cual aparece en tu navegador al abrir la carpeta en OneDrive web; el sistema limpia parámetros sobrantes. Funciona desde cualquier PC.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URLs base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔬 Diagnóstico</div>\n    <button class="btn btn-sm" onclick="verUltimoJSON()" style="justify-content:flex-start;width:100%">🔬 Ver último JSON extraído por Gemini</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.4">Muestra los datos que Gemini extrajo de la última carpeta procesada. Útil para diagnosticar por qué algún campo no se llenó.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
+    const panel='<div style="display:flex;flex-direction:column;gap:0">\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔐 Cuenta y seguridad</div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña general</label>\n    <input type="password" id="cfg-u" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Nueva contraseña administrador</label>\n    <input type="password" id="cfg-a" maxlength="20" placeholder="Vacío = sin cambio" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div style="margin-bottom:8px"><label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Confirmar contraseña admin</label>\n    <input type="password" id="cfg-a2" maxlength="20" placeholder="Repetir contraseña" style="width:100%;padding:8px;border:1px solid var(--bd);border-radius:var(--r);font-size:13px"></div>\n    <div id="cfg-err" style="color:var(--rd);font-size:11px;min-height:14px;margin-bottom:6px"></div>\n    <button class="btn btn-p btn-sm" onclick="guardarCfg()" style="width:100%;justify-content:center">✓ Guardar contraseñas</button>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">👥 Equipo — Responsables</div>\n    <div id="resp-lista" style="margin-bottom:8px"></div>\n    <div style="display:flex;gap:6px">\n      <input id="resp-nuevo" placeholder="Nombre del responsable" maxlength="30"\n        style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px">\n      <button class="btn btn-p btn-sm" onclick="agregarResponsable()">+ Agregar</button>\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Estos nombres aparecen en el campo Responsable de cada tutela y desacato.</div>\n    <div style="margin-top:10px;padding-top:10px;border-top:1px dashed var(--bd)">\n      <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">Responsable por defecto del despacho</label>\n      <div style="display:flex;gap:6px;align-items:center"><select id="cfg-resp-default" style="flex:1;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:12px"></select><button class="btn btn-p btn-sm" onclick="guardarResponsableDefault()" style="white-space:nowrap;padding:7px 12px">\u2713 Guardar</button></div>\n      <div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Se asigna automáticamente cuando un oficio del juzgado termina con "Cordialmente," pero la firma está como imagen (no extraíble como texto). Selecciona la persona que firma habitualmente los oficios.</div>\n      <button class=\"btn btn-sm\" onclick=\"aplicarResponsableATodos()\" style=\"width:100%;margin-top:8px;justify-content:center\">\ud83d\udc65 Asignar responsable a todos los desacatos sin asignar</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔗 Carpetas OneDrive / SharePoint</div>\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin-bottom:3px">URL base — TUTELAS del año</label>\n    <input id="cfg-od" placeholder="Pega la URL de la carpeta TUTELAS 2026" style="width:100%;padding:7px 9px;border:1px solid var(--bd);border-radius:var(--r);font-size:11px">\n    <label style="font-size:9px;font-weight:700;color:var(--t2);text-transform:uppercase;display:block;margin:8px 0 3px">URL base — DESACATOS (ya no se usa)</label>\n    <input id="cfg-od-d" disabled style="opacity:0.5;font-style:italic" placeholder="Los desacatos usan la base de TUTELAS (INCIDENTES 2026)"><div style="font-size:10px;color:var(--t2);margin-top:4px;line-height:1.4">Configura una sola vez la ruta de cada carpeta madre. Pega la URL tal cual aparece en tu navegador al abrir la carpeta en OneDrive web; el sistema limpia parámetros sobrantes. Funciona desde cualquier PC.</div>\n    <div style="display:flex;gap:6px;margin-top:8px">\n      <button class="btn btn-p btn-sm" onclick="guardarOneDriveBase()" style="flex:1;justify-content:center">✓ Guardar URLs base</button>\n      <button class="btn btn-sm" onclick="regenerarLinksOneDrive()" style="flex:1;justify-content:center">🔄 Regenerar enlaces</button>\n    </div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">💾 Datos y almacenamiento</div>\n    <div style="display:flex;flex-direction:column;gap:6px">\n      <button class="btn btn-sm" onclick="exportarExcel()" style="justify-content:flex-start">📊 Exportar a Excel (.xlsx)</button>\n      <button class="btn btn-sm" onclick="exportarDatos()" style="justify-content:flex-start">⬇ Exportar respaldo (.json)</button>\n      <button class="btn btn-sm" onclick="importarDatos()" style="justify-content:flex-start">⬆ Importar datos (.json)</button>\n      <input type="file" id="fi-imp" accept=".json" style="display:none" onchange="cargarJSON(event)">\n    </div>\n    <div style="font-size:10px;color:var(--t2);margin-top:8px;line-height:1.4">El Excel incluye tutelas, desacatos y estadística SIERJU del año activo. Guárdelo en OneDrive como respaldo.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔄 Actualizaciones</div>\n    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">\n      <span style="font-size:12px;color:var(--t2)">Versión instalada</span>\n      <span style="font-size:12px;font-weight:700;color:var(--n2);background:var(--bl-bg);padding:2px 10px;border-radius:20px" id="ver-lbl">v2.0</span>\n    </div>\n    <button class="btn btn-sm" onclick="importarParche()" style="justify-content:flex-start">⬆ Aplicar parche de actualización</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Cuando Alexa entregue una actualización, aplíquela aquí sin perder sus datos.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔬 Diagnóstico</div>\n    <button class="btn btn-sm" onclick="verUltimoJSON()" style="justify-content:flex-start;width:100%">🔬 Ver último JSON extraído por Gemini</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px;line-height:1.4">Muestra los datos que Gemini extrajo de la última carpeta procesada. Útil para diagnosticar por qué algún campo no se llenó.</div>\n  </div>\n\n  <div style="padding:12px 16px;border-bottom:1px solid var(--bd)">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">🔔 Notificaciones</div>\n    <button class="btn btn-sm" onclick="solicitarNotificaciones()" style="justify-content:flex-start">🔔 Activar alertas del navegador</button>\n    <div style="font-size:10px;color:var(--t2);margin-top:6px">Reciba alertas de vencimientos el día que ocurren (requiere permisos del navegador).</div>\n  </div>\n\n  <div style="padding:12px 16px">\n    <div style="font-size:10px;font-weight:700;color:var(--t3);text-transform:uppercase;letter-spacing:.07em;margin-bottom:10px">ℹ️ Acerca de</div>\n    <div style="font-size:11px;color:var(--t2);line-height:1.7">\n      <strong style="color:var(--t);display:block;font-size:14px;margin-bottom:4px">⚖️ Control Judicial</strong>\n      Área Constitucional · <span id="ver-lbl2">v2.0</span><br>\n      Sistema de gestión de tutelas e incidentes de desacato.<br>\n      Términos procesales Decreto 2591/91 — Festivos Colombia 2024–2031 verificados.<br>\n      <span style="color:var(--t3);font-size:10px;margin-top:6px;display:block">© 2026 — Uso exclusivo interno</span>\n    </div>\n  </div>\n\n</div>\n';
     document.getElementById('cfg-body').innerHTML=panel;
     // Agregar sección IA al final del panel
     const iaDiv=document.createElement('div');
@@ -6193,12 +6205,19 @@ window.procesarRecargaD=async function(inp,id){
       try{upd.fechaVencimientoConsulta=addHab(d.fechaRepartoConsulta,3);}catch(e){}
     }
     act('resultado',d.resultado);act('observaciones',d.observaciones);
-    upd.folderName=folderName;upd.filesCount=files.length;
-    // v33.73: no sobreescribir URLs SharePoint correctas; usar subcarpeta almacenada
+    // v33.89: si el desacato ya tiene folderName con path completo (INCIDENTES 2026/...),
+    // preservar la ruta padre y actualizar solo el último segmento.
+    // Si no tiene path previo, guardar solo el nombre de carpeta.
+    if(dd.folderName&&dd.folderName.includes('/')){
+      const parentPath=dd.folderName.substring(0,dd.folderName.lastIndexOf('/'));
+      upd.folderName=parentPath+'/'+folderName;
+    } else {
+      upd.folderName=folderName;
+    }
+    upd.filesCount=files.length;
     const enlaceEsAuto=!dd.enlace||!/^https?:\/\//i.test(dd.enlace)||/ramajudicial|consultaprocesos/i.test(dd.enlace||'');
     if(enlaceEsAuto){
-      const subcarPathR=(dd.subcarpeta?dd.subcarpeta+'/':'')+folderName;
-      const auto=buildOneDriveURL(subcarPathR,'d');
+      const auto=buildOneDriveURL(upd.folderName,'t');
       if(auto)upd.enlace=auto;
     }
     // Estado: solo avanza en la jerarquía del trámite, nunca retrocede
